@@ -36,6 +36,9 @@ public:
 
 	void ParseCommandLineArgs(_In_reads_(argc) WCHAR* argv[], int argc);
 
+	virtual void OnButtonDown(UINT32) {}
+	virtual void OnMouseMove(UINT8, UINT32) {}
+
 protected:
 	std::wstring GetAssetFullPath(LPCWSTR assetName);
 	void GetHardwareAdapter(_In_ IDXGIFactory2* pFactory, _Outptr_result_maybenull_ IDXGIAdapter1** ppAdapter);
@@ -55,4 +58,5 @@ private:
 
 	// Window title.
 	std::wstring m_title;
+
 };

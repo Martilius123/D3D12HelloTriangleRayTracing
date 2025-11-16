@@ -13,6 +13,8 @@
 
 #include "DXSample.h"
 #include <dxcapi.h>
+#include <d3d12.h>
+#include <array>
 #include <stdexcept>
 #include "nv_helpers_dx12/TopLevelASGenerator.h"
 #include "nv_helpers_dx12/ShaderBindingTableGenerator.h"
@@ -44,6 +46,20 @@ private:
 		XMFLOAT3 position;
 		XMFLOAT4 color;
 	};
+	//struct Vertex
+	//{
+	//	DirectX::XMFLOAT3 position;
+	//	DirectX::XMFLOAT3 normal;
+	//	DirectX::XMFLOAT2 texCoord;
+	//	// Note: We get color from the material/texture, not per-vertex
+	//};
+
+	// #DXR Extra: Perspective Camera
+	void CreateCameraBuffer();
+	void UpdateCameraBuffer();
+	ComPtr< ID3D12Resource > m_cameraBuffer;
+	ComPtr< ID3D12DescriptorHeap > m_constHeap;
+	uint32_t m_cameraBufferSize = 0;
 
 	// Pipeline objects.
 	CD3DX12_VIEWPORT m_viewport;
@@ -62,6 +78,15 @@ private:
 	// App resources.
 	ComPtr<ID3D12Resource> m_vertexBuffer;
 	D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
+
+	// 3D Model
+	ComPtr<ID3D12Resource> m_indexBuffer;
+	D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
+
+
+	// Test
+	UINT IndexCount;
+	UINT VertexCount;
 
 	// Synchronization objects.
 	UINT m_frameIndex;
@@ -89,8 +114,12 @@ private:
 	AccelerationStructureBuffers m_topLevelASBuffers;
 	std::vector<std::pair<ID3D12Resource*, DirectX::XMMATRIX> > m_instances;
 
+//AccelerationStructureBuffers CreateBottomLevelAS(
+//	std::vector<std::pair<ID3D12Resource*, uint32_t> > vVertexBuffers);
 AccelerationStructureBuffers CreateBottomLevelAS(
-	std::vector<std::pair<ID3D12Resource*, uint32_t> > vVertexBuffers);
+	std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t> > vVertexBuffers,
+	std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t> > vIndexBuffers =
+	{});
 
 void CreateTopLevelAS(const std::vector<std::pair<ID3D12Resource*, DirectX::XMMATRIX> >
 	& instances);
@@ -131,4 +160,13 @@ void CreateShaderBindingTable();
 nv_helpers_dx12::ShaderBindingTableGenerator m_sbtHelper;
 ComPtr<ID3D12Resource> m_sbtStorage;
 
+void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
+	std::vector<Vertex>& outVertices,
+	std::vector<uint32_t>& outIndices);
+
+// #DXR Extra: Perspective Camera++
+void OnButtonDown(UINT32 lParam);
+void OnMouseMove(UINT8 wParam, UINT32 lParam);
+
 };
+

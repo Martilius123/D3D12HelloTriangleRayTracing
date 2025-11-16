@@ -51,6 +51,7 @@
     <ClInclude Include="DXRHelper.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+    <ClInclude Include="manipulator.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -83,6 +84,7 @@
     <ClCompile Include="nv_helpers_dx12\TopLevelASGenerator.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="manipulator.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="shaders.hlsl">
