@@ -22,7 +22,7 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "manipulator.h"
 #include "Windowsx.h"
-
+//
 D3D12HelloTriangle::D3D12HelloTriangle(UINT width, UINT height, std::wstring name) :
 	DXSample(width, height, name),
 	m_frameIndex(0),
