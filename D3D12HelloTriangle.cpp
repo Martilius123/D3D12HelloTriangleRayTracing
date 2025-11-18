@@ -322,7 +322,7 @@ void D3D12HelloTriangle::LoadAssets()
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
 		//LoadModel("Models/FinalBaseMesh.obj", vertices, indices);
-		LoadModel("Models/bugatti.obj", vertices, indices);
+		LoadModel("Models/Cube.obj", vertices, indices);
 
 		const UINT vertexBufferSize = static_cast<UINT>(vertices.size()) * sizeof(Vertex);
 
