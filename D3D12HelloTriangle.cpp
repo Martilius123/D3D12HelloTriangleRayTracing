@@ -37,6 +37,8 @@ void D3D12HelloTriangle::OnInit() {
 	nv_helpers_dx12::CameraManip.setWindowSize(GetWidth(), GetHeight());
 	nv_helpers_dx12::CameraManip.setLookat(glm::vec3(1.5f, 1.5f, 1.5f), glm::vec3(0, 0, 0),
 		glm::vec3(0, 1, 0));
+	nv_helpers_dx12::CameraManip.setMode(nv_helpers_dx12::Manipulator::Fly);
+	nv_helpers_dx12::CameraManip.setSpeed(1);
 
 	LoadPipeline();
 	LoadAssets();
@@ -105,7 +107,7 @@ void D3D12HelloTriangle::LoadPipeline()
 			warpAdapter.Get(),
 			D3D_FEATURE_LEVEL_11_0,
 			IID_PPV_ARGS(&m_device)
-			));
+		));
 	}
 	else
 	{
@@ -116,7 +118,7 @@ void D3D12HelloTriangle::LoadPipeline()
 			hardwareAdapter.Get(),
 			D3D_FEATURE_LEVEL_11_0,
 			IID_PPV_ARGS(&m_device)
-			));
+		));
 	}
 
 	// Describe and create the command queue.
@@ -144,7 +146,7 @@ void D3D12HelloTriangle::LoadPipeline()
 		nullptr,
 		nullptr,
 		&swapChain
-		));
+	));
 
 	// This sample does not support fullscreen transitions.
 	ThrowIfFailed(factory->MakeWindowAssociation(Win32Application::GetHwnd(), DXGI_MWA_NO_ALT_ENTER));
@@ -582,12 +584,35 @@ void D3D12HelloTriangle::CheckRaytracingSupport() {
 		throw std::runtime_error("Raytracing not supported on device");
 }
 
+void D3D12HelloTriangle::OnKeyDown(UINT8 key)
+{
+	switch (key)
+	{
+	case 'W': keyWDown = true; break;
+	case 'S': keySDown = true; break;
+	case 'A': keyADown = true; break;
+	case 'D': keyDDown = true; break;
+	case 'Q': keyQDown = true; break;
+	case 'E': keyEDown = true; break;
+		// add more keys if needed
+	}
+}
+
 void D3D12HelloTriangle::OnKeyUp(UINT8 key)
 {
 	// Alternate between rasterization and raytracing using the spacebar
 	if (key == VK_SPACE)
 	{
 		m_raster = !m_raster;
+	}
+	switch (key)
+	{
+	case 'W': keyWDown = false; break;
+	case 'S': keySDown = false; break;
+	case 'A': keyADown = false; break;
+	case 'D': keyDDown = false; break;
+	case 'Q': keyQDown = false; break;
+	case 'E': keyEDown = false; break;
 	}
 	/*if (key == 'Q')
 	{
@@ -1070,8 +1095,14 @@ void D3D12HelloTriangle::CreateCameraBuffer() {
 // Create and copies the viewmodel and perspective matrices of the camera
 //
 void D3D12HelloTriangle::UpdateCameraBuffer() {
+	using namespace nv_helpers_dx12;
+	Manipulator& manip = CameraManip;
+	static DWORD lastTime = GetTickCount();
+	DWORD now = GetTickCount();
+	float deltaTime = (now - lastTime) / 1000.0f; // seconds
+	lastTime = now;
 	std::vector<XMMATRIX> matrices(4);
-
+	// 
 	// Initialize the view matrix, ideally this should be based on user
 	// interactions The lookat and perspective matrices used for rasterization are
 	// defined to transform world-space vertices into a [0,1]x[0,1]x[0,1] camera
@@ -1099,6 +1130,29 @@ void D3D12HelloTriangle::UpdateCameraBuffer() {
 	ThrowIfFailed(m_cameraBuffer->Map(0, nullptr, (void**)&pData));
 	memcpy(pData, matrices.data(), m_cameraBufferSize);
 	m_cameraBuffer->Unmap(0, nullptr);
+	// --- 2. Keyboard movement ---
+	glm::vec3 eye, center, up;
+	manip.getLookat(eye, center, up);
+
+	glm::vec3 forward = glm::normalize(center - eye);
+	glm::vec3 right = glm::normalize(glm::cross(forward, up));
+
+	float speed = manip.getSpeed();
+
+	if (keyWDown) eye += forward * speed * deltaTime;
+	if (keySDown) eye -= forward * speed * deltaTime;
+	if (keyADown) eye -= right * speed * deltaTime;
+	if (keyDDown) eye += right * speed * deltaTime;
+	if (keyQDown) eye -= up * speed * deltaTime;
+	if (keyEDown) eye += up * speed * deltaTime;
+
+	// Update manipulator with new position
+	manip.setLookat(eye, eye + forward, up);
+
+	// --- 3. Retrieve view matrix for raytracing ---
+	glm::mat4 viewMatrix = manip.getMatrix();
+	// Use viewMatrix for ray generation
+
 }
 
 //void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
@@ -1270,3 +1324,4 @@ void D3D12HelloTriangle::SetShadingMode(const std::wstring& mode)
 	currentShading = mode;
 	CreateShaderBindingTable();
 }
+
