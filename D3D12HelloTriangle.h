@@ -102,7 +102,7 @@ private:
 	void WaitForPreviousFrame();
 	void CheckRaytracingSupport();
 	virtual void OnKeyUp(UINT8 key);
-	bool m_raster = true;
+	bool m_raster = false;
 	std::wstring currentShading = L"Flat";
 	// #DXR
 	struct AccelerationStructureBuffers
