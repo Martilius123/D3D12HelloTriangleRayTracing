@@ -18,6 +18,7 @@
 #include <stdexcept>
 #include "nv_helpers_dx12/TopLevelASGenerator.h"
 #include "nv_helpers_dx12/ShaderBindingTableGenerator.h"
+#include <string>
 
 using namespace DirectX;
 
@@ -45,6 +46,7 @@ private:
 	{
 		XMFLOAT3 position;
 		XMFLOAT4 color;
+		XMFLOAT3 normal;
 	};
 	//struct Vertex
 	//{
@@ -101,6 +103,7 @@ private:
 	void CheckRaytracingSupport();
 	virtual void OnKeyUp(UINT8 key);
 	bool m_raster = true;
+	std::wstring currentShading = L"Flat";
 	// #DXR
 	struct AccelerationStructureBuffers
 	{
@@ -137,8 +140,10 @@ void CreateRaytracingPipeline();
 
 // Shader libraries (compiled DXIL)
 ComPtr<IDxcBlob> m_rayGenLibrary;
-ComPtr<IDxcBlob> m_hitLibrary;
 ComPtr<IDxcBlob> m_missLibrary;
+// Different Hit Shaders:
+ComPtr<IDxcBlob> m_flatShaderLibrary;
+ComPtr<IDxcBlob> m_normalShaderLibrary;
 
 // Root signatures for each shader stage
 ComPtr<ID3D12RootSignature> m_rayGenSignature;

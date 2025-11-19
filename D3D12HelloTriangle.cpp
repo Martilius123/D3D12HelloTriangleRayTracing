@@ -321,8 +321,8 @@ void D3D12HelloTriangle::LoadAssets()
 		//MODEL
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
-		//LoadModel("Models/FinalBaseMesh.obj", vertices, indices);
-		LoadModel("Models/Cube.obj", vertices, indices);
+		LoadModel("Models/FinalBaseMesh.obj", vertices, indices);
+		//LoadModel("Models/Cube.obj", vertices, indices);
 
 		const UINT vertexBufferSize = static_cast<UINT>(vertices.size()) * sizeof(Vertex);
 
@@ -589,6 +589,14 @@ void D3D12HelloTriangle::OnKeyUp(UINT8 key)
 	{
 		m_raster = !m_raster;
 	}
+	if (key == 'Q')
+	{
+		if (currentShading == L"Flat")
+			currentShading = L"Normal";
+		else
+			currentShading = L"Flat";
+		CreateShaderBindingTable();
+	}
 }
 
 //-----------------------------------------------------------------------------
@@ -815,7 +823,8 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	// used.
 	m_rayGenLibrary = nv_helpers_dx12::CompileShaderLibrary(L"RayGen.hlsl");
 	m_missLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Miss.hlsl");
-	m_hitLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Hit.hlsl");
+	m_flatShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"FlatShader.hlsl");
+	m_normalShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"NormalShader.hlsl");
 	// In a way similar to DLLs, each library is associated with a number of
 	// exported symbols. This
 	// has to be done explicitly in the lines below. Note that a single library
@@ -823,7 +832,8 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	// using the [shader("xxx")] syntax
 	pipeline.AddLibrary(m_rayGenLibrary.Get(), { L"RayGen" });
 	pipeline.AddLibrary(m_missLibrary.Get(), { L"Miss" });
-	pipeline.AddLibrary(m_hitLibrary.Get(), { L"ClosestHit" });
+	pipeline.AddLibrary(m_flatShaderLibrary.Get(), { L"ClosestHit_Flat" });
+	pipeline.AddLibrary(m_normalShaderLibrary.Get(), { L"ClosestHit_Normal" });
 	// To be used, each DX12 shader needs a root signature defining which
 	// parameters and buffers will be accessed.
 	m_rayGenSignature = CreateRayGenSignature();
@@ -846,7 +856,8 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 
 	// Hit group for the triangles, with a shader simply interpolating vertex
 	// colors
-	pipeline.AddHitGroup(L"HitGroup", L"ClosestHit");
+	pipeline.AddHitGroup(L"HitGroup_Flat", L"ClosestHit_Flat");
+	pipeline.AddHitGroup(L"HitGroup_Normal", L"ClosestHit_Normal");
 	// The following section associates the root signature to each shader. Note
 	// that we can explicitly show that some shaders share the same root signature
 	// (eg. Miss and ShadowMiss). Note that the hit shaders are now only referred
@@ -854,7 +865,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	// closest-hit shaders share the same root signature.
 	pipeline.AddRootSignatureAssociation(m_rayGenSignature.Get(), { L"RayGen" });
 	pipeline.AddRootSignatureAssociation(m_missSignature.Get(), { L"Miss" });
-	pipeline.AddRootSignatureAssociation(m_hitSignature.Get(), { L"HitGroup" });
+	pipeline.AddRootSignatureAssociation(m_hitSignature.Get(), { L"HitGroup_Flat", L"HitGroup_Normal" });
 	// The payload size defines the maximum size of the data carried by the rays,
 	// ie. the the data
 	// exchanged between shaders, such as the HitInfo structure in the HLSL code.
@@ -999,7 +1010,8 @@ void D3D12HelloTriangle::CreateShaderBindingTable() {
 
 	// Adding the triangle hit shader
 	//m_sbtHelper.AddHitGroup(L"HitGroup", { (void*)(m_vertexBuffer->GetGPUVirtualAddress()) });
-	m_sbtHelper.AddHitGroup(L"HitGroup", { (void*)(m_vertexBuffer->GetGPUVirtualAddress()),
+	std::wstring hitGroupName = L"HitGroup_" + currentShading;
+	m_sbtHelper.AddHitGroup(hitGroupName.c_str(), { (void*)(m_vertexBuffer->GetGPUVirtualAddress()),
 									  (void*)(m_indexBuffer->GetGPUVirtualAddress()) });
 	// Compute the size of the SBT given the number of shaders and their
 	// parameters
@@ -1183,7 +1195,7 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 		// --- 3. Extract vertex data ---
 		for (UINT i = 0; i < mesh->mNumVertices; ++i)
 		{
-			Vertex v; // Using your struct: { position, color }
+			Vertex v; // Using your struct: { position, color, normal }
 
 			// Kopiowanie Pozycji
 			v.position.x = mesh->mVertices[i].x;
@@ -1192,6 +1204,19 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 
 			// --- 4. Assign the per-mesh color to this vertex ---
 			v.color = meshColor;
+
+			// --- normals:
+			if (mesh->HasNormals())
+			{
+				v.normal.x = mesh->mNormals[i].x;
+				v.normal.y = mesh->mNormals[i].y;
+				v.normal.z = mesh->mNormals[i].z;
+			}
+			else
+			{
+				// fallback
+				v.normal = { 0.0f, 1.0f, 0.0f };
+			}
 
 			outVertices.push_back(v);
 		}
