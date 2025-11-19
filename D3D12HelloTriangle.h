@@ -172,6 +172,9 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 // #DXR Extra: Perspective Camera++
 void OnButtonDown(UINT32 lParam);
 void OnMouseMove(UINT8 wParam, UINT32 lParam);
+//for changing shading mode
+public:
+void D3D12HelloTriangle::SetShadingMode(const std::wstring& mode);
 
 };
 

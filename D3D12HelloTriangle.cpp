@@ -589,14 +589,14 @@ void D3D12HelloTriangle::OnKeyUp(UINT8 key)
 	{
 		m_raster = !m_raster;
 	}
-	if (key == 'Q')
+	/*if (key == 'Q')
 	{
 		if (currentShading == L"Flat")
 			currentShading = L"Normal";
 		else
 			currentShading = L"Flat";
 		CreateShaderBindingTable();
-	}
+	}*/
 }
 
 //-----------------------------------------------------------------------------
@@ -1237,86 +1237,6 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 	// ...
 }
 
-
-
-//void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
-//	std::vector<Vertex>& outVertices,
-//	std::vector<uint32_t>& outIndices)
-//{
-//	Assimp::Importer importer;
-//
-//	const aiScene* scene = importer.ReadFile(modelPath,
-//		aiProcess_Triangulate |
-//		aiProcess_ConvertToLeftHanded |
-//		aiProcess_GenNormals |
-//		aiProcess_JoinIdenticalVertices // Good to add
-//	);
-//
-//	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
-//	{
-//		// Handle error
-//		return;
-//	}
-//
-//	// --- FIX 1: Process ALL meshes, not just the first one ---
-//	for (UINT m = 0; m < scene->mNumMeshes; ++m)
-//	{
-//		aiMesh* mesh = scene->mMeshes[m];
-//
-//		// Keep track of the starting vertex index for this mesh
-//		UINT vertexOffset = (UINT)outVertices.size();
-//
-//		// 1. Ekstrakcja danych wierzcho³ków
-//		for (UINT i = 0; i < mesh->mNumVertices; ++i)
-//		{
-//			Vertex v;
-//
-//			// Kopiowanie Pozycji
-//			v.position.x = mesh->mVertices[i].x;
-//			v.position.y = mesh->mVertices[i].y;
-//			v.position.z = mesh->mVertices[i].z;
-//
-//			// --- FIX 2: Kopiowanie Normalnych (jeœli istniej¹) ---
-//			if (mesh->HasNormals())
-//			{
-//				v.normal.x = mesh->mNormals[i].x;
-//				v.normal.y = mesh->mNormals[i].y;
-//				v.normal.z = mesh->mNormals[i].z;
-//			}
-//
-//			// --- FIX 3: Kopiowanie Wspó³rzêdnych Tekstury (jeœli istniej¹) ---
-//			if (mesh->HasTextureCoords(0)) // '0' for the first UV channel
-//			{
-//				v.texCoord.x = mesh->mTextureCoords[0][i].x;
-//				v.texCoord.y = mesh->mTextureCoords[0][i].y;
-//			}
-//			else
-//			{
-//				v.texCoord.x = 0.0f;
-//				v.texCoord.y = 0.0f;
-//			}
-//			outVertices.push_back(v);
-//		}
-//
-//		// 2. Ekstrakcja danych indeksów
-//		for (UINT i = 0; i < mesh->mNumFaces; ++i)
-//		{
-//			aiFace face = mesh->mFaces[i];
-//			// (Assimp triangulated this, so face.mNumIndices is always 3)
-//			for (UINT j = 0; j < face.mNumIndices; ++j)
-//			{
-//				// --- FIX 4: Must add the vertexOffset ---
-//				// This makes sure indices refer to the correct vertices
-//				// in the *global* outVertices vector.
-//				outIndices.push_back(face.mIndices[j] + vertexOffset);
-//			}
-//		}
-//	}
-//
-//	// Zapisz liczbê indeksów...
-//	//m_indexCount = (UINT)outIndices.size();
-//}
-
 //--------------------------------------------------------------------------------------------------
 //
 //
@@ -1343,4 +1263,10 @@ void D3D12HelloTriangle::OnMouseMove(UINT8 wParam, UINT32 lParam)
 	inputs.alt = GetAsyncKeyState(VK_MENU);
 
 	CameraManip.mouseMove(-GET_X_LPARAM(lParam), -GET_Y_LPARAM(lParam), inputs);
+}
+
+void D3D12HelloTriangle::SetShadingMode(const std::wstring& mode)
+{
+	currentShading = mode;
+	CreateShaderBindingTable();
 }
