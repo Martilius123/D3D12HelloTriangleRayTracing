@@ -1064,6 +1064,10 @@ void D3D12HelloTriangle::CreateCameraBuffer() {
 	m_device->CreateConstantBufferView(&cbvDesc, srvHandle);
 }
 
+void D3D12HelloTriangle::CreateLightsBuffer() {
+	;
+}
+
 
 // #DXR Extra: Perspective Camera
 //--------------------------------------------------------------------------------

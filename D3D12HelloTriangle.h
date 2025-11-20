@@ -48,17 +48,11 @@ private:
 		XMFLOAT4 color;
 		XMFLOAT3 normal;
 	};
-	//struct Vertex
-	//{
-	//	DirectX::XMFLOAT3 position;
-	//	DirectX::XMFLOAT3 normal;
-	//	DirectX::XMFLOAT2 texCoord;
-	//	// Note: We get color from the material/texture, not per-vertex
-	//};
 
 	// #DXR Extra: Perspective Camera
 	void CreateCameraBuffer();
 	void UpdateCameraBuffer();
+	void CreateLightsBuffer();
 	ComPtr< ID3D12Resource > m_cameraBuffer;
 	ComPtr< ID3D12DescriptorHeap > m_constHeap;
 	uint32_t m_cameraBufferSize = 0;
