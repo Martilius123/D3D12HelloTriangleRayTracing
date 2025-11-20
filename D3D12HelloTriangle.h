@@ -49,13 +49,20 @@ private:
 		XMFLOAT3 normal;
 	};
 
+	struct LightData {
+		XMFLOAT3 position; float pad1;  // makes 16 bytes total
+		XMFLOAT3 color;    float pad2;  // makes another 16 bytes
+	};
+
 	// #DXR Extra: Perspective Camera
 	void CreateCameraBuffer();
 	void UpdateCameraBuffer();
 	void CreateLightsBuffer();
 	ComPtr< ID3D12Resource > m_cameraBuffer;
+	ComPtr< ID3D12Resource > m_lightsBuffer;
 	ComPtr< ID3D12DescriptorHeap > m_constHeap;
 	uint32_t m_cameraBufferSize = 0;
+	uint32_t m_lightsBufferSize = 0;
 
 	// Pipeline objects.
 	CD3DX12_VIEWPORT m_viewport;
@@ -138,6 +145,7 @@ ComPtr<IDxcBlob> m_missLibrary;
 // Different Hit Shaders:
 ComPtr<IDxcBlob> m_flatShaderLibrary;
 ComPtr<IDxcBlob> m_normalShaderLibrary;
+ComPtr<IDxcBlob> m_phongShaderLibrary;
 
 // Root signatures for each shader stage
 ComPtr<ID3D12RootSignature> m_rayGenSignature;

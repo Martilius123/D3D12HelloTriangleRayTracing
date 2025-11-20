@@ -63,6 +63,11 @@ void D3D12HelloTriangle::OnInit() {
 	// #DXR Extra: Perspective Camera
 	// Create a buffer to store the modelview and perspective camera matrices
 	CreateCameraBuffer();
+	// Lights Buffer
+	LightData m_lightData;
+	m_lightData.position = XMFLOAT3(2.0f, 5.0f, -3.0f);
+	m_lightData.color = XMFLOAT3(1.0f, 1.0f, 1.0f);
+	CreateLightsBuffer();
 
 	// Create the buffer containing the raytracing result (always output in a
 	// UAV), and create the heap referencing the resources used by the raytracing,
@@ -793,6 +798,7 @@ ComPtr<ID3D12RootSignature> D3D12HelloTriangle::CreateHitSignature() {
 	//rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 0 /*t0*/); // vertices and colors
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 1 /*t1*/); // indices
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 1 /*b1*/); // light(s)
 	return rsc.Generate(m_device.Get(), true);
 }
 
@@ -825,6 +831,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	m_missLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Miss.hlsl");
 	m_flatShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"FlatShader.hlsl");
 	m_normalShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"NormalShader.hlsl");
+	m_phongShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"PhongShader.hlsl");
 	// In a way similar to DLLs, each library is associated with a number of
 	// exported symbols. This
 	// has to be done explicitly in the lines below. Note that a single library
@@ -834,6 +841,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	pipeline.AddLibrary(m_missLibrary.Get(), { L"Miss" });
 	pipeline.AddLibrary(m_flatShaderLibrary.Get(), { L"ClosestHit_Flat" });
 	pipeline.AddLibrary(m_normalShaderLibrary.Get(), { L"ClosestHit_Normal" });
+	pipeline.AddLibrary(m_phongShaderLibrary.Get(), { L"ClosestHit_Phong" });
 	// To be used, each DX12 shader needs a root signature defining which
 	// parameters and buffers will be accessed.
 	m_rayGenSignature = CreateRayGenSignature();
@@ -858,6 +866,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	// colors
 	pipeline.AddHitGroup(L"HitGroup_Flat", L"ClosestHit_Flat");
 	pipeline.AddHitGroup(L"HitGroup_Normal", L"ClosestHit_Normal");
+	pipeline.AddHitGroup(L"HitGroup_Phong", L"ClosestHit_Phong");
 	// The following section associates the root signature to each shader. Note
 	// that we can explicitly show that some shaders share the same root signature
 	// (eg. Miss and ShadowMiss). Note that the hit shaders are now only referred
@@ -865,7 +874,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	// closest-hit shaders share the same root signature.
 	pipeline.AddRootSignatureAssociation(m_rayGenSignature.Get(), { L"RayGen" });
 	pipeline.AddRootSignatureAssociation(m_missSignature.Get(), { L"Miss" });
-	pipeline.AddRootSignatureAssociation(m_hitSignature.Get(), { L"HitGroup_Flat", L"HitGroup_Normal" });
+	pipeline.AddRootSignatureAssociation(m_hitSignature.Get(), { L"HitGroup_Flat", L"HitGroup_Normal", L"HitGroup_Phong" });
 	// The payload size defines the maximum size of the data carried by the rays,
 	// ie. the the data
 	// exchanged between shaders, such as the HitInfo structure in the HLSL code.
@@ -1012,7 +1021,8 @@ void D3D12HelloTriangle::CreateShaderBindingTable() {
 	//m_sbtHelper.AddHitGroup(L"HitGroup", { (void*)(m_vertexBuffer->GetGPUVirtualAddress()) });
 	std::wstring hitGroupName = L"HitGroup_" + currentShading;
 	m_sbtHelper.AddHitGroup(hitGroupName.c_str(), { (void*)(m_vertexBuffer->GetGPUVirtualAddress()),
-									  (void*)(m_indexBuffer->GetGPUVirtualAddress()) });
+									  (void*)(m_indexBuffer->GetGPUVirtualAddress()),
+									  (void*)(m_lightsBuffer->GetGPUVirtualAddress()) });
 	// Compute the size of the SBT given the number of shaders and their
 	// parameters
 	uint32_t sbtSize = m_sbtHelper.ComputeSBTSize();
@@ -1048,7 +1058,7 @@ void D3D12HelloTriangle::CreateCameraBuffer() {
 		m_device.Get(), m_cameraBufferSize, D3D12_RESOURCE_FLAG_NONE,
 		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
 
-	// Create a descriptor heap that will be used by the rasterization shaders
+	// Create a descriptor heap that will be used by the rasterization shaders //TODO: remove RAST
 	m_constHeap = nv_helpers_dx12::CreateDescriptorHeap(
 		m_device.Get(), 1, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
@@ -1065,7 +1075,18 @@ void D3D12HelloTriangle::CreateCameraBuffer() {
 }
 
 void D3D12HelloTriangle::CreateLightsBuffer() {
-	;
+	m_lightsBufferSize = sizeof(LightData);
+	m_lightsBuffer = nv_helpers_dx12::CreateBuffer(
+		m_device.Get(), m_lightsBufferSize, D3D12_RESOURCE_FLAG_NONE,
+		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+
+	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+	cbvDesc.BufferLocation = m_cameraBuffer->GetGPUVirtualAddress();
+	cbvDesc.SizeInBytes = m_cameraBufferSize;
+
+	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle =
+		m_constHeap->GetCPUDescriptorHandleForHeapStart();
+	m_device->CreateConstantBufferView(&cbvDesc, srvHandle);
 }
 
 
