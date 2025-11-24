@@ -48,20 +48,21 @@ private:
 		XMFLOAT4 color;
 		XMFLOAT3 normal;
 	};
-	//struct Vertex
-	//{
-	//	DirectX::XMFLOAT3 position;
-	//	DirectX::XMFLOAT3 normal;
-	//	DirectX::XMFLOAT2 texCoord;
-	//	// Note: We get color from the material/texture, not per-vertex
-	//};
+
+	struct LightData {
+		XMFLOAT3 position; float pad1;  // makes 16 bytes total
+		XMFLOAT3 color;    float pad2;  // makes another 16 bytes
+	};
 
 	// #DXR Extra: Perspective Camera
 	void CreateCameraBuffer();
 	void UpdateCameraBuffer();
+	void CreateLightsBuffer();
 	ComPtr< ID3D12Resource > m_cameraBuffer;
+	ComPtr< ID3D12Resource > m_lightsBuffer;
 	ComPtr< ID3D12DescriptorHeap > m_constHeap;
 	uint32_t m_cameraBufferSize = 0;
+	uint32_t m_lightsBufferSize = 0;
 
 	// Pipeline objects.
 	CD3DX12_VIEWPORT m_viewport;
@@ -118,62 +119,120 @@ private:
 	AccelerationStructureBuffers m_topLevelASBuffers;
 	std::vector<std::pair<ID3D12Resource*, DirectX::XMMATRIX> > m_instances;
 
-	//AccelerationStructureBuffers CreateBottomLevelAS(
-	//	std::vector<std::pair<ID3D12Resource*, uint32_t> > vVertexBuffers);
-	AccelerationStructureBuffers CreateBottomLevelAS(
-		std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t> > vVertexBuffers,
-		std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t> > vIndexBuffers =
-		{});
+//AccelerationStructureBuffers CreateBottomLevelAS(
+//	std::vector<std::pair<ID3D12Resource*, uint32_t> > vVertexBuffers);
+AccelerationStructureBuffers CreateBottomLevelAS(
+  std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t> > vVertexBuffers,
+  std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t> > vIndexBuffers =
+  {});
 
-	void CreateTopLevelAS(const std::vector<std::pair<ID3D12Resource*, DirectX::XMMATRIX> >
-		& instances);
+void CreateTopLevelAS(const std::vector<std::pair<ID3D12Resource*, DirectX::XMMATRIX> >
+  & instances);
 
-	void CreateAccelerationStructures();
+void CreateAccelerationStructures();
 
-	// #DXR additions
+// #DXR additions
 
-	// Methods to create root signatures and pipeline
-	ComPtr<ID3D12RootSignature> CreateRayGenSignature();
-	ComPtr<ID3D12RootSignature> CreateMissSignature();
-	ComPtr<ID3D12RootSignature> CreateHitSignature();
+// Methods to create root signatures and pipeline
+ComPtr<ID3D12RootSignature> CreateRayGenSignature();
+ComPtr<ID3D12RootSignature> CreateMissSignature();
+ComPtr<ID3D12RootSignature> CreateHitSignature();
 
-	void CreateRaytracingPipeline();
+void CreateRaytracingPipeline();
 
-	// Shader libraries (compiled DXIL)
-	ComPtr<IDxcBlob> m_rayGenLibrary;
-	ComPtr<IDxcBlob> m_missLibrary;
-	// Different Hit Shaders:
-	ComPtr<IDxcBlob> m_flatShaderLibrary;
-	ComPtr<IDxcBlob> m_normalShaderLibrary;
+// Shader libraries (compiled DXIL)
+ComPtr<IDxcBlob> m_rayGenLibrary;
+ComPtr<IDxcBlob> m_missLibrary;
+// Different Hit Shaders:
+ComPtr<IDxcBlob> m_flatShaderLibrary;
+ComPtr<IDxcBlob> m_normalShaderLibrary;
+ComPtr<IDxcBlob> m_phongShaderLibrary;
 
-	// Root signatures for each shader stage
-	ComPtr<ID3D12RootSignature> m_rayGenSignature;
-	ComPtr<ID3D12RootSignature> m_hitSignature;
-	ComPtr<ID3D12RootSignature> m_missSignature;
+// Root signatures for each shader stage
+ComPtr<ID3D12RootSignature> m_rayGenSignature;
+ComPtr<ID3D12RootSignature> m_hitSignature;
+ComPtr<ID3D12RootSignature> m_missSignature;
 
-	// Ray tracing pipeline state
-	ComPtr<ID3D12StateObject> m_rtStateObject;
-	// Pipeline state properties (used to query shader identifiers)
-	ComPtr<ID3D12StateObjectProperties> m_rtStateObjectProps;
+// Ray tracing pipeline state
+ComPtr<ID3D12StateObject> m_rtStateObject;
+// Pipeline state properties (used to query shader identifiers)
+ComPtr<ID3D12StateObjectProperties> m_rtStateObjectProps;
 
-	// #DXR
-	void CreateRaytracingOutputBuffer();
-	void CreateShaderResourceHeap();
-	ComPtr<ID3D12Resource> m_outputResource;
-	ComPtr<ID3D12DescriptorHeap> m_srvUavHeap;
-	// #DXR
-	void CreateShaderBindingTable();
-	nv_helpers_dx12::ShaderBindingTableGenerator m_sbtHelper;
-	ComPtr<ID3D12Resource> m_sbtStorage;
+// #DXR
+void CreateRaytracingOutputBuffer();
+void CreateShaderResourceHeap();
+ComPtr<ID3D12Resource> m_outputResource;
+ComPtr<ID3D12DescriptorHeap> m_srvUavHeap;
+// #DXR
+void CreateShaderBindingTable();
+nv_helpers_dx12::ShaderBindingTableGenerator m_sbtHelper;
+ComPtr<ID3D12Resource> m_sbtStorage;
 
-	void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
-		std::vector<Vertex>& outVertices,
-		std::vector<uint32_t>& outIndices);
+void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
+  std::vector<Vertex>& outVertices,
+  std::vector<uint32_t>& outIndices);
 
-	// #DXR Extra: Perspective Camera++
-	void OnButtonDown(UINT32 lParam);
-	void OnMouseMove(UINT8 wParam, UINT32 lParam);
-	//for changing shading mode
+// #DXR Extra: Perspective Camera++
+void OnButtonDown(UINT32 lParam);
+void OnMouseMove(UINT8 wParam, UINT32 lParam);
+//for changing shading mode
+//AccelerationStructureBuffers CreateBottomLevelAS(
+//	std::vector<std::pair<ID3D12Resource*, uint32_t> > vVertexBuffers);
+AccelerationStructureBuffers CreateBottomLevelAS(
+	std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t> > vVertexBuffers,
+	std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t> > vIndexBuffers =
+	{});
+
+void CreateTopLevelAS(const std::vector<std::pair<ID3D12Resource*, DirectX::XMMATRIX> >
+	& instances);
+
+void CreateAccelerationStructures();
+
+// #DXR additions
+
+// Methods to create root signatures and pipeline
+ComPtr<ID3D12RootSignature> CreateRayGenSignature();
+ComPtr<ID3D12RootSignature> CreateMissSignature();
+ComPtr<ID3D12RootSignature> CreateHitSignature();
+
+void CreateRaytracingPipeline();
+
+// Shader libraries (compiled DXIL)
+ComPtr<IDxcBlob> m_rayGenLibrary;
+ComPtr<IDxcBlob> m_missLibrary;
+// Different Hit Shaders:
+ComPtr<IDxcBlob> m_flatShaderLibrary;
+ComPtr<IDxcBlob> m_normalShaderLibrary;
+ComPtr<IDxcBlob> m_phongShaderLibrary;
+
+// Root signatures for each shader stage
+ComPtr<ID3D12RootSignature> m_rayGenSignature;
+ComPtr<ID3D12RootSignature> m_hitSignature;
+ComPtr<ID3D12RootSignature> m_missSignature;
+
+// Ray tracing pipeline state
+ComPtr<ID3D12StateObject> m_rtStateObject;
+// Pipeline state properties (used to query shader identifiers)
+ComPtr<ID3D12StateObjectProperties> m_rtStateObjectProps;
+
+// #DXR
+void CreateRaytracingOutputBuffer();
+void CreateShaderResourceHeap();
+ComPtr<ID3D12Resource> m_outputResource;
+ComPtr<ID3D12DescriptorHeap> m_srvUavHeap;
+// #DXR
+void CreateShaderBindingTable();
+nv_helpers_dx12::ShaderBindingTableGenerator m_sbtHelper;
+ComPtr<ID3D12Resource> m_sbtStorage;
+
+void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
+	std::vector<Vertex>& outVertices,
+	std::vector<uint32_t>& outIndices);
+
+// #DXR Extra: Perspective Camera++
+void OnButtonDown(UINT32 lParam);
+void OnMouseMove(UINT8 wParam, UINT32 lParam);
+//for changing shading mode
 public:
 	void D3D12HelloTriangle::SetShadingMode(const std::wstring& mode);
 

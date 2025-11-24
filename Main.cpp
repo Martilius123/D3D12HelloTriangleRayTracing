@@ -41,6 +41,7 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
 
         SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)L"Flat");
         SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)L"Normal");
+        SendMessage(hCombo, CB_ADDSTRING, 0, (LPARAM)L"Phong");
         SendMessage(hCombo, CB_SETCURSEL, 0, 0);
 
         break;
@@ -59,7 +60,10 @@ LRESULT CALLBACK ControlWndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
             if (index == 0)
                 renderer->SetShadingMode(L"Flat");
             else
-                renderer->SetShadingMode(L"Normal");
+                if(index == 1)
+                    renderer->SetShadingMode(L"Normal");
+                else
+                    renderer->SetShadingMode(L"Phong");
         }
         break;
     }
