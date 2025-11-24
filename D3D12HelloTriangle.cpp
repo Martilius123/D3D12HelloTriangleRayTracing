@@ -68,8 +68,8 @@ void D3D12HelloTriangle::OnInit() {
 	// Lights Buffer
 	LightData m_lightData;
 	m_lightData.position = XMFLOAT3(2.0f, 5.0f, -3.0f);
-	m_lightData.color = XMFLOAT3(1.0f, 1.0f, 1.0f);
-	CreateLightsBuffer();
+	m_lightData.color = XMFLOAT3(1.0f, 0.0f, 0.0f);
+	CreateLightsBuffer(&m_lightData);
 
 	// Create the buffer containing the raytracing result (always output in a
 	// UAV), and create the heap referencing the resources used by the raytracing,
@@ -260,70 +260,9 @@ void D3D12HelloTriangle::LoadAssets()
 
 	// Command lists are created in the recording state, but there is nothing
 	// to record yet. The main loop expects it to be closed, so close it now.
-	//ThrowIfFailed(m_commandList->Close());
 
 	// Create the vertex buffer.
 	{
-		//// Define the geometry for a triangle.
-		//Vertex triangleVertices[] =
-		//{
-		//	{ { 0.0f, 0.25f * m_aspectRatio, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
-		//	{ { 0.25f, -0.25f * m_aspectRatio, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
-		//	{ { -0.25f, -0.25f * m_aspectRatio, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
-		//};
-		////////// 3D Model
-		////////Vertex triangleVertices[] = {
-		////////  {{std::sqrtf(8.f / 9.f), 0.f, -1.f / 3.f}, {1.f, 0.f, 0.f, 1.f}},
-		////////  {{-std::sqrtf(2.f / 9.f), std::sqrtf(2.f / 3.f), -1.f / 3.f}, {0.f, 1.f, 0.f, 1.f}},
-		////////  {{-std::sqrtf(2.f / 9.f), -std::sqrtf(2.f / 3.f), -1.f / 3.f}, {0.f, 0.f, 1.f, 1.f}},
-		////////  {{0.f, 0.f, 1.f}, {1, 0, 1, 1}} };
-
-		////////const UINT vertexBufferSize = sizeof(triangleVertices);
-
-		////////// Note: using upload heaps to transfer static data like vert buffers is not 
-		////////// recommended. Every time the GPU needs it, the upload heap will be marshalled 
-		////////// over. Please read up on Default Heap usage. An upload heap is used here for 
-		////////// code simplicity and because there are very few verts to actually transfer.
-		////////ThrowIfFailed(m_device->CreateCommittedResource(
-		////////	&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-		////////	D3D12_HEAP_FLAG_NONE,
-		////////	&CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize),
-		////////	D3D12_RESOURCE_STATE_GENERIC_READ,
-		////////	nullptr,
-		////////	IID_PPV_ARGS(&m_vertexBuffer)));
-
-		////////// Copy the triangle data to the vertex buffer.
-		////////UINT8* pVertexDataBegin;
-		////////CD3DX12_RANGE readRange(0, 0);		// We do not intend to read from this resource on the CPU.
-		////////ThrowIfFailed(m_vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)));
-		////////memcpy(pVertexDataBegin, triangleVertices, sizeof(triangleVertices));
-		////////m_vertexBuffer->Unmap(0, nullptr);
-
-		////////// Initialize the vertex buffer view.
-		////////m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
-		////////m_vertexBufferView.StrideInBytes = sizeof(Vertex);
-		////////m_vertexBufferView.SizeInBytes = vertexBufferSize;
-		//////////----------------------------------------------------------------------------------------------
-		////////// Indices
-		////////std::vector<UINT> indices = { 0, 1, 2, 0, 3, 1, 0, 2, 3, 1, 3, 2 };
-		////////const UINT indexBufferSize = static_cast<UINT>(indices.size()) * sizeof(UINT);
-
-		////////CD3DX12_HEAP_PROPERTIES heapProperty = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-		////////CD3DX12_RESOURCE_DESC bufferResource = CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize);
-		////////ThrowIfFailed(m_device->CreateCommittedResource(
-		////////	&heapProperty, D3D12_HEAP_FLAG_NONE, &bufferResource, //
-		////////	D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&m_indexBuffer)));
-
-		////////// Copy the triangle data to the index buffer.
-		////////UINT8* pIndexDataBegin;
-		////////ThrowIfFailed(m_indexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pIndexDataBegin)));
-		////////memcpy(pIndexDataBegin, indices.data(), indexBufferSize);
-		////////m_indexBuffer->Unmap(0, nullptr);
-
-		////////// Initialize the index buffer view.
-		////////m_indexBufferView.BufferLocation = m_indexBuffer->GetGPUVirtualAddress();
-		////////m_indexBufferView.Format = DXGI_FORMAT_R32_UINT;
-		////////m_indexBufferView.SizeInBytes = indexBufferSize;
 
 		//MODEL
 		std::vector<Vertex> vertices;
@@ -464,24 +403,12 @@ void D3D12HelloTriangle::PopulateCommandList()
 		m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
 		//m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
 		//m_commandList->DrawInstanced(3, 1, 0, 0);
-		//////////m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-		//////////m_commandList->IASetIndexBuffer(&m_indexBufferView);
-		//////////m_commandList->DrawIndexedInstanced(12, 1, 0, 0, 0);
 		m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
 		m_commandList->IASetIndexBuffer(&m_indexBufferView);
 		m_commandList->DrawIndexedInstanced(IndexCount, 1, 0, 0, 0);
 	}
 	else
 	{
-		//const float clearColor[] = { 0.6f, 0.8f, 0.4f, 1.0f };
-		//m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-		// #DXR
-		// Bind the descriptor heap giving access to the top-level acceleration
-		// structure, as well as the raytracing output
-		// 
-		//std::vector<ID3D12DescriptorHeap> heaps = { m_srvUavHeap.Get() };
-		//m_commandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()),
-		//	heaps.data());
 		ID3D12DescriptorHeap* heaps[] = { m_srvUavHeap.Get() };
 
 		m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
@@ -762,11 +689,6 @@ void D3D12HelloTriangle::CreateTopLevelAS(
 //
 void D3D12HelloTriangle::CreateAccelerationStructures() {
 	// Build the bottom AS from the Triangle vertex buffer
-	////////////AccelerationStructureBuffers bottomLevelBuffers =
-	////////////	CreateBottomLevelAS({ {m_vertexBuffer.Get(), 4} }, { {m_indexBuffer.Get(), 12} });
-
-	////////////// Just one instance for now
-	////////////m_instances = { {bottomLevelBuffers.pResult.Get(), XMMatrixIdentity()} };
 	AccelerationStructureBuffers bottomLevelBuffers =
 		CreateBottomLevelAS({ {m_vertexBuffer.Get(), VertexCount} },
 			{ {m_indexBuffer.Get(), IndexCount} });
@@ -797,13 +719,6 @@ void D3D12HelloTriangle::CreateAccelerationStructures() {
 
 ComPtr<ID3D12RootSignature> D3D12HelloTriangle::CreateRayGenSignature() {
 	nv_helpers_dx12::RootSignatureGenerator rsc;
-	//rsc.AddHeapRangesParameter(
-	//	{ {0 /*u0*/, 1 /*1 descriptor */, 0 /*use the implicit register space 0*/,
-	//	  D3D12_DESCRIPTOR_RANGE_TYPE_UAV /* UAV representing the output buffer*/,
-	//	  0 /*heap slot where the UAV is defined*/},
-	//	 {0 /*t0*/, 1, 0,
-	//	  D3D12_DESCRIPTOR_RANGE_TYPE_SRV /*Top-level acceleration structure*/,
-	//	  1} });
 	rsc.AddHeapRangesParameter(
 		{ {0 /*u0*/, 1 /*1 descriptor */, 0 /*use the implicit register space 0*/,
 		  D3D12_DESCRIPTOR_RANGE_TYPE_UAV /* UAV representing the output buffer*/,
@@ -1099,19 +1014,17 @@ void D3D12HelloTriangle::CreateCameraBuffer() {
 	m_device->CreateConstantBufferView(&cbvDesc, srvHandle);
 }
 
-void D3D12HelloTriangle::CreateLightsBuffer() {
+void D3D12HelloTriangle::CreateLightsBuffer(LightData* light) {
 	m_lightsBufferSize = sizeof(LightData);
 	m_lightsBuffer = nv_helpers_dx12::CreateBuffer(
 		m_device.Get(), m_lightsBufferSize, D3D12_RESOURCE_FLAG_NONE,
 		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
 
-	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
-	cbvDesc.BufferLocation = m_cameraBuffer->GetGPUVirtualAddress();
-	cbvDesc.SizeInBytes = m_cameraBufferSize;
-
-	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle =
-		m_constHeap->GetCPUDescriptorHandleForHeapStart();
-	m_device->CreateConstantBufferView(&cbvDesc, srvHandle);
+	// Copy CPU memory to GPU
+	uint8_t* pData;
+	ThrowIfFailed(m_lightsBuffer->Map(0, nullptr, (void**)&pData));
+	memcpy(pData, light, sizeof(LightData));
+	m_lightsBuffer->Unmap(0, nullptr);
 }
 
 
@@ -1180,59 +1093,6 @@ void D3D12HelloTriangle::UpdateCameraBuffer() {
 
 }
 
-//void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
-//	std::vector<Vertex>& outVertices,
-//	std::vector<uint32_t>& outIndices)
-//{
-//	Assimp::Importer importer;
-//
-//	const aiScene* scene = importer.ReadFile(modelPath,
-//		aiProcess_Triangulate |
-//		aiProcess_ConvertToLeftHanded |
-//		aiProcess_GenNormals
-//	);
-//
-//	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode || scene->mNumMeshes == 0)
-//	{
-//		// Obs³uga b³êdu ³adowania modelu
-//		return;
-//	}
-//
-//	aiMesh* mesh = scene->mMeshes[0];
-//
-//	// Definiowanie sta³ego koloru dla ca³ego modelu
-//	const DirectX::XMFLOAT4 modelColor = { 1.0f, 0.5f, 0.0f, 1.0f };
-//
-//	// 1. Ekstrakcja danych wierzcho³ków
-//	outVertices.resize(mesh->mNumVertices);
-//
-//	for (UINT i = 0; i < mesh->mNumVertices; ++i)
-//	{
-//		Vertex& v = outVertices[i];
-//
-//		// Kopiowanie Pozycji
-//		v.position.x = mesh->mVertices[i].x;
-//		v.position.y = mesh->mVertices[i].y;
-//		v.position.z = mesh->mVertices[i].z;
-//
-//		// Przypisanie sta³ego koloru
-//		v.color = modelColor;
-//	}
-//
-//	// 2. Ekstrakcja danych indeksów
-//	for (UINT i = 0; i < mesh->mNumFaces; ++i)
-//	{
-//		aiFace face = mesh->mFaces[i];
-//		for (UINT j = 0; j < face.mNumIndices; ++j)
-//		{
-//			outIndices.push_back(face.mIndices[j]);
-//		}
-//	}
-//
-//	// Zapisz liczbê indeksów do u¿ycia w DrawIndexedInstanced
-//	//m_indexCount = (UINT)outIndices.size();
-//}
-
 
 void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 	std::vector<Vertex>& outVertices,
@@ -1249,42 +1109,30 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 	{
-		// Handle error
 		return;
 	}
 
-	// Process ALL meshes
 	for (UINT m = 0; m < scene->mNumMeshes; ++m)
 	{
 		aiMesh* mesh = scene->mMeshes[m];
-
-		// --- 1. Get the material for THIS mesh ---
 		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
-
-		// --- 2. Get the diffuse color from the material ---
 		aiColor4D diffuseColor(1.0f, 1.0f, 1.0f, 1.0f); // Default to white
 		material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColor);
 
 		// Convert from Assimp's color to DirectX's XMFLOAT4
 		DirectX::XMFLOAT4 meshColor = { diffuseColor.r, diffuseColor.g, diffuseColor.b, diffuseColor.a };
 
-		// Keep track of the starting vertex index for this mesh
 		UINT vertexOffset = (UINT)outVertices.size();
 
-		// --- 3. Extract vertex data ---
 		for (UINT i = 0; i < mesh->mNumVertices; ++i)
 		{
-			Vertex v; // Using your struct: { position, color, normal }
-
-			// Kopiowanie Pozycji
+			Vertex v;
 			v.position.x = mesh->mVertices[i].x;
 			v.position.y = mesh->mVertices[i].y;
 			v.position.z = mesh->mVertices[i].z;
 
-			// --- 4. Assign the per-mesh color to this vertex ---
 			v.color = meshColor;
 
-			// --- normals:
 			if (mesh->HasNormals())
 			{
 				v.normal.x = mesh->mNormals[i].x;
@@ -1293,40 +1141,28 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 			}
 			else
 			{
-				// fallback
 				v.normal = { 0.0f, 1.0f, 0.0f };
 			}
 
 			outVertices.push_back(v);
 		}
 
-		// --- 5. Extract index data (This part is crucial) ---
 		for (UINT i = 0; i < mesh->mNumFaces; ++i)
 		{
 			aiFace face = mesh->mFaces[i];
 			for (UINT j = 0; j < face.mNumIndices; ++j)
 			{
-				// Add the offset so indices point to the correct vertices
-				// in the global 'outVertices' vector
 				outIndices.push_back(face.mIndices[j] + vertexOffset);
 			}
 		}
 	}
-
-	// ...
 }
 
-//--------------------------------------------------------------------------------------------------
-//
-//
 void D3D12HelloTriangle::OnButtonDown(UINT32 lParam)
 {
 	nv_helpers_dx12::CameraManip.setMousePosition(-GET_X_LPARAM(lParam), -GET_Y_LPARAM(lParam));
 }
 
-//--------------------------------------------------------------------------------------------------
-//
-//
 void D3D12HelloTriangle::OnMouseMove(UINT8 wParam, UINT32 lParam)
 {
 	using nv_helpers_dx12::Manipulator;
