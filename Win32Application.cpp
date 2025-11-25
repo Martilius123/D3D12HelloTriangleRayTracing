@@ -11,7 +11,8 @@
 
 #include "stdafx.h"
 #include "Win32Application.h"
-
+#include "imgui.h"
+extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 HWND Win32Application::m_hwnd = nullptr;
 
 int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
@@ -75,6 +76,8 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
 // Main message handler for the sample.
 LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+	if (ImGui_ImplWin32_WndProcHandler(hWnd, message, wParam, lParam))
+		return true;
 	DXSample* pSample = reinterpret_cast<DXSample*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 
 	switch (message)
@@ -88,6 +91,9 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
 		return 0;
 
 	case WM_KEYDOWN:
+		// 2. PREVENT TYPING IN GAME IF TYPING IN IMGUI
+		if (ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().WantCaptureKeyboard)
+			return 0;
 		if (pSample)
 		{
 			pSample->OnKeyDown(static_cast<UINT8>(wParam));
@@ -97,6 +103,8 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
 		return 0;
 
 	case WM_KEYUP:
+		if (ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().WantCaptureKeyboard)
+			return 0;
 		if (pSample)
 		{
 			pSample->OnKeyUp(static_cast<UINT8>(wParam));
@@ -117,12 +125,18 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
 	case WM_LBUTTONDOWN:
 	case WM_RBUTTONDOWN:
 	case WM_MBUTTONDOWN:
+		// 3. PREVENT CLICKING THROUGH UI INTO THE GAME
+		if (ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().WantCaptureMouse)
+			return 0;
 		if (pSample)
 		{
 			pSample->OnButtonDown(static_cast<UINT32>(lParam));
 		}
 		return 0;
 	case WM_MOUSEMOVE:
+		// 4. PREVENT CAMERA MOVING WHILE HOVERING UI
+		if (ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().WantCaptureMouse)
+			return 0;
 		if (pSample)
 		{
 			pSample->OnMouseMove(static_cast<UINT8>(wParam), static_cast<UINT32>(lParam));

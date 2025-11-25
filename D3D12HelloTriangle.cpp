@@ -22,6 +22,9 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "manipulator.h"
 #include "Windowsx.h"
+#include "imgui.h"
+#include "imgui_impl_win32.h"
+#include "imgui_impl_dx12.h"
 //
 D3D12HelloTriangle::D3D12HelloTriangle(UINT width, UINT height, std::wstring name) :
 	DXSample(width, height, name),
@@ -66,10 +69,9 @@ void D3D12HelloTriangle::OnInit() {
 	// Create a buffer to store the modelview and perspective camera matrices
 	CreateCameraBuffer();
 	// Lights Buffer
-	LightData m_lightData;
 	m_lightData.position = XMFLOAT3(2.0f, 5.0f, -3.0f);
 	m_lightData.color = XMFLOAT3(1.0f, 0.0f, 0.0f);
-	CreateLightsBuffer(&m_lightData);
+	CreateLightsBuffer();
 
 	// Create the buffer containing the raytracing result (always output in a
 	// UAV), and create the heap referencing the resources used by the raytracing,
@@ -78,6 +80,55 @@ void D3D12HelloTriangle::OnInit() {
 	// Create the shader binding table and indicating which shaders
 	// are invoked for each instance in the  AS
 	CreateShaderBindingTable();
+
+	// --- IMGUI INITIALIZATION START ---
+
+	// 1. Create a specific Descriptor Heap for ImGui
+	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	desc.NumDescriptors = 1; // ImGui only needs 1 descriptor for the font
+	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	ThrowIfFailed(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_imguiHeap)));
+
+	// 2. Setup Dear ImGui context
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	// io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Optional
+
+	// 3. Setup Dear ImGui style
+	ImGui::StyleColorsDark();
+
+	// 4. Setup Platform/Renderer backends
+	// Note: Use Win32Application::GetHwnd() since your code uses the DXSample framework
+	ImGui_ImplWin32_Init(Win32Application::GetHwnd());
+
+	ImGui_ImplDX12_InitInfo init_info = {};
+	init_info.Device = m_device.Get();
+	init_info.CommandQueue = m_commandQueue.Get();
+	init_info.NumFramesInFlight = FrameCount; // From D3D12HelloTriangle.h (usually 3 or 2)
+	init_info.RTVFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+	init_info.DSVFormat = DXGI_FORMAT_UNKNOWN;
+
+	// Pass the heap we just created
+	init_info.SrvDescriptorHeap = m_imguiHeap.Get();
+
+	// 1. ALLOCATION FUNCTION (Mandatory)
+		// We simply return the start of our heap since we only allocated 1 descriptor for ImGui
+	init_info.SrvDescriptorAllocFn = [](ImGui_ImplDX12_InitInfo* info, D3D12_CPU_DESCRIPTOR_HANDLE* out_cpu, D3D12_GPU_DESCRIPTOR_HANDLE* out_gpu) {
+		ID3D12DescriptorHeap* heap = info->SrvDescriptorHeap;
+		*out_cpu = heap->GetCPUDescriptorHandleForHeapStart();
+		*out_gpu = heap->GetGPUDescriptorHandleForHeapStart();
+		};
+
+	// 2. FREE FUNCTION (Mandatory)
+	// We don't need to do anything here because we own the heap and destroy it when the app closes
+	init_info.SrvDescriptorFreeFn = [](ImGui_ImplDX12_InitInfo*, D3D12_CPU_DESCRIPTOR_HANDLE, D3D12_GPU_DESCRIPTOR_HANDLE) {
+		// No-op (Empty function)
+		};
+
+	ImGui_ImplDX12_Init(&init_info);
+	// --- IMGUI INITIALIZATION END ---
 }
 
 // Load the rendering pipeline dependencies.
@@ -346,6 +397,58 @@ void D3D12HelloTriangle::OnUpdate()
 {
 	// #DXR Extra: Perspective Camera
 	UpdateCameraBuffer();
+
+	// --- IMGUI UPDATE ---
+	ImGui_ImplDX12_NewFrame();
+	ImGui_ImplWin32_NewFrame();
+	ImGui::NewFrame();
+
+	// Define your UI here
+	ImGui::Begin("Raytracing Settings");
+
+	if (ImGui::Button("Switch Raster/Raytrace")) {
+		m_raster = !m_raster;
+	}
+
+	// Example: Dropdown for shaders
+	const char* items[] = { "Flat", "Normal", "Phong" };
+	static int item_current = 0;
+	// Sync current selection with your std::wstring currentShading
+	if (currentShading == L"Flat") item_current = 0;
+	else if (currentShading == L"Normal") item_current = 1;
+	else if (currentShading == L"Phong") item_current = 2;
+
+	if (ImGui::Combo("Shading Mode", &item_current, items, IM_ARRAYSIZE(items))) {
+		if (item_current == 0) SetShadingMode(L"Flat");
+		if (item_current == 1) SetShadingMode(L"Normal");
+		if (item_current == 2) SetShadingMode(L"Phong");
+	}
+	if (currentShading == L"Phong")
+	{
+		ImGui::Separator();
+		ImGui::Text("Light Parameters");
+
+		bool lightChanged = false;
+
+		// Using DragFloat3 for position (X, Y, Z)
+		// 0.1f is the speed of the drag
+		if (ImGui::DragFloat3("Light Pos", &m_lightData.position.x, 0.1f))
+			lightChanged = true;
+
+		// Using ColorEdit3 for Color (R, G, B)
+		if (ImGui::ColorEdit3("Light Color", &m_lightData.color.x))
+			lightChanged = true;
+
+		// Only upload to GPU if the user actually touched the UI
+		if (lightChanged)
+		{
+			UpdateLightsBuffer();
+		}
+	}
+
+	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+	ImGui::End();
+	// --- IMGUI UPDATE END ---
 }
 
 // Render the scene.
@@ -369,7 +472,11 @@ void D3D12HelloTriangle::OnDestroy()
 	// Ensure that the GPU is no longer referencing resources that are about to be
 	// cleaned up by the destructor.
 	WaitForPreviousFrame();
-
+	// --- IMGUI SHUTDOWN ---
+	ImGui_ImplDX12_Shutdown();
+	ImGui_ImplWin32_Shutdown();
+	ImGui::DestroyContext();
+	// ----------------------
 	CloseHandle(m_fenceEvent);
 }
 
@@ -490,7 +597,18 @@ void D3D12HelloTriangle::PopulateCommandList()
 			D3D12_RESOURCE_STATE_RENDER_TARGET);
 		m_commandList->ResourceBarrier(1, &transition);
 	}
+	// --- IMGUI RENDER START ---
+	// 1. Prepare ImGui Draw Data
+	ImGui::Render();
 
+	// 2. Set the Descriptor Heap specific to ImGui
+	// IMPORTANT: ImGui cannot use the Raytracing Heap. It needs its own.
+	ID3D12DescriptorHeap* ppHeaps[] = { m_imguiHeap.Get() };
+	m_commandList->SetDescriptorHeaps(1, ppHeaps);
+
+	// 3. Render ImGui to the command list
+	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_commandList.Get());
+	// --- IMGUI RENDER END ---
 	// Indicate that the back buffer will now be used to present.
 	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
 
@@ -1072,7 +1190,7 @@ void D3D12HelloTriangle::CreateCameraBuffer() {
 	m_device->CreateConstantBufferView(&cbvDesc, srvHandle);
 }
 
-void D3D12HelloTriangle::CreateLightsBuffer(LightData* light) {
+void D3D12HelloTriangle::CreateLightsBuffer() {
 	m_lightsBufferSize = sizeof(LightData);
 	m_lightsBuffer = nv_helpers_dx12::CreateBuffer(
 		m_device.Get(), m_lightsBufferSize, D3D12_RESOURCE_FLAG_NONE,
@@ -1081,7 +1199,7 @@ void D3D12HelloTriangle::CreateLightsBuffer(LightData* light) {
 	// Copy CPU memory to GPU
 	uint8_t* pData;
 	ThrowIfFailed(m_lightsBuffer->Map(0, nullptr, (void**)&pData));
-	memcpy(pData, light, sizeof(LightData));
+	memcpy(pData, &m_lightData, sizeof(LightData));
 	m_lightsBuffer->Unmap(0, nullptr);
 }
 
@@ -1244,5 +1362,19 @@ void D3D12HelloTriangle::SetShadingMode(const std::wstring& mode)
 {
 	currentShading = mode;
 	CreateShaderBindingTable();
+}
+
+void D3D12HelloTriangle::UpdateLightsBuffer()
+{
+	// Access the memory of the existing buffer
+	uint8_t* pData;
+	// We Map the buffer to get a CPU pointer to it
+	ThrowIfFailed(m_lightsBuffer->Map(0, nullptr, (void**)&pData));
+
+	// Copy our C++ struct data into the GPU buffer
+	memcpy(pData, &m_lightData, sizeof(LightData));
+
+	// Unmap tells the driver we are done writing
+	m_lightsBuffer->Unmap(0, nullptr);
 }
 
