@@ -37,6 +37,8 @@ void D3D12HelloTriangle::OnInit() {
 	nv_helpers_dx12::CameraManip.setWindowSize(GetWidth(), GetHeight());
 	nv_helpers_dx12::CameraManip.setLookat(glm::vec3(1.5f, 1.5f, 1.5f), glm::vec3(0, 0, 0),
 		glm::vec3(0, 1, 0));
+	nv_helpers_dx12::CameraManip.setMode(nv_helpers_dx12::Manipulator::Fly);
+	nv_helpers_dx12::CameraManip.setSpeed(1);
 
 	LoadPipeline();
 	LoadAssets();
@@ -66,8 +68,8 @@ void D3D12HelloTriangle::OnInit() {
 	// Lights Buffer
 	LightData m_lightData;
 	m_lightData.position = XMFLOAT3(2.0f, 5.0f, -3.0f);
-	m_lightData.color = XMFLOAT3(1.0f, 1.0f, 1.0f);
-	CreateLightsBuffer();
+	m_lightData.color = XMFLOAT3(1.0f, 0.0f, 0.0f);
+	CreateLightsBuffer(&m_lightData);
 
 	// Create the buffer containing the raytracing result (always output in a
 	// UAV), and create the heap referencing the resources used by the raytracing,
@@ -110,7 +112,7 @@ void D3D12HelloTriangle::LoadPipeline()
 			warpAdapter.Get(),
 			D3D_FEATURE_LEVEL_11_0,
 			IID_PPV_ARGS(&m_device)
-			));
+		));
 	}
 	else
 	{
@@ -121,7 +123,7 @@ void D3D12HelloTriangle::LoadPipeline()
 			hardwareAdapter.Get(),
 			D3D_FEATURE_LEVEL_11_0,
 			IID_PPV_ARGS(&m_device)
-			));
+		));
 	}
 
 	// Describe and create the command queue.
@@ -149,7 +151,7 @@ void D3D12HelloTriangle::LoadPipeline()
 		nullptr,
 		nullptr,
 		&swapChain
-		));
+	));
 
 	// This sample does not support fullscreen transitions.
 	ThrowIfFailed(factory->MakeWindowAssociation(Win32Application::GetHwnd(), DXGI_MWA_NO_ALT_ENTER));
@@ -258,7 +260,6 @@ void D3D12HelloTriangle::LoadAssets()
 
 	// Command lists are created in the recording state, but there is nothing
 	// to record yet. The main loop expects it to be closed, so close it now.
-	//ThrowIfFailed(m_commandList->Close());
 
 	// Create the vertex buffer.
 	{
@@ -419,15 +420,6 @@ void D3D12HelloTriangle::PopulateCommandList()
 	//}
 	//else
 	{
-		//const float clearColor[] = { 0.6f, 0.8f, 0.4f, 1.0f };
-		//m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-		// #DXR
-		// Bind the descriptor heap giving access to the top-level acceleration
-		// structure, as well as the raytracing output
-		// 
-		//std::vector<ID3D12DescriptorHeap> heaps = { m_srvUavHeap.Get() };
-		//m_commandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()),
-		//	heaps.data());
 		ID3D12DescriptorHeap* heaps[] = { m_srvUavHeap.Get() };
 
 		m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
@@ -535,12 +527,35 @@ void D3D12HelloTriangle::CheckRaytracingSupport() {
 		throw std::runtime_error("Raytracing not supported on device");
 }
 
+void D3D12HelloTriangle::OnKeyDown(UINT8 key)
+{
+	switch (key)
+	{
+	case 'W': keyWDown = true; break;
+	case 'S': keySDown = true; break;
+	case 'A': keyADown = true; break;
+	case 'D': keyDDown = true; break;
+	case 'Q': keyQDown = true; break;
+	case 'E': keyEDown = true; break;
+		// add more keys if needed
+	}
+}
+
 void D3D12HelloTriangle::OnKeyUp(UINT8 key)
 {
 	// Alternate between rasterization and raytracing using the spacebar
 	if (key == VK_SPACE)
 	{
 		m_raster = !m_raster;
+	}
+	switch (key)
+	{
+	case 'W': keyWDown = false; break;
+	case 'S': keySDown = false; break;
+	case 'A': keyADown = false; break;
+	case 'D': keyDDown = false; break;
+	case 'Q': keyQDown = false; break;
+	case 'E': keyEDown = false; break;
 	}
 	/*if (key == 'Q')
 	{
@@ -714,6 +729,7 @@ void D3D12HelloTriangle::CreateAccelerationStructures() {
 	}
 
 
+
 	CreateTopLevelAS(m_instances);
 
 	// Flush the command list and wait for it to finish
@@ -740,13 +756,6 @@ void D3D12HelloTriangle::CreateAccelerationStructures() {
 
 ComPtr<ID3D12RootSignature> D3D12HelloTriangle::CreateRayGenSignature() {
 	nv_helpers_dx12::RootSignatureGenerator rsc;
-	//rsc.AddHeapRangesParameter(
-	//	{ {0 /*u0*/, 1 /*1 descriptor */, 0 /*use the implicit register space 0*/,
-	//	  D3D12_DESCRIPTOR_RANGE_TYPE_UAV /* UAV representing the output buffer*/,
-	//	  0 /*heap slot where the UAV is defined*/},
-	//	 {0 /*t0*/, 1, 0,
-	//	  D3D12_DESCRIPTOR_RANGE_TYPE_SRV /*Top-level acceleration structure*/,
-	//	  1} });
 	rsc.AddHeapRangesParameter(
 		{ {0 /*u0*/, 1 /*1 descriptor */, 0 /*use the implicit register space 0*/,
 		  D3D12_DESCRIPTOR_RANGE_TYPE_UAV /* UAV representing the output buffer*/,
@@ -1063,19 +1072,17 @@ void D3D12HelloTriangle::CreateCameraBuffer() {
 	m_device->CreateConstantBufferView(&cbvDesc, srvHandle);
 }
 
-void D3D12HelloTriangle::CreateLightsBuffer() {
+void D3D12HelloTriangle::CreateLightsBuffer(LightData* light) {
 	m_lightsBufferSize = sizeof(LightData);
 	m_lightsBuffer = nv_helpers_dx12::CreateBuffer(
 		m_device.Get(), m_lightsBufferSize, D3D12_RESOURCE_FLAG_NONE,
 		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
 
-	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
-	cbvDesc.BufferLocation = m_cameraBuffer->GetGPUVirtualAddress();
-	cbvDesc.SizeInBytes = m_cameraBufferSize;
-
-	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle =
-		m_constHeap->GetCPUDescriptorHandleForHeapStart();
-	m_device->CreateConstantBufferView(&cbvDesc, srvHandle);
+	// Copy CPU memory to GPU
+	uint8_t* pData;
+	ThrowIfFailed(m_lightsBuffer->Map(0, nullptr, (void**)&pData));
+	memcpy(pData, light, sizeof(LightData));
+	m_lightsBuffer->Unmap(0, nullptr);
 }
 
 
@@ -1084,8 +1091,14 @@ void D3D12HelloTriangle::CreateLightsBuffer() {
 // Create and copies the viewmodel and perspective matrices of the camera
 //
 void D3D12HelloTriangle::UpdateCameraBuffer() {
+	using namespace nv_helpers_dx12;
+	Manipulator& manip = CameraManip;
+	static DWORD lastTime = GetTickCount();
+	DWORD now = GetTickCount();
+	float deltaTime = (now - lastTime) / 1000.0f; // seconds
+	lastTime = now;
 	std::vector<XMMATRIX> matrices(4);
-
+	// 
 	// Initialize the view matrix, ideally this should be based on user
 	// interactions The lookat and perspective matrices used for rasterization are
 	// defined to transform world-space vertices into a [0,1]x[0,1]x[0,1] camera
@@ -1113,8 +1126,34 @@ void D3D12HelloTriangle::UpdateCameraBuffer() {
 	ThrowIfFailed(m_cameraBuffer->Map(0, nullptr, (void**)&pData));
 	memcpy(pData, matrices.data(), m_cameraBufferSize);
 	m_cameraBuffer->Unmap(0, nullptr);
+	// --- 2. Keyboard movement ---
+	glm::vec3 eye, center, up;
+	manip.getLookat(eye, center, up);
+
+//=======
+	glm::vec3 forward = glm::normalize(center - eye);
+	glm::vec3 right = glm::normalize(glm::cross(forward, up));
+
+	float speed = manip.getSpeed();
+
+	if (keyWDown) eye += forward * speed * deltaTime;
+	if (keySDown) eye -= forward * speed * deltaTime;
+	if (keyADown) eye -= right * speed * deltaTime;
+	if (keyDDown) eye += right * speed * deltaTime;
+	if (keyQDown) eye -= up * speed * deltaTime;
+	if (keyEDown) eye += up * speed * deltaTime;
+
+	// Update manipulator with new position
+	manip.setLookat(eye, eye + forward, up);
+
+	// --- 3. Retrieve view matrix for raytracing ---
+	glm::mat4 viewMatrix = manip.getMatrix();
+	// Use viewMatrix for ray generation
+
 }
 
+
+//>>>>>>> d39e81118fd7890f397c9ccb920fcc011bd96d50
 void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 	std::vector<Vertex>& outVertices,
 	std::vector<uint32_t>& outIndices)
@@ -1130,42 +1169,30 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 	{
-		// Handle error
 		return;
 	}
 
-	// Process ALL meshes
 	for (UINT m = 0; m < scene->mNumMeshes; ++m)
 	{
 		aiMesh* mesh = scene->mMeshes[m];
-
-		// --- 1. Get the material for THIS mesh ---
 		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
-
-		// --- 2. Get the diffuse color from the material ---
 		aiColor4D diffuseColor(1.0f, 1.0f, 1.0f, 1.0f); // Default to white
 		material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColor);
 
 		// Convert from Assimp's color to DirectX's XMFLOAT4
 		DirectX::XMFLOAT4 meshColor = { diffuseColor.r, diffuseColor.g, diffuseColor.b, diffuseColor.a };
 
-		// Keep track of the starting vertex index for this mesh
 		UINT vertexOffset = (UINT)outVertices.size();
 
-		// --- 3. Extract vertex data ---
 		for (UINT i = 0; i < mesh->mNumVertices; ++i)
 		{
-			Vertex v; // Using your struct: { position, color, normal }
-
-			// Kopiowanie Pozycji
+			Vertex v;
 			v.position.x = mesh->mVertices[i].x;
 			v.position.y = mesh->mVertices[i].y;
 			v.position.z = mesh->mVertices[i].z;
 
-			// --- 4. Assign the per-mesh color to this vertex ---
 			v.color = meshColor;
 
-			// --- normals:
 			if (mesh->HasNormals())
 			{
 				v.normal.x = mesh->mNormals[i].x;
@@ -1174,40 +1201,28 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 			}
 			else
 			{
-				// fallback
 				v.normal = { 0.0f, 1.0f, 0.0f };
 			}
 
 			outVertices.push_back(v);
 		}
 
-		// --- 5. Extract index data (This part is crucial) ---
 		for (UINT i = 0; i < mesh->mNumFaces; ++i)
 		{
 			aiFace face = mesh->mFaces[i];
 			for (UINT j = 0; j < face.mNumIndices; ++j)
 			{
-				// Add the offset so indices point to the correct vertices
-				// in the global 'outVertices' vector
 				outIndices.push_back(face.mIndices[j] + vertexOffset);
 			}
 		}
 	}
-
-	// ...
 }
 
-//--------------------------------------------------------------------------------------------------
-//
-//
 void D3D12HelloTriangle::OnButtonDown(UINT32 lParam)
 {
 	nv_helpers_dx12::CameraManip.setMousePosition(-GET_X_LPARAM(lParam), -GET_Y_LPARAM(lParam));
 }
 
-//--------------------------------------------------------------------------------------------------
-//
-//
 void D3D12HelloTriangle::OnMouseMove(UINT8 wParam, UINT32 lParam)
 {
 	using nv_helpers_dx12::Manipulator;
@@ -1230,3 +1245,4 @@ void D3D12HelloTriangle::SetShadingMode(const std::wstring& mode)
 	currentShading = mode;
 	CreateShaderBindingTable();
 }
+

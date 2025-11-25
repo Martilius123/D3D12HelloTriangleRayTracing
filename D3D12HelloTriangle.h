@@ -72,14 +72,14 @@ private:
 	std::vector<ModelInstance> Models;
 
 	struct LightData {
-		XMFLOAT3 position; float pad1;  // makes 16 bytes total
-		XMFLOAT3 color;    float pad2;  // makes another 16 bytes
+		XMFLOAT3 position; float pad1;
+		XMFLOAT3 color;    float pad2;
 	};
 
 	// #DXR Extra: Perspective Camera
 	void CreateCameraBuffer();
 	void UpdateCameraBuffer();
-	void CreateLightsBuffer();
+	void CreateLightsBuffer(LightData* light);
 	ComPtr< ID3D12Resource > m_cameraBuffer;
 	ComPtr< ID3D12Resource > m_lightsBuffer;
 	ComPtr< ID3D12DescriptorHeap > m_constHeap;
@@ -119,6 +119,7 @@ private:
 	void WaitForPreviousFrame();
 	void CheckRaytracingSupport();
 	virtual void OnKeyUp(UINT8 key);
+	virtual void OnKeyDown(UINT8 key);
 	bool m_raster = false;
 	std::wstring currentShading = L"Flat";
 	// #DXR
@@ -134,8 +135,6 @@ private:
 	AccelerationStructureBuffers m_topLevelASBuffers;
 	std::vector<std::pair<ID3D12Resource*, DirectX::XMMATRIX> > m_instances;
 
-//AccelerationStructureBuffers CreateBottomLevelAS(
-//	std::vector<std::pair<ID3D12Resource*, uint32_t> > vVertexBuffers);
 AccelerationStructureBuffers CreateBottomLevelAS(
 	std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t> > vVertexBuffers,
 	std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t> > vIndexBuffers =
@@ -192,7 +191,15 @@ void OnButtonDown(UINT32 lParam);
 void OnMouseMove(UINT8 wParam, UINT32 lParam);
 //for changing shading mode
 public:
-void D3D12HelloTriangle::SetShadingMode(const std::wstring& mode);
+	void D3D12HelloTriangle::SetShadingMode(const std::wstring& mode);
+
+
+	bool keyWDown = false;
+	bool keySDown = false;
+	bool keyADown = false;
+	bool keyDDown = false;
+	bool keyQDown = false;
+	bool keyEDown = false;
 
 };
 
