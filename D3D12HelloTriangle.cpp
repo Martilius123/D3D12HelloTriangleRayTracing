@@ -69,10 +69,9 @@ void D3D12HelloTriangle::OnInit() {
 	// Create a buffer to store the modelview and perspective camera matrices
 	CreateCameraBuffer();
 	// Lights Buffer
-	LightData m_lightData;
 	m_lightData.position = XMFLOAT3(2.0f, 5.0f, -3.0f);
 	m_lightData.color = XMFLOAT3(1.0f, 0.0f, 0.0f);
-	CreateLightsBuffer(&m_lightData);
+	CreateLightsBuffer();
 
 	// Create the buffer containing the raytracing result (always output in a
 	// UAV), and create the heap referencing the resources used by the raytracing,
@@ -415,6 +414,28 @@ void D3D12HelloTriangle::OnUpdate()
 		if (item_current == 0) SetShadingMode(L"Flat");
 		if (item_current == 1) SetShadingMode(L"Normal");
 		if (item_current == 2) SetShadingMode(L"Phong");
+	}
+	if (currentShading == L"Phong")
+	{
+		ImGui::Separator();
+		ImGui::Text("Light Parameters");
+
+		bool lightChanged = false;
+
+		// Using DragFloat3 for position (X, Y, Z)
+		// 0.1f is the speed of the drag
+		if (ImGui::DragFloat3("Light Pos", &m_lightData.position.x, 0.1f))
+			lightChanged = true;
+
+		// Using ColorEdit3 for Color (R, G, B)
+		if (ImGui::ColorEdit3("Light Color", &m_lightData.color.x))
+			lightChanged = true;
+
+		// Only upload to GPU if the user actually touched the UI
+		if (lightChanged)
+		{
+			UpdateLightsBuffer();
+		}
 	}
 
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -1111,7 +1132,7 @@ void D3D12HelloTriangle::CreateCameraBuffer() {
 	m_device->CreateConstantBufferView(&cbvDesc, srvHandle);
 }
 
-void D3D12HelloTriangle::CreateLightsBuffer(LightData* light) {
+void D3D12HelloTriangle::CreateLightsBuffer() {
 	m_lightsBufferSize = sizeof(LightData);
 	m_lightsBuffer = nv_helpers_dx12::CreateBuffer(
 		m_device.Get(), m_lightsBufferSize, D3D12_RESOURCE_FLAG_NONE,
@@ -1120,7 +1141,7 @@ void D3D12HelloTriangle::CreateLightsBuffer(LightData* light) {
 	// Copy CPU memory to GPU
 	uint8_t* pData;
 	ThrowIfFailed(m_lightsBuffer->Map(0, nullptr, (void**)&pData));
-	memcpy(pData, light, sizeof(LightData));
+	memcpy(pData, &m_lightData, sizeof(LightData));
 	m_lightsBuffer->Unmap(0, nullptr);
 }
 
@@ -1281,5 +1302,19 @@ void D3D12HelloTriangle::SetShadingMode(const std::wstring& mode)
 {
 	currentShading = mode;
 	CreateShaderBindingTable();
+}
+
+void D3D12HelloTriangle::UpdateLightsBuffer()
+{
+	// Access the memory of the existing buffer
+	uint8_t* pData;
+	// We Map the buffer to get a CPU pointer to it
+	ThrowIfFailed(m_lightsBuffer->Map(0, nullptr, (void**)&pData));
+
+	// Copy our C++ struct data into the GPU buffer
+	memcpy(pData, &m_lightData, sizeof(LightData));
+
+	// Unmap tells the driver we are done writing
+	m_lightsBuffer->Unmap(0, nullptr);
 }
 
