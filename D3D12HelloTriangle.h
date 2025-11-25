@@ -40,6 +40,7 @@ public:
 	virtual void OnDestroy();
 
 private:
+	ComPtr<ID3D12DescriptorHeap> m_imguiHeap;
 	static const UINT FrameCount = 2;
 
 	struct Vertex
