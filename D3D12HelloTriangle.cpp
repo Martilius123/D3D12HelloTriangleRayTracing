@@ -22,6 +22,7 @@
 #include "glm/gtc/type_ptr.hpp"
 #include "manipulator.h"
 #include "Windowsx.h"
+#include <string>
 #include "imgui.h"
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx12.h"
@@ -322,13 +323,13 @@ void D3D12HelloTriangle::LoadAssets()
 		};
 		//MODEL
 		Models.resize(modelPaths.size());
-		Models[0].position = { 3.0f,0.0f,0.0f };
-		Models[0].rotation = { XMConvertToRadians(45.0f), 0.0f, 0.0f };
+		//Models[0].position = { 3.0f,0.0f,0.0f };
+		//Models[0].rotation = { XMConvertToRadians(45.0f), 0.0f, 0.0f };
 		//Models[1].rotation = { XMConvertToRadians(-45.0f), 0.0f, 0.0f };
 		for (int i = 0; i < modelPaths.size(); i++)
 		{
 			LoadModel(modelPaths[i], Models[i].vertices, Models[i].indices);
-
+			Models[i].id = i;
 			const UINT vertexBufferSize = static_cast<UINT>(Models[i].vertices.size()) * sizeof(Vertex);
 
 			ThrowIfFailed(m_device->CreateCommittedResource(
@@ -406,9 +407,9 @@ void D3D12HelloTriangle::OnUpdate()
 	// Define your UI here
 	ImGui::Begin("Raytracing Settings");
 
-	if (ImGui::Button("Switch Raster/Raytrace")) {
-		m_raster = !m_raster;
-	}
+	//if (ImGui::Button("Switch Raster/Raytrace")) {
+	//	m_raster = !m_raster;
+	//}
 
 	// Example: Dropdown for shaders
 	const char* items[] = { "Flat", "Normal", "Phong" };
@@ -430,12 +431,9 @@ void D3D12HelloTriangle::OnUpdate()
 
 		bool lightChanged = false;
 
-		// Using DragFloat3 for position (X, Y, Z)
-		// 0.1f is the speed of the drag
 		if (ImGui::DragFloat3("Light Pos", &m_lightData.position.x, 0.1f))
 			lightChanged = true;
 
-		// Using ColorEdit3 for Color (R, G, B)
 		if (ImGui::ColorEdit3("Light Color", &m_lightData.color.x))
 			lightChanged = true;
 
@@ -444,6 +442,21 @@ void D3D12HelloTriangle::OnUpdate()
 		{
 			UpdateLightsBuffer();
 		}
+	}
+	ImGui::Separator();
+
+	for (int i = 0; i < Models.size(); i++) {
+		auto& inst = Models[i];
+
+		ImGui::PushID(i);
+
+		if (ImGui::CollapsingHeader(std::to_string(inst.id).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+			ImGui::DragFloat3("Position", &inst.position.x, 0.05f);
+			ImGui::DragFloat3("Rotation", &inst.rotation.x, 0.05);
+			ImGui::DragFloat3("Scale", &inst.scale.x, 0.05f,0,100);
+		}
+
+		ImGui::PopID();
 	}
 
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
@@ -527,6 +540,22 @@ void D3D12HelloTriangle::PopulateCommandList()
 	//}
 	//else
 	{
+		m_instances.clear();
+		for (int i = 0; i < BLASes.size(); i++)
+		{
+			XMMATRIX scaleMatrix = XMMatrixScaling(Models[i].scale.x, Models[i].scale.y, Models[i].scale.z);
+			XMMATRIX rotationMatrix =
+				XMMatrixRotationRollPitchYaw(Models[i].rotation.x, Models[i].rotation.y, Models[i].rotation.z);
+			XMMATRIX translationMatrix = XMMatrixTranslation(Models[i].position.x, Models[i].position.y, Models[i].position.z);
+			XMMATRIX transform = scaleMatrix * rotationMatrix * translationMatrix;
+
+			m_instances.push_back({
+				BLASes[i].pResult.Get(),
+				transform
+				});
+		}
+		CreateTopLevelAS(m_instances, true);
+
 		ID3D12DescriptorHeap* heaps[] = { m_srvUavHeap.Get() };
 
 		m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
@@ -763,43 +792,45 @@ D3D12HelloTriangle::CreateBottomLevelAS(
 //
 void D3D12HelloTriangle::CreateTopLevelAS(
 	const std::vector<std::pair<ID3D12Resource*, DirectX::XMMATRIX> >
-	& instances) {
-	// Gather all the instances into the builder helper
-	for (size_t i = 0; i < instances.size(); i++) {
-		m_topLevelASGenerator.AddInstance(instances[i].first,
-			instances[i].second, static_cast<UINT>(0),
-			static_cast<UINT>(i));
+	& instances, bool updateOnly) {
+	if (!updateOnly)
+	{
+		// Gather all the instances into the builder helper
+		for (size_t i = 0; i < instances.size(); i++) {
+			m_topLevelASGenerator.AddInstance(instances[i].first,
+				instances[i].second, static_cast<UINT>(0),
+				static_cast<UINT>(i));
+		}
+
+		// As for the bottom-level AS, the building the AS requires some scratch space
+		// to store temporary data in addition to the actual AS. In the case of the
+		// top-level AS, the instance descriptors also need to be stored in GPU
+		// memory. This call outputs the memory requirements for each (scratch,
+		// results, instance descriptors) so that the application can allocate the
+		// corresponding memory
+		UINT64 scratchSize, resultSize, instanceDescsSize;
+
+		m_topLevelASGenerator.ComputeASBufferSizes(m_device.Get(), true, &scratchSize,
+			&resultSize, &instanceDescsSize);
+
+		// Create the scratch and result buffers. Since the build is all done on GPU,
+		// those can be allocated on the default heap
+		m_topLevelASBuffers.pScratch = nv_helpers_dx12::CreateBuffer(
+			m_device.Get(), scratchSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			nv_helpers_dx12::kDefaultHeapProps);
+		m_topLevelASBuffers.pResult = nv_helpers_dx12::CreateBuffer(
+			m_device.Get(), resultSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
+			nv_helpers_dx12::kDefaultHeapProps);
+
+		// The buffer describing the instances: ID, shader binding information,
+		// matrices ... Those will be copied into the buffer by the helper through
+		// mapping, so the buffer has to be allocated on the upload heap.
+		m_topLevelASBuffers.pInstanceDesc = nv_helpers_dx12::CreateBuffer(
+			m_device.Get(), instanceDescsSize, D3D12_RESOURCE_FLAG_NONE,
+			D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
 	}
-
-	// As for the bottom-level AS, the building the AS requires some scratch space
-	// to store temporary data in addition to the actual AS. In the case of the
-	// top-level AS, the instance descriptors also need to be stored in GPU
-	// memory. This call outputs the memory requirements for each (scratch,
-	// results, instance descriptors) so that the application can allocate the
-	// corresponding memory
-	UINT64 scratchSize, resultSize, instanceDescsSize;
-
-	m_topLevelASGenerator.ComputeASBufferSizes(m_device.Get(), true, &scratchSize,
-		&resultSize, &instanceDescsSize);
-
-	// Create the scratch and result buffers. Since the build is all done on GPU,
-	// those can be allocated on the default heap
-	m_topLevelASBuffers.pScratch = nv_helpers_dx12::CreateBuffer(
-		m_device.Get(), scratchSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
-		D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-		nv_helpers_dx12::kDefaultHeapProps);
-	m_topLevelASBuffers.pResult = nv_helpers_dx12::CreateBuffer(
-		m_device.Get(), resultSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
-		D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
-		nv_helpers_dx12::kDefaultHeapProps);
-
-	// The buffer describing the instances: ID, shader binding information,
-	// matrices ... Those will be copied into the buffer by the helper through
-	// mapping, so the buffer has to be allocated on the upload heap.
-	m_topLevelASBuffers.pInstanceDesc = nv_helpers_dx12::CreateBuffer(
-		m_device.Get(), instanceDescsSize, D3D12_RESOURCE_FLAG_NONE,
-		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
-
 	// After all the buffers are allocated, or if only an update is required, we
 	// can build the acceleration structure. Note that in the case of the update
 	// we also pass the existing AS as the 'previous' AS, so that it can be
@@ -807,7 +838,8 @@ void D3D12HelloTriangle::CreateTopLevelAS(
 	m_topLevelASGenerator.Generate(m_commandList.Get(),
 		m_topLevelASBuffers.pScratch.Get(),
 		m_topLevelASBuffers.pResult.Get(),
-		m_topLevelASBuffers.pInstanceDesc.Get());
+		m_topLevelASBuffers.pInstanceDesc.Get(),
+		updateOnly, m_topLevelASBuffers.pResult.Get());
 }
 
 
@@ -818,7 +850,7 @@ void D3D12HelloTriangle::CreateTopLevelAS(
 //
 void D3D12HelloTriangle::CreateAccelerationStructures() {
 	// Build the bottom AS from the Triangle vertex buffer
-	std::vector<AccelerationStructureBuffers> BLASes;
+	//std::vector<AccelerationStructureBuffers> BLASes;
 	BLASes.reserve(Models.size());
 	for (auto& model : Models)
 	{
@@ -1349,7 +1381,7 @@ void D3D12HelloTriangle::OnMouseMove(UINT8 wParam, UINT32 lParam)
 	inputs.mmb = wParam & MK_MBUTTON;
 	inputs.rmb = wParam & MK_RBUTTON;
 	if (!inputs.lmb && !inputs.rmb && !inputs.mmb)
-		return; // no mouse button pressed
+		return;
 
 	inputs.ctrl = GetAsyncKeyState(VK_CONTROL);
 	inputs.shift = GetAsyncKeyState(VK_SHIFT);
@@ -1366,15 +1398,10 @@ void D3D12HelloTriangle::SetShadingMode(const std::wstring& mode)
 
 void D3D12HelloTriangle::UpdateLightsBuffer()
 {
-	// Access the memory of the existing buffer
 	uint8_t* pData;
-	// We Map the buffer to get a CPU pointer to it
 	ThrowIfFailed(m_lightsBuffer->Map(0, nullptr, (void**)&pData));
-
-	// Copy our C++ struct data into the GPU buffer
 	memcpy(pData, &m_lightData, sizeof(LightData));
-
-	// Unmap tells the driver we are done writing
 	m_lightsBuffer->Unmap(0, nullptr);
 }
+
 

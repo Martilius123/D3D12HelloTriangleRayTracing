@@ -52,6 +52,7 @@ private:
 
 	struct ModelInstance
 	{
+		int id;
 		std::vector<Vertex> vertices;
 		std::vector<uint32_t> indices;
 
@@ -137,6 +138,7 @@ private:
 	nv_helpers_dx12::TopLevelASGenerator m_topLevelASGenerator;
 	AccelerationStructureBuffers m_topLevelASBuffers;
 	std::vector<std::pair<ID3D12Resource*, DirectX::XMMATRIX> > m_instances;
+	std::vector<AccelerationStructureBuffers> BLASes;
 
 AccelerationStructureBuffers CreateBottomLevelAS(
 	std::vector<std::pair<ComPtr<ID3D12Resource>, uint32_t> > vVertexBuffers,
@@ -144,7 +146,7 @@ AccelerationStructureBuffers CreateBottomLevelAS(
 	{});
 
 void CreateTopLevelAS(const std::vector<std::pair<ID3D12Resource*, DirectX::XMMATRIX> >
-	& instances);
+	& instances,bool updateOnly = false);
 
 void CreateAccelerationStructures();
 
