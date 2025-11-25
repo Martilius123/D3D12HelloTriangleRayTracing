@@ -1,4 +1,7 @@
 #include "Common.hlsl"
+#define RAY_FLAG_NONE 0
+
+
 
 // Raytracing output texture, accessed as a UAV
 RWTexture2D< float4 > gOutput : register(u0);

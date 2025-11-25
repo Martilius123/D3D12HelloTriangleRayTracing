@@ -49,6 +49,28 @@ private:
 		XMFLOAT3 normal;
 	};
 
+	struct ModelInstance
+	{
+		std::vector<Vertex> vertices;
+		std::vector<uint32_t> indices;
+
+		// App resources.
+		ComPtr<ID3D12Resource> m_vertexBuffer;
+		D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
+
+		// 3D Model
+		ComPtr<ID3D12Resource> m_indexBuffer;
+		D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
+
+		DirectX::XMFLOAT3 position = { 0, 0, 0 };
+		DirectX::XMFLOAT3 rotation = { 0, 0, 0 }; // pitch, yaw, roll
+		DirectX::XMFLOAT3 scale = { 1, 1, 1 };
+
+		DirectX::XMFLOAT4X4 worldMatrix; // computed per frame
+	};
+
+	std::vector<ModelInstance> Models;
+
 	struct LightData {
 		XMFLOAT3 position; float pad1;  // makes 16 bytes total
 		XMFLOAT3 color;    float pad2;  // makes another 16 bytes
@@ -78,13 +100,7 @@ private:
 	ComPtr<ID3D12GraphicsCommandList4> m_commandList;
 	UINT m_rtvDescriptorSize;
 
-	// App resources.
-	ComPtr<ID3D12Resource> m_vertexBuffer;
-	D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
-
-	// 3D Model
-	ComPtr<ID3D12Resource> m_indexBuffer;
-	D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
+	
 
 
 	// Test
@@ -112,7 +128,7 @@ private:
 		ComPtr<ID3D12Resource> pResult;       // Where the AS is
 		ComPtr<ID3D12Resource> pInstanceDesc; // Hold the matrices of the instances
 	};
-	ComPtr<ID3D12Resource> m_bottomLevelAS; // Storage for the bottom Level AS
+	std::vector<ComPtr<ID3D12Resource> > m_bottomLevelAS; // Storage for the bottom Level AS
 
 	nv_helpers_dx12::TopLevelASGenerator m_topLevelASGenerator;
 	AccelerationStructureBuffers m_topLevelASBuffers;

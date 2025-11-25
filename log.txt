@@ -1,0 +1,454 @@
+[1mdiff --git a/D3D12HelloTriangle.cpp b/D3D12HelloTriangle.cpp[m
+[1mindex 355e367..899890e 100644[m
+[1m--- a/D3D12HelloTriangle.cpp[m
+[1m+++ b/D3D12HelloTriangle.cpp[m
+[36m@@ -262,115 +262,59 @@[m [mvoid D3D12HelloTriangle::LoadAssets()[m
+ [m
+ 	// Create the vertex buffer.[m
+ 	{[m
+[31m-		//// Define the geometry for a triangle.[m
+[31m-		//Vertex triangleVertices[] =[m
+[31m-		//{[m
+[31m-		//	{ { 0.0f, 0.25f * m_aspectRatio, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },[m
+[31m-		//	{ { 0.25f, -0.25f * m_aspectRatio, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },[m
+[31m-		//	{ { -0.25f, -0.25f * m_aspectRatio, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }[m
+[31m-		//};[m
+[31m-		////////// 3D Model[m
+[31m-		////////Vertex triangleVertices[] = {[m
+[31m-		////////  {{std::sqrtf(8.f / 9.f), 0.f, -1.f / 3.f}, {1.f, 0.f, 0.f, 1.f}},[m
+[31m-		////////  {{-std::sqrtf(2.f / 9.f), std::sqrtf(2.f / 3.f), -1.f / 3.f}, {0.f, 1.f, 0.f, 1.f}},[m
+[31m-		////////  {{-std::sqrtf(2.f / 9.f), -std::sqrtf(2.f / 3.f), -1.f / 3.f}, {0.f, 0.f, 1.f, 1.f}},[m
+[31m-		////////  {{0.f, 0.f, 1.f}, {1, 0, 1, 1}} };[m
+[31m-[m
+[31m-		////////const UINT vertexBufferSize = sizeof(triangleVertices);[m
+[31m-[m
+[31m-		////////// Note: using upload heaps to transfer static data like vert buffers is not [m
+[31m-		////////// recommended. Every time the GPU needs it, the upload heap will be marshalled [m
+[31m-		////////// over. Please read up on Default Heap usage. An upload heap is used here for [m
+[31m-		////////// code simplicity and because there are very few verts to actually transfer.[m
+[31m-		////////ThrowIfFailed(m_device->CreateCommittedResource([m
+[31m-		////////	&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),[m
+[31m-		////////	D3D12_HEAP_FLAG_NONE,[m
+[31m-		////////	&CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize),[m
+[31m-		////////	D3D12_RESOURCE_STATE_GENERIC_READ,[m
+[31m-		////////	nullptr,[m
+[31m-		////////	IID_PPV_ARGS(&m_vertexBuffer)));[m
+[31m-[m
+[31m-		////////// Copy the triangle data to the vertex buffer.[m
+[31m-		////////UINT8* pVertexDataBegin;[m
+[31m-		////////CD3DX12_RANGE readRange(0, 0);		// We do not intend to read from this resource on the CPU.[m
+[31m-		////////ThrowIfFailed(m_vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)));[m
+[31m-		////////memcpy(pVertexDataBegin, triangleVertices, sizeof(triangleVertices));[m
+[31m-		////////m_vertexBuffer->Unmap(0, nullptr);[m
+[31m-[m
+[31m-		////////// Initialize the vertex buffer view.[m
+[31m-		////////m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();[m
+[31m-		////////m_vertexBufferView.StrideInBytes = sizeof(Vertex);[m
+[31m-		////////m_vertexBufferView.SizeInBytes = vertexBufferSize;[m
+[31m-		//////////----------------------------------------------------------------------------------------------[m
+[31m-		////////// Indices[m
+[31m-		////////std::vector<UINT> indices = { 0, 1, 2, 0, 3, 1, 0, 2, 3, 1, 3, 2 };[m
+[31m-		////////const UINT indexBufferSize = static_cast<UINT>(indices.size()) * sizeof(UINT);[m
+[31m-[m
+[31m-		////////CD3DX12_HEAP_PROPERTIES heapProperty = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);[m
+[31m-		////////CD3DX12_RESOURCE_DESC bufferResource = CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize);[m
+[31m-		////////ThrowIfFailed(m_device->CreateCommittedResource([m
+[31m-		////////	&heapProperty, D3D12_HEAP_FLAG_NONE, &bufferResource, //[m
+[31m-		////////	D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&m_indexBuffer)));[m
+[31m-[m
+[31m-		////////// Copy the triangle data to the index buffer.[m
+[31m-		////////UINT8* pIndexDataBegin;[m
+[31m-		////////ThrowIfFailed(m_indexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pIndexDataBegin)));[m
+[31m-		////////memcpy(pIndexDataBegin, indices.data(), indexBufferSize);[m
+[31m-		////////m_indexBuffer->Unmap(0, nullptr);[m
+[31m-[m
+[31m-		////////// Initialize the index buffer view.[m
+[31m-		////////m_indexBufferView.BufferLocation = m_indexBuffer->GetGPUVirtualAddress();[m
+[31m-		////////m_indexBufferView.Format = DXGI_FORMAT_R32_UINT;[m
+[31m-		////////m_indexBufferView.SizeInBytes = indexBufferSize;[m
+[31m-[m
+[32m+[m		[32mstd::vector<std::string> modelPaths = {[m
+[32m+[m			[32m//"Models/Clamp.stl",[m
+[32m+[m			[32m"Models/Cube.obj",[m
+[32m+[m			[32m"Models/FinalBaseMesh.obj"[m
+[32m+[m		[32m};[m
+ 		//MODEL[m
+[31m-		std::vector<Vertex> vertices;[m
+[31m-		std::vector<uint32_t> indices;[m
+[31m-		LoadModel("Models/FinalBaseMesh.obj", vertices, indices);[m
+[31m-		//LoadModel("Models/Cube.obj", vertices, indices);[m
+[31m-[m
+[31m-		const UINT vertexBufferSize = static_cast<UINT>(vertices.size()) * sizeof(Vertex);[m
+[31m-[m
+[31m-		ThrowIfFailed(m_device->CreateCommittedResource([m
+[31m-			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),[m
+[31m-			D3D12_HEAP_FLAG_NONE,[m
+[31m-			&CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize),[m
+[31m-			D3D12_RESOURCE_STATE_GENERIC_READ,[m
+[31m-			nullptr,[m
+[31m-			IID_PPV_ARGS(&m_vertexBuffer)));[m
+[31m-[m
+[31m-		UINT8* pVertexDataBegin;[m
+[31m-		CD3DX12_RANGE readRange(0, 0);		// We do not intend to read from this resource on the CPU.[m
+[31m-		ThrowIfFailed(m_vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)));[m
+[31m-		memcpy(pVertexDataBegin, vertices.data(), vertexBufferSize);[m
+[31m-		m_vertexBuffer->Unmap(0, nullptr);[m
+[31m-[m
+[31m-		m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();[m
+[31m-		m_vertexBufferView.StrideInBytes = sizeof(Vertex);[m
+[31m-		m_vertexBufferView.SizeInBytes = vertexBufferSize;[m
+[31m-[m
+[31m-		const UINT indexBufferSize = static_cast<UINT>(indices.size()) * sizeof(UINT);[m
+[31m-[m
+[31m-		CD3DX12_HEAP_PROPERTIES heapProperty = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);[m
+[31m-		CD3DX12_RESOURCE_DESC bufferResource = CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize);[m
+[31m-		ThrowIfFailed(m_device->CreateCommittedResource([m
+[31m-			&heapProperty, D3D12_HEAP_FLAG_NONE, &bufferResource, //[m
+[31m-			D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&m_indexBuffer)));[m
+[31m-[m
+[31m-		// Copy the triangle data to the index buffer.[m
+[31m-		UINT8* pIndexDataBegin;[m
+[31m-		ThrowIfFailed(m_indexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pIndexDataBegin)));[m
+[31m-		memcpy(pIndexDataBegin, indices.data(), indexBufferSize);[m
+[31m-		m_indexBuffer->Unmap(0, nullptr);[m
+[31m-[m
+[31m-		// Initialize the index buffer view.[m
+[31m-		m_indexBufferView.BufferLocation = m_indexBuffer->GetGPUVirtualAddress();[m
+[31m-		m_indexBufferView.Format = DXGI_FORMAT_R32_UINT;[m
+[31m-		m_indexBufferView.SizeInBytes = indexBufferSize;[m
+[31m-[m
+[31m-		IndexCount = static_cast<UINT>(indices.size());[m
+[31m-		VertexCount = static_cast<UINT>(vertices.size());[m
+[31m-[m
+[32m+[m		[32mModels.resize(modelPaths.size());[m
+[32m+[m		[32mfor (int i = 0; i < modelPaths.size(); i++)[m
+[32m+[m		[32m{[m
+[32m+[m			[32mLoadModel(modelPaths[i], Models[i].vertices, Models[i].indices);[m
+[32m+[m
+[32m+[m			[32mconst UINT vertexBufferSize = static_cast<UINT>(Models[i].vertices.size()) * sizeof(Vertex);[m
+[32m+[m
+[32m+[m			[32mThrowIfFailed(m_device->CreateCommittedResource([m
+[32m+[m				[32m&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),[m
+[32m+[m				[32mD3D12_HEAP_FLAG_NONE,[m
+[32m+[m				[32m&CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize),[m
+[32m+[m				[32mD3D12_RESOURCE_STATE_GENERIC_READ,[m
+[32m+[m				[32mnullptr,[m
+[32m+[m				[32mIID_PPV_ARGS(&(Models[i].m_vertexBuffer))));[m
+[32m+[m
+[32m+[m			[32mUINT8* pVertexDataBegin;[m
+[32m+[m			[32mCD3DX12_RANGE readRange(0, 0);		// We do not intend to read from this resource on the CPU.[m
+[32m+[m			[32mThrowIfFailed(Models[i].m_vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)));[m
+[32m+[m			[32mmemcpy(pVertexDataBegin, Models[i].vertices.data(), vertexBufferSize);[m
+[32m+[m			[32mModels[i].m_vertexBuffer->Unmap(0, nullptr);[m
+[32m+[m
+[32m+[m			[32mModels[i].m_vertexBufferView.BufferLocation = Models[i].m_vertexBuffer->GetGPUVirtualAddress();[m
+[32m+[m			[32mModels[i].m_vertexBufferView.StrideInBytes = sizeof(Vertex);[m
+[32m+[m			[32mModels[i].m_vertexBufferView.SizeInBytes = vertexBufferSize;[m
+[32m+[m
+[32m+[m			[32mconst UINT indexBufferSize = static_cast<UINT>(Models[i].indices.size()) * sizeof(UINT);[m
+[32m+[m
+[32m+[m			[32mCD3DX12_HEAP_PROPERTIES heapProperty = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);[m
+[32m+[m			[32mCD3DX12_RESOURCE_DESC bufferResource = CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize);[m
+[32m+[m			[32mThrowIfFailed(m_device->CreateCommittedResource([m
+[32m+[m				[32m&heapProperty, D3D12_HEAP_FLAG_NONE, &bufferResource, //[m
+[32m+[m				[32mD3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&(Models[i].m_indexBuffer))));[m
+[32m+[m
+[32m+[m			[32m// Copy the triangle data to the index buffer.[m
+[32m+[m			[32mUINT8* pIndexDataBegin;[m
+[32m+[m			[32mThrowIfFailed(Models[i].m_indexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pIndexDataBegin)));[m
+[32m+[m			[32mmemcpy(pIndexDataBegin, Models[i].indices.data(), indexBufferSize);[m
+[32m+[m			[32mModels[i].m_indexBuffer->Unmap(0, nullptr);[m
+[32m+[m
+[32m+[m			[32m// Initialize the index buffer view.[m
+[32m+[m			[32mModels[i].m_indexBufferView.BufferLocation = Models[i].m_indexBuffer->GetGPUVirtualAddress();[m
+[32m+[m			[32mModels[i].m_indexBufferView.Format = DXGI_FORMAT_R32_UINT;[m
+[32m+[m			[32mModels[i].m_indexBufferView.SizeInBytes = indexBufferSize;[m
+[32m+[m
+[32m+[m			[32m//IndexCount = static_cast<UINT>(Models[i].indices.size());[m
+[32m+[m			[32m//VertexCount = static_cast<UINT>(Models[i].vertices.size());[m
+[32m+[m		[32m}[m
+ 	}[m
+ [m
+ 	// Create synchronization objects and wait until assets have been uploaded to the GPU.[m
+[36m@@ -449,27 +393,27 @@[m [mvoid D3D12HelloTriangle::PopulateCommandList()[m
+ [m
+ 	// Record commands.[m
+ 	// #DXR[m
+[31m-	if (m_raster)[m
+[31m-	{[m
+[31m-		// #DXR Extra: Perspective Camera[m
+[31m-		std::vector< ID3D12DescriptorHeap* > heaps = { m_constHeap.Get() };[m
+[31m-		m_commandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());[m
+[31m-		// set the root descriptor table 0 to the constant buffer descriptor heap[m
+[31m-		m_commandList->SetGraphicsRootDescriptorTable([m
+[31m-			0, m_constHeap->GetGPUDescriptorHandleForHeapStart());[m
+[31m-		const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };[m
+[31m-		m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);[m
+[31m-		m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);[m
+[31m-		//m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);[m
+[31m-		//m_commandList->DrawInstanced(3, 1, 0, 0);[m
+[31m-		//////////m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);[m
+[31m-		//////////m_commandList->IASetIndexBuffer(&m_indexBufferView);[m
+[31m-		//////////m_commandList->DrawIndexedInstanced(12, 1, 0, 0, 0);[m
+[31m-		m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);[m
+[31m-		m_commandList->IASetIndexBuffer(&m_indexBufferView);[m
+[31m-		m_commandList->DrawIndexedInstanced(IndexCount, 1, 0, 0, 0);[m
+[31m-	}[m
+[31m-	else[m
+[32m+[m	[32m//if (m_raster)[m
+[32m+[m	[32m//{[m
+[32m+[m	[32m//	// #DXR Extra: Perspective Camera[m
+[32m+[m	[32m//	std::vector< ID3D12DescriptorHeap* > heaps = { m_constHeap.Get() };[m
+[32m+[m	[32m//	m_commandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());[m
+[32m+[m	[32m//	// set the root descriptor table 0 to the constant buffer descriptor heap[m
+[32m+[m	[32m//	m_commandList->SetGraphicsRootDescriptorTable([m
+[32m+[m	[32m//		0, m_constHeap->GetGPUDescriptorHandleForHeapStart());[m
+[32m+[m	[32m//	const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };[m
+[32m+[m	[32m//	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);[m
+[32m+[m	[32m//	m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);[m
+[32m+[m	[32m//	//m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);[m
+[32m+[m	[32m//	//m_commandList->DrawInstanced(3, 1, 0, 0);[m
+[32m+[m	[32m//	//////////m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);[m
+[32m+[m	[32m//	//////////m_commandList->IASetIndexBuffer(&m_indexBufferView);[m
+[32m+[m	[32m//	//////////m_commandList->DrawIndexedInstanced(12, 1, 0, 0, 0);[m
+[32m+[m	[32m//	m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);[m
+[32m+[m	[32m//	m_commandList->IASetIndexBuffer(&m_indexBufferView);[m
+[32m+[m	[32m//	m_commandList->DrawIndexedInstanced(IndexCount, 1, 0, 0, 0);[m
+[32m+[m	[32m//}[m
+[32m+[m	[32m//else[m
+ 	{[m
+ 		//const float clearColor[] = { 0.6f, 0.8f, 0.4f, 1.0f };[m
+ 		//m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);[m
+[36m@@ -742,10 +686,29 @@[m [mvoid D3D12HelloTriangle::CreateAccelerationStructures() {[m
+ [m
+ 	////////////// Just one instance for now[m
+ 	////////////m_instances = { {bottomLevelBuffers.pResult.Get(), XMMatrixIdentity()} };[m
+[31m-	AccelerationStructureBuffers bottomLevelBuffers =[m
+[31m-		CreateBottomLevelAS({ {m_vertexBuffer.Get(), VertexCount} },[m
+[31m-			{ {m_indexBuffer.Get(), IndexCount} });[m
+[31m-	m_instances = { {bottomLevelBuffers.pResult.Get(), XMMatrixIdentity()} };[m
+[32m+[m	[32mstd::vector<AccelerationStructureBuffers> BLASes;[m
+[32m+[m	[32mBLASes.reserve(Models.size());[m
+[32m+[m	[32mfor (auto& model : Models)[m
+[32m+[m	[32m{[m
+[32m+[m		[32mBLASes.push_back([m
+[32m+[m			[32mCreateBottomLevelAS([m
+[32m+[m				[32m{ {model.m_vertexBuffer.Get(), (UINT)model.vertices.size()} },[m
+[32m+[m				[32m{ {model.m_indexBuffer.Get(),  (UINT)model.indices.size()} }[m
+[32m+[m			[32m)[m
+[32m+[m		[32m);[m
+[32m+[m	[32m}[m
+[32m+[m	[32mm_instances.clear();[m
+[32m+[m	[32mm_instances.reserve(BLASes.size());[m
+[32m+[m
+[32m+[m	[32mfor (int i = 0; i < BLASes.size(); i++)[m
+[32m+[m	[32m{[m
+[32m+[m		[32mXMMATRIX transform = XMMatrixIdentity();  // later: per-model transform[m
+[32m+[m
+[32m+[m		[32mm_instances.push_back({[m
+[32m+[m			[32mBLASes[i].pResult.Get(),[m
+[32m+[m			[32mtransform[m
+[32m+[m			[32m});[m
+[32m+[m	[32m}[m
+ [m
+ [m
+ 	CreateTopLevelAS(m_instances);[m
+[36m@@ -767,7 +730,9 @@[m [mvoid D3D12HelloTriangle::CreateAccelerationStructures() {[m
+ [m
+ 	// Store the AS buffers. The rest of the buffers will be released once we exit[m
+ 	// the function[m
+[31m-	m_bottomLevelAS = bottomLevelBuffers.pResult;[m
+[32m+[m	[32mm_bottomLevelAS.clear();[m
+[32m+[m	[32mfor (auto& blas : BLASes)[m
+[32m+[m		[32mm_bottomLevelAS.push_back(blas.pResult);[m
+ }[m
+ [m
+ ComPtr<ID3D12RootSignature> D3D12HelloTriangle::CreateRayGenSignature() {[m
+[36m@@ -1019,10 +984,18 @@[m [mvoid D3D12HelloTriangle::CreateShaderBindingTable() {[m
+ [m
+ 	// Adding the triangle hit shader[m
+ 	//m_sbtHelper.AddHitGroup(L"HitGroup", { (void*)(m_vertexBuffer->GetGPUVirtualAddress()) });[m
+[31m-	std::wstring hitGroupName = L"HitGroup_" + currentShading;[m
+[31m-	m_sbtHelper.AddHitGroup(hitGroupName.c_str(), { (void*)(m_vertexBuffer->GetGPUVirtualAddress()),[m
+[31m-									  (void*)(m_indexBuffer->GetGPUVirtualAddress()),[m
+[31m-									  (void*)(m_lightsBuffer->GetGPUVirtualAddress()) });[m
+[32m+[m	[32mfor (int i = 0; i < Models.size(); i++)[m
+[32m+[m	[32m{[m
+[32m+[m		[32mstd::wstring hitGroupName = L"HitGroup_" + currentShading;[m
+[32m+[m
+[32m+[m		[32mm_sbtHelper.AddHitGroup(hitGroupName.c_str(),[m
+[32m+[m			[32m{[m
+[32m+[m				[32m(void*)Models[i].m_vertexBuffer->GetGPUVirtualAddress(),[m
+[32m+[m				[32m(void*)Models[i].m_indexBuffer->GetGPUVirtualAddress(),[m
+[32m+[m				[32m(void*)m_lightsBuffer->GetGPUVirtualAddress()[m
+[32m+[m			[32m});[m
+[32m+[m	[32m}[m
+[32m+[m
+ 	// Compute the size of the SBT given the number of shaders and their[m
+ 	// parameters[m
+ 	uint32_t sbtSize = m_sbtHelper.ComputeSBTSize();[m
+[36m@@ -1126,60 +1099,6 @@[m [mvoid D3D12HelloTriangle::UpdateCameraBuffer() {[m
+ 	m_cameraBuffer->Unmap(0, nullptr);[m
+ }[m
+ [m
+[31m-//void D3D12HelloTriangle::LoadModel(const std::string& modelPath,[m
+[31m-//	std::vector<Vertex>& outVertices,[m
+[31m-//	std::vector<uint32_t>& outIndices)[m
+[31m-//{[m
+[31m-//	Assimp::Importer importer;[m
+[31m-//[m
+[31m-//	const aiScene* scene = importer.ReadFile(modelPath,[m
+[31m-//		aiProcess_Triangulate |[m
+[31m-//		aiProcess_ConvertToLeftHanded |[m
+[31m-//		aiProcess_GenNormals[m
+[31m-//	);[m
+[31m-//[m
+[31m-//	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode || scene->mNumMeshes == 0)[m
+[31m-//	{[m
+[31m-//		// Obs³uga b³êdu ³adowania modelu[m
+[31m-//		return;[m
+[31m-//	}[m
+[31m-//[m
+[31m-//	aiMesh* mesh = scene->mMeshes[0];[m
+[31m-//[m
+[31m-//	// Definiowanie sta³ego koloru dla ca³ego modelu[m
+[31m-//	const DirectX::XMFLOAT4 modelColor = { 1.0f, 0.5f, 0.0f, 1.0f };[m
+[31m-//[m
+[31m-//	// 1. Ekstrakcja danych wierzcho³ków[m
+[31m-//	outVertices.resize(mesh->mNumVertices);[m
+[31m-//[m
+[31m-//	for (UINT i = 0; i < mesh->mNumVertices; ++i)[m
+[31m-//	{[m
+[31m-//		Vertex& v = outVertices[i];[m
+[31m-//[m
+[31m-//		// Kopiowanie Pozycji[m
+[31m-//		v.position.x = mesh->mVertices[i].x;[m
+[31m-//		v.position.y = mesh->mVertices[i].y;[m
+[31m-//		v.position.z = mesh->mVertices[i].z;[m
+[31m-//[m
+[31m-//		// Przypisanie sta³ego koloru[m
+[31m-//		v.color = modelColor;[m
+[31m-//	}[m
+[31m-//[m
+[31m-//	// 2. Ekstrakcja danych indeksów[m
+[31m-//	for (UINT i = 0; i < mesh->mNumFaces; ++i)[m
+[31m-//	{[m
+[31m-//		aiFace face = mesh->mFaces[i];[m
+[31m-//		for (UINT j = 0; j < face.mNumIndices; ++j)[m
+[31m-//		{[m
+[31m-//			outIndices.push_back(face.mIndices[j]);[m
+[31m-//		}[m
+[31m-//	}[m
+[31m-//[m
+[31m-//	// Zapisz liczbê indeksów do u¿ycia w DrawIndexedInstanced[m
+[31m-//	//m_indexCount = (UINT)outIndices.size();[m
+[31m-//}[m
+[31m-[m
+[31m-[m
+ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,[m
+ 	std::vector<Vertex>& outVertices,[m
+ 	std::vector<uint32_t>& outIndices)[m
+[1mdiff --git a/D3D12HelloTriangle.h b/D3D12HelloTriangle.h[m
+[1mindex ffd819c..34e9fdc 100644[m
+[1m--- a/D3D12HelloTriangle.h[m
+[1m+++ b/D3D12HelloTriangle.h[m
+[36m@@ -49,6 +49,28 @@[m [mprivate:[m
+ 		XMFLOAT3 normal;[m
+ 	};[m
+ [m
+[32m+[m	[32mstruct ModelInstance[m
+[32m+[m	[32m{[m
+[32m+[m		[32mstd::vector<Vertex> vertices;[m
+[32m+[m		[32mstd::vector<uint32_t> indices;[m
+[32m+[m
+[32m+[m		[32m// App resources.[m
+[32m+[m		[32mComPtr<ID3D12Resource> m_vertexBuffer;[m
+[32m+[m		[32mD3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;[m
+[32m+[m
+[32m+[m		[32m// 3D Model[m
+[32m+[m		[32mComPtr<ID3D12Resource> m_indexBuffer;[m
+[32m+[m		[32mD3D12_INDEX_BUFFER_VIEW m_indexBufferView;[m
+[32m+[m
+[32m+[m		[32mDirectX::XMFLOAT3 position = { 0, 0, 0 };[m
+[32m+[m		[32mDirectX::XMFLOAT3 rotation = { 0, 0, 0 }; // pitch, yaw, roll[m
+[32m+[m		[32mDirectX::XMFLOAT3 scale = { 1, 1, 1 };[m
+[32m+[m
+[32m+[m		[32mDirectX::XMFLOAT4X4 worldMatrix; // computed per frame[m
+[32m+[m	[32m};[m
+[32m+[m
+[32m+[m	[32mstd::vector<ModelInstance> Models;[m
+[32m+[m
+ 	struct LightData {[m
+ 		XMFLOAT3 position; float pad1;  // makes 16 bytes total[m
+ 		XMFLOAT3 color;    float pad2;  // makes another 16 bytes[m
+[36m@@ -78,13 +100,7 @@[m [mprivate:[m
+ 	ComPtr<ID3D12GraphicsCommandList4> m_commandList;[m
+ 	UINT m_rtvDescriptorSize;[m
+ [m
+[31m-	// App resources.[m
+[31m-	ComPtr<ID3D12Resource> m_vertexBuffer;[m
+[31m-	D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;[m
+[31m-[m
+[31m-	// 3D Model[m
+[31m-	ComPtr<ID3D12Resource> m_indexBuffer;[m
+[31m-	D3D12_INDEX_BUFFER_VIEW m_indexBufferView;[m
+[32m+[m[41m	[m
+ [m
+ [m
+ 	// Test[m
+[36m@@ -112,7 +128,7 @@[m [mprivate:[m
+ 		ComPtr<ID3D12Resource> pResult;       // Where the AS is[m
+ 		ComPtr<ID3D12Resource> pInstanceDesc; // Hold the matrices of the instances[m
+ 	};[m
+[31m-	ComPtr<ID3D12Resource> m_bottomLevelAS; // Storage for the bottom Level AS[m
+[32m+[m	[32mstd::vector<ComPtr<ID3D12Resource> > m_bottomLevelAS; // Storage for the bottom Level AS[m
+ [m
+ 	nv_helpers_dx12::TopLevelASGenerator m_topLevelASGenerator;[m
+ 	AccelerationStructureBuffers m_topLevelASBuffers;[m
+[1mdiff --git a/DXRHelper.h b/DXRHelper.h[m
+[1mindex 91a1b33..2fff961 100644[m
+[1m--- a/DXRHelper.h[m
+[1m+++ b/DXRHelper.h[m
+[36m@@ -54,7 +54,7 @@[m [mstatic const D3D12_HEAP_PROPERTIES kUploadHeapProps = {[m
+ // Specifies the default heap. This heap type experiences the most bandwidth for[m
+ // the GPU, but cannot provide CPU access.[m
+ static const D3D12_HEAP_PROPERTIES kDefaultHeapProps = {[m
+[31m-    D3D12_HEAP_TYPE_DEFAULT, D3D12_CPU_PAGE_PROPERTY_UNKNOWN, D3D12_MEMORY_POOL_UNKNOWN, 0, 0};[m
+[32m+[m[32m    D3D12_HEAP_TYPE_UPLOAD, D3D12_CPU_PAGE_PROPERTY_UNKNOWN, D3D12_MEMORY_POOL_UNKNOWN, 0, 0};[m
+ [m
+ //--------------------------------------------------------------------------------------------------[m
+ // Compile a HLSL file into a DXIL library[m
+[1mdiff --git a/PhongShader.hlsl b/PhongShader.hlsl[m
+[1mindex f0b8e6f..37be57b 100644[m
+[1m--- a/PhongShader.hlsl[m
+[1m+++ b/PhongShader.hlsl[m
+[36m@@ -19,7 +19,7 @@[m [mStructuredBuffer<STriVertex> BTriVertex : register(t0);[m
+ StructuredBuffer<int> indices : register(t1);[m
+ [m
+ static const float3 lightPosS = float3(7.0f, 10.0f, -50.0f);[m
+[31m-static const float3 lightColorS = float3(1.0f, 1.0f, 1.0f); // white light[m
+[32m+[m[32mstatic const float3 lightColorS = float3(1.0f, 0.0f, 0.0f); // white light[m
+ [m
+ [shader("closesthit")] [m
+ void ClosestHit_Phong(inout HitInfo payload, Attributes attrib) [m
+[36m@@ -48,7 +48,7 @@[m [mvoid ClosestHit_Phong(inout HitInfo payload, Attributes attrib)[m
+ [m
+     float3 baseColor = BTriVertex[indices[vertId + 0]].color.xyz; // or use average of vertices[m
+     float3 ambient = 0.1f * baseColor; // 10% of material color[m
+[31m-    float3 finalColor = ambient + baseColor * diff + spec * lightColorS * 0.2;[m
+[32m+[m[32m    float3 finalColor = ambient + baseColor * lightColorS * diff + spec * lightColorS * 0.2;[m
+     finalColor = saturate(finalColor);[m
+ [m
+     payload.colorAndDistance = float4(finalColor, RayTCurrent());[m
+[1mdiff --git a/RayGen.hlsl b/RayGen.hlsl[m
+[1mindex 7a176de..6422c21 100644[m
+[1m--- a/RayGen.hlsl[m
+[1m+++ b/RayGen.hlsl[m
+[36m@@ -1,4 +1,7 @@[m
+ #include "Common.hlsl"[m
+[32m+[m[32m#define RAY_FLAG_NONE 0[m
+[32m+[m
+[32m+[m
+ [m
+ // Raytracing output texture, accessed as a UAV[m
+ RWTexture2D< float4 > gOutput : register(u0);[m
