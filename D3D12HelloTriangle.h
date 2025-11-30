@@ -70,6 +70,9 @@ private:
 
 		//DirectX::XMFLOAT4X4 worldMatrix; // computed per frame
 		DirectX::XMMATRIX worldMatrix;
+
+
+		//test
 	};
 
 	std::vector<ModelInstance> Models;
