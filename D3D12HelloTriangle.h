@@ -73,6 +73,14 @@ private:
 
 	std::vector<ModelInstance> Models;
 
+	struct ModelInstanceGPU
+	{
+		int id;
+		DirectX::XMFLOAT4X4 worldMatrix;
+	};
+
+	std::vector<ModelInstanceGPU> ModelsShaderData;
+	
 	struct LightData {
 		XMFLOAT3 position; float pad1;
 		XMFLOAT3 color;    float pad2;
