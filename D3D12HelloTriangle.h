@@ -68,7 +68,8 @@ private:
 		DirectX::XMFLOAT3 rotation = { 0, 0, 0 }; // pitch, yaw, roll
 		DirectX::XMFLOAT3 scale = { 1, 1, 1 };
 
-		DirectX::XMFLOAT4X4 worldMatrix; // computed per frame
+		//DirectX::XMFLOAT4X4 worldMatrix; // computed per frame
+		DirectX::XMMATRIX worldMatrix;
 	};
 
 	std::vector<ModelInstance> Models;
@@ -76,7 +77,8 @@ private:
 	struct ModelInstanceGPU
 	{
 		int id;
-		DirectX::XMFLOAT4X4 worldMatrix;
+		//DirectX::XMFLOAT4X4 worldMatrix;
+		DirectX::XMMATRIX worldMatrix;
 	};
 
 	std::vector<ModelInstanceGPU> ModelsShaderData;

@@ -18,8 +18,6 @@ cbuffer Lights : register(b1)
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
 
-static const float3 lightPosS = float3(7.0f, 10.0f, -50.0f);
-static const float3 lightColorS = float3(1.0f, 0.0f, 0.0f); // white light
 
 [shader("closesthit")] 
 void ClosestHit_Phong(inout HitInfo payload, Attributes attrib) 
@@ -39,7 +37,7 @@ void ClosestHit_Phong(inout HitInfo payload, Attributes attrib)
     float3 hitPos = p0 * barycentrics.x + p1 * barycentrics.y + p2 * barycentrics.z;
     float3 hitNormal = normalize(n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z);
     
-    float3 lightDir = normalize(lightPosS - hitPos);
+    float3 lightDir = normalize(lightPos - hitPos);
     float diff = max(dot(hitNormal, lightDir), 0.0f);
     
     float3 viewDir = normalize(-hitPos); // assuming camera at origin
@@ -48,7 +46,7 @@ void ClosestHit_Phong(inout HitInfo payload, Attributes attrib)
 
     float3 baseColor = BTriVertex[indices[vertId + 0]].color.xyz; // or use average of vertices
     float3 ambient = 0.1f * baseColor; // 10% of material color
-    float3 finalColor = ambient + baseColor * lightColorS * diff + spec * lightColorS * 0.2;
+    float3 finalColor = ambient + baseColor * lightColor * diff + spec * lightColor * 0.2;
     finalColor = saturate(finalColor);
 
     payload.colorAndDistance = float4(finalColor, RayTCurrent());

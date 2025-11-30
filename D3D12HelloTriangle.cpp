@@ -323,6 +323,8 @@ void D3D12HelloTriangle::LoadAssets()
 		};
 		//MODEL
 		Models.resize(modelPaths.size());
+
+		ModelsShaderData.resize(modelPaths.size());
 		//Models[0].position = { 3.0f,0.0f,0.0f };
 		//Models[0].rotation = { XMConvertToRadians(45.0f), 0.0f, 0.0f };
 		//Models[1].rotation = { XMConvertToRadians(-45.0f), 0.0f, 0.0f };
@@ -330,6 +332,9 @@ void D3D12HelloTriangle::LoadAssets()
 		{
 			LoadModel(modelPaths[i], Models[i].vertices, Models[i].indices);
 			Models[i].id = i;
+
+			ModelsShaderData[i].id = i;
+
 			const UINT vertexBufferSize = static_cast<UINT>(Models[i].vertices.size()) * sizeof(Vertex);
 
 			ThrowIfFailed(m_device->CreateCommittedResource(
@@ -548,6 +553,10 @@ void D3D12HelloTriangle::PopulateCommandList()
 				XMMatrixRotationRollPitchYaw(Models[i].rotation.x, Models[i].rotation.y, Models[i].rotation.z);
 			XMMATRIX translationMatrix = XMMatrixTranslation(Models[i].position.x, Models[i].position.y, Models[i].position.z);
 			XMMATRIX transform = scaleMatrix * rotationMatrix * translationMatrix;
+
+			Models[i].worldMatrix = transform;
+
+			ModelsShaderData[i].worldMatrix = transform; 
 
 			m_instances.push_back({
 				BLASes[i].pResult.Get(),
