@@ -74,6 +74,9 @@ void D3D12HelloTriangle::OnInit() {
 	m_lightData.color = XMFLOAT3(1.0f, 0.0f, 0.0f);
 	CreateLightsBuffer();
 
+
+	CreateModelDataBuffer();
+
 	// Create the buffer containing the raytracing result (always output in a
 	// UAV), and create the heap referencing the resources used by the raytracing,
 	// such as the acceleration structure
@@ -627,8 +630,28 @@ void D3D12HelloTriangle::PopulateCommandList()
 			D3D12_RESOURCE_STATE_COPY_DEST);
 		m_commandList->ResourceBarrier(1, &transition);
 
+
 		m_commandList->CopyResource(m_renderTargets[m_frameIndex].Get(),
 			m_outputResource.Get());
+
+
+		for (int i = 0; i < Models.size(); i++)
+		{
+			m_commandList->CopyResource(Models[i].m_instancesBuffer.Get(), Models[i].m_instancesUpload.Get());
+
+
+			CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+				Models[i].m_instancesBuffer.Get(),
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				D3D12_RESOURCE_STATE_GENERIC_READ
+			);
+			m_commandList->ResourceBarrier(1, &barrier);
+		}
+
+
+		///
+
+
 
 		transition = CD3DX12_RESOURCE_BARRIER::Transition(
 			m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_COPY_DEST,
@@ -1121,6 +1144,29 @@ void D3D12HelloTriangle::CreateShaderResourceHeap() {
 	// Write the acceleration structure view in the heap
 	m_device->CreateShaderResourceView(nullptr, &srvDesc, srvHandle);
 
+
+
+	///
+	for (int i = 0; i < Models.size(); i++)
+	{
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		srvDesc.Buffer.FirstElement = 0;
+		srvDesc.Buffer.NumElements = (UINT)ModelsShaderData.size();
+		srvDesc.Buffer.StructureByteStride = sizeof(ModelInstanceGPU);
+		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		///!
+		/*m_device->CreateShaderResourceView(
+			Models[i].m_instancesBuffer.Get(),
+			&srvDesc,
+			m_descriptorHeap->GetCPUDescriptorHandleForHeapStart() + instanceBufferOffset
+		);*/
+
+	}
+
+
+
 	// #DXR Extra: Perspective Camera
 	// Add the constant buffer for the camera after the TLAS
 	srvHandle.ptr +=
@@ -1242,6 +1288,61 @@ void D3D12HelloTriangle::CreateLightsBuffer() {
 	ThrowIfFailed(m_lightsBuffer->Map(0, nullptr, (void**)&pData));
 	memcpy(pData, &m_lightData, sizeof(LightData));
 	m_lightsBuffer->Unmap(0, nullptr);
+}
+
+
+
+
+
+void D3D12HelloTriangle::CreateModelDataBuffer()
+{
+
+	for (int i = 0; i < Models.size(); i++)
+	{
+
+		UINT bufferSize = sizeof(ModelInstanceGPU) * ModelsShaderData.size();
+
+		CD3DX12_HEAP_PROPERTIES heapDefault(D3D12_HEAP_TYPE_DEFAULT);
+		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize);
+
+
+
+		ThrowIfFailed(m_device->CreateCommittedResource(
+			&heapDefault,
+			D3D12_HEAP_FLAG_NONE,
+			&bufferDesc,
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			nullptr,
+			IID_PPV_ARGS(&(Models[i].m_instancesBuffer)))
+		);
+
+		// Upload heap
+		CD3DX12_HEAP_PROPERTIES heapUpload(D3D12_HEAP_TYPE_UPLOAD);
+
+		ThrowIfFailed(m_device->CreateCommittedResource(
+			&heapUpload,
+			D3D12_HEAP_FLAG_NONE,
+			&bufferDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&(Models[i].m_instancesUpload)))
+		);
+
+		UpdateModelDataBuffer(i);
+	}
+
+}
+
+void D3D12HelloTriangle::UpdateModelDataBuffer(int i) {
+
+	UINT bufferSize = sizeof(ModelInstanceGPU) * ModelsShaderData.size();
+	void* mapped = nullptr;
+	Models[i].m_instancesUpload->Map(0, nullptr, &mapped);
+	memcpy(mapped, ModelsShaderData.data(), bufferSize);
+	Models[i].m_instancesUpload->Unmap(0, nullptr);
+
+
+
 }
 
 

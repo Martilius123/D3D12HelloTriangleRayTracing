@@ -71,8 +71,9 @@ private:
 		//DirectX::XMFLOAT4X4 worldMatrix; // computed per frame
 		DirectX::XMMATRIX worldMatrix;
 
-
-		//test
+		ComPtr<ID3D12Resource> m_instancesBuffer;       // GPU buffer (ModelInstanceGPU)
+		ComPtr<ID3D12Resource> m_instancesUpload;       // Upload buffer
+		
 	};
 
 	std::vector<ModelInstance> Models;
@@ -96,6 +97,10 @@ private:
 	void UpdateCameraBuffer();
 	void CreateLightsBuffer();
 	void UpdateLightsBuffer();
+
+	void CreateModelDataBuffer();
+	void UpdateModelDataBuffer(int i);
+
 	ComPtr< ID3D12Resource > m_cameraBuffer;
 	LightData m_lightData;
 	ComPtr< ID3D12Resource > m_lightsBuffer;

@@ -415,6 +415,13 @@ void ImGui_ImplDX12_UpdateTexture(ImTextureData* tex)
         SafeRelease(backend_tex->pTextureResource);
         backend_tex->pTextureResource = pTexture;
 
+
+
+
+
+        ///
+
+
         // Store identifiers
         tex->SetTexID((ImTextureID)backend_tex->hFontSrvGpuDescHandle.ptr);
         tex->BackendUserData = backend_tex;
