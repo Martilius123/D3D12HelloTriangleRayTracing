@@ -48,6 +48,7 @@ private:
 		XMFLOAT3 position;
 		XMFLOAT4 color;
 		XMFLOAT3 normal;
+		int id;
 	};
 
 	struct ModelInstance
@@ -70,19 +71,20 @@ private:
 
 		//DirectX::XMFLOAT4X4 worldMatrix; // computed per frame
 		DirectX::XMMATRIX worldMatrix;
-
-		ComPtr<ID3D12Resource> m_instancesBuffer;       // GPU buffer (ModelInstanceGPU)
-		ComPtr<ID3D12Resource> m_instancesUpload;       // Upload buffer
 		
 	};
+
+	ComPtr<ID3D12Resource> m_instancesBuffer;       // GPU buffer (ModelInstanceGPU)
+	ComPtr<ID3D12Resource> m_instancesUpload;       // Upload buffer
 
 	std::vector<ModelInstance> Models;
 
 	struct ModelInstanceGPU
 	{
-		int id;
+		XMFLOAT3 testColor; float pad1;
+		int id; XMFLOAT3 pad2;
 		//DirectX::XMFLOAT4X4 worldMatrix;
-		DirectX::XMMATRIX worldMatrix;
+		//DirectX::XMMATRIX worldMatrix;
 	};
 
 	std::vector<ModelInstanceGPU> ModelsShaderData;
@@ -99,7 +101,7 @@ private:
 	void UpdateLightsBuffer();
 
 	void CreateModelDataBuffer();
-	void UpdateModelDataBuffer(int i);
+	void UpdateModelDataBuffer();
 
 	ComPtr< ID3D12Resource > m_cameraBuffer;
 	LightData m_lightData;

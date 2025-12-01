@@ -331,12 +331,18 @@ void D3D12HelloTriangle::LoadAssets()
 		//Models[0].position = { 3.0f,0.0f,0.0f };
 		//Models[0].rotation = { XMConvertToRadians(45.0f), 0.0f, 0.0f };
 		//Models[1].rotation = { XMConvertToRadians(-45.0f), 0.0f, 0.0f };
+		//ModelsShaderData[0].testColor = { 1.0f,1.0f,0.5f };
+		ModelsShaderData[0].testColor = { 0.0f,1.0f,0.5f };
+		ModelsShaderData[1].testColor = { 1.0f,1.0f,0.5f };
+		ModelsShaderData[2].testColor = { 0.7f,0.7f,0.0f };
+		ModelsShaderData[3].testColor = { 0.9f,0.0f,0.1f };
 		for (int i = 0; i < modelPaths.size(); i++)
 		{
+			
 			LoadModel(modelPaths[i], Models[i].vertices, Models[i].indices);
-			Models[i].id = i;
+			
 
-			ModelsShaderData[i].id = i;
+			ModelsShaderData[i].id = Models[i].id = i;
 
 			const UINT vertexBufferSize = static_cast<UINT>(Models[i].vertices.size()) * sizeof(Vertex);
 
@@ -559,7 +565,7 @@ void D3D12HelloTriangle::PopulateCommandList()
 
 			Models[i].worldMatrix = transform;
 
-			ModelsShaderData[i].worldMatrix = transform; 
+			//ModelsShaderData[i].worldMatrix = transform; 
 
 			m_instances.push_back({
 				BLASes[i].pResult.Get(),
@@ -635,13 +641,13 @@ void D3D12HelloTriangle::PopulateCommandList()
 			m_outputResource.Get());
 
 
-		for (int i = 0; i < Models.size(); i++)
+		//for (int i = 0; i < Models.size(); i++)
 		{
-			m_commandList->CopyResource(Models[i].m_instancesBuffer.Get(), Models[i].m_instancesUpload.Get());
+			m_commandList->CopyResource(m_instancesBuffer.Get(), m_instancesUpload.Get());
 
 
 			CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-				Models[i].m_instancesBuffer.Get(),
+				m_instancesBuffer.Get(),
 				D3D12_RESOURCE_STATE_COPY_DEST,
 				D3D12_RESOURCE_STATE_GENERIC_READ
 			);
@@ -957,7 +963,9 @@ ComPtr<ID3D12RootSignature> D3D12HelloTriangle::CreateHitSignature() {
 	//rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 0 /*t0*/); // vertices and colors
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 1 /*t1*/); // indices
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 2); // t2 - ModelInstanceGPU buffer
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 1 /*b1*/); // light(s)
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 2 /*b2*/);
 	return rsc.Generate(m_device.Get(), true);
 }
 
@@ -1149,8 +1157,8 @@ void D3D12HelloTriangle::CreateShaderResourceHeap() {
 
 	// #DXR Extra: Perspective Camera
 	// Add the constant buffer for the camera after the TLAS
-	srvHandle.ptr +=
-		m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	//srvHandle.ptr +=
+	//	m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	// Describe and create a constant buffer view for the camera
 	handle.ptr += incSize;
@@ -1164,7 +1172,7 @@ void D3D12HelloTriangle::CreateShaderResourceHeap() {
     handle.ptr += incSize; // now handle points to slot index 3
 
 ///
-	for (int i = 0; i < Models.size(); i++)
+	//for (int i = 0; i < Models.size(); i++)
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC instSrvDesc = {};
         instSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
@@ -1175,7 +1183,7 @@ void D3D12HelloTriangle::CreateShaderResourceHeap() {
         instSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
         m_device->CreateShaderResourceView(
-            Models[i].m_instancesBuffer.Get(),
+            m_instancesBuffer.Get(),
             &instSrvDesc,
             handle);
 
@@ -1226,6 +1234,7 @@ void D3D12HelloTriangle::CreateShaderBindingTable() {
 		//m_sbtHelper.AddHitGroup(hitGroupName.c_str(), { &hitDataVec.back() });
 		m_sbtHelper.AddHitGroup(hitGroupName.c_str(), { (void*)(Models[i].m_vertexBuffer->GetGPUVirtualAddress()),
 			(void*)(Models[i].m_indexBuffer->GetGPUVirtualAddress()),
+			(void*)(m_instancesBuffer->GetGPUVirtualAddress()),
 			(void*)(m_lightsBuffer->GetGPUVirtualAddress()) });
 	}
 	
@@ -1303,7 +1312,7 @@ void D3D12HelloTriangle::CreateLightsBuffer() {
 void D3D12HelloTriangle::CreateModelDataBuffer()
 {
 
-	for (int i = 0; i < Models.size(); i++)
+	//for (int i = 0; i < Models.size(); i++)
 	{
 
 		UINT bufferSize = sizeof(ModelInstanceGPU) * ModelsShaderData.size();
@@ -1319,7 +1328,7 @@ void D3D12HelloTriangle::CreateModelDataBuffer()
 			&bufferDesc,
 			D3D12_RESOURCE_STATE_COPY_DEST,
 			nullptr,
-			IID_PPV_ARGS(&(Models[i].m_instancesBuffer)))
+			IID_PPV_ARGS(&(m_instancesBuffer)))
 		);
 
 		// Upload heap
@@ -1331,21 +1340,21 @@ void D3D12HelloTriangle::CreateModelDataBuffer()
 			&bufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
-			IID_PPV_ARGS(&(Models[i].m_instancesUpload)))
+			IID_PPV_ARGS(&(m_instancesUpload)))
 		);
 
-		UpdateModelDataBuffer(i);
+		UpdateModelDataBuffer();
 	}
 
 }
 
-void D3D12HelloTriangle::UpdateModelDataBuffer(int i) {
+void D3D12HelloTriangle::UpdateModelDataBuffer() {
 
 	UINT bufferSize = sizeof(ModelInstanceGPU) * ModelsShaderData.size();
 	void* mapped = nullptr;
-	Models[i].m_instancesUpload->Map(0, nullptr, &mapped);
+	m_instancesUpload->Map(0, nullptr, &mapped);
 	memcpy(mapped, ModelsShaderData.data(), bufferSize);
-	Models[i].m_instancesUpload->Unmap(0, nullptr);
+	m_instancesUpload->Unmap(0, nullptr);
 
 
 
@@ -1424,6 +1433,8 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 	std::vector<Vertex>& outVertices,
 	std::vector<uint32_t>& outIndices)
 {
+	static int modelId = -1;
+	modelId++;
 	Assimp::Importer importer;
 
 	const aiScene* scene = importer.ReadFile(modelPath,
@@ -1458,6 +1469,7 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 			v.position.z = mesh->mVertices[i].z;
 
 			v.color = meshColor;
+			v.id = modelId; // Assign mesh index as ID
 
 			if (mesh->HasNormals())
 			{
