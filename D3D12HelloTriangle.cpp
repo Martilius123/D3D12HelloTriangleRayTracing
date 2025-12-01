@@ -1114,58 +1114,38 @@ void D3D12HelloTriangle::CreateShaderResourceHeap() {
 	// #DXR Extra: Perspective Camera
 	// Create a SRV/UAV/CBV descriptor heap. We need 3 entries - 1 SRV for the TLAS, 1 UAV for the
 	// raytracing output and 1 CBV for the camera matrices
+	UINT descriptorCount = 3 + Models.size();
 	m_srvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(
-		m_device.Get(), 3, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
+		m_device.Get(), descriptorCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
+	UINT incSize = m_device->GetDescriptorHandleIncrementSize(
+        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	// Get a handle to the heap memory on the CPU side, to be able to write the
 	// descriptors directly
-	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle =
-		m_srvUavHeap->GetCPUDescriptorHandleForHeapStart();
+	// Start of heap
+    D3D12_CPU_DESCRIPTOR_HANDLE handle =
+        m_srvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
 	// Create the UAV. Based on the root signature we created it is the first
 	// entry. The Create*View methods write the view information directly into
 	// srvHandle
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-	m_device->CreateUnorderedAccessView(m_outputResource.Get(), nullptr, &uavDesc,
-		srvHandle);
+    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+    m_device->CreateUnorderedAccessView(
+        m_outputResource.Get(), nullptr, &uavDesc, handle);
 
 	// Add the Top Level AS SRV right after the raytracing output buffer
-	srvHandle.ptr += m_device->GetDescriptorHandleIncrementSize(
-		D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	handle.ptr += incSize;
 
-	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
-	srvDesc.Format = DXGI_FORMAT_UNKNOWN;
-	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
-	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	srvDesc.RaytracingAccelerationStructure.Location =
-		m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
-	// Write the acceleration structure view in the heap
-	m_device->CreateShaderResourceView(nullptr, &srvDesc, srvHandle);
+    D3D12_SHADER_RESOURCE_VIEW_DESC tlasSrvDesc = {};
+    tlasSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+    tlasSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+    tlasSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    tlasSrvDesc.RaytracingAccelerationStructure.Location =
+        m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
 
-
-
-	///
-	for (int i = 0; i < Models.size(); i++)
-	{
-		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-		srvDesc.Buffer.FirstElement = 0;
-		srvDesc.Buffer.NumElements = (UINT)ModelsShaderData.size();
-		srvDesc.Buffer.StructureByteStride = sizeof(ModelInstanceGPU);
-		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
-		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		///!
-		/*m_device->CreateShaderResourceView(
-			Models[i].m_instancesBuffer.Get(),
-			&srvDesc,
-			m_descriptorHeap->GetCPUDescriptorHandleForHeapStart() + instanceBufferOffset
-		);*/
-
-	}
-
-
+    m_device->CreateShaderResourceView(nullptr, &tlasSrvDesc, handle);
 
 	// #DXR Extra: Perspective Camera
 	// Add the constant buffer for the camera after the TLAS
@@ -1173,10 +1153,36 @@ void D3D12HelloTriangle::CreateShaderResourceHeap() {
 		m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	// Describe and create a constant buffer view for the camera
-	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
-	cbvDesc.BufferLocation = m_cameraBuffer->GetGPUVirtualAddress();
-	cbvDesc.SizeInBytes = m_cameraBufferSize;
-	m_device->CreateConstantBufferView(&cbvDesc, srvHandle);
+	handle.ptr += incSize;
+
+    D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+    cbvDesc.BufferLocation = m_cameraBuffer->GetGPUVirtualAddress();
+    cbvDesc.SizeInBytes   = m_cameraBufferSize;
+    m_device->CreateConstantBufferView(&cbvDesc, handle);
+
+    // --- [3..] Instance buffer SRVs (one per model) ---
+    handle.ptr += incSize; // now handle points to slot index 3
+
+///
+	for (int i = 0; i < Models.size(); i++)
+	{
+		D3D12_SHADER_RESOURCE_VIEW_DESC instSrvDesc = {};
+        instSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+        instSrvDesc.Buffer.FirstElement = 0;
+        instSrvDesc.Buffer.NumElements = (UINT)ModelsShaderData.size(); // or per-model count
+        instSrvDesc.Buffer.StructureByteStride = sizeof(ModelInstanceGPU);
+        instSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+        instSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+        m_device->CreateShaderResourceView(
+            Models[i].m_instancesBuffer.Get(),
+            &instSrvDesc,
+            handle);
+
+        // Advance to the next descriptor slot
+        handle.ptr += incSize;
+
+	}
 }
 
 //-----------------------------------------------------------------------------
