@@ -35,6 +35,7 @@ void ClosestHit_Phong(inout HitInfo payload, Attributes attrib)
     
     float3 hitPos = p0 * barycentrics.x + p1 * barycentrics.y + p2 * barycentrics.z;
     float3 hitNormal = normalize(n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z);
+    hitNormal = TransformLocalToWorld(hitNormal);
     
     float3 lightDir = normalize(lightPos - hitPos);
     float diff = max(dot(hitNormal, lightDir), 0.0f);
@@ -47,6 +48,5 @@ void ClosestHit_Phong(inout HitInfo payload, Attributes attrib)
     float3 ambient = 0.1f * baseColor; // 10% of material color
     float3 finalColor = ambient + baseColor * lightColor * diff + spec * lightColor * 0.2;
     finalColor = saturate(finalColor);
-
     payload.colorAndDistance = float4(finalColor, RayTCurrent());
 }
