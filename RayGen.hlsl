@@ -20,19 +20,10 @@ cbuffer CameraParams : register(b0)
 
 [shader("raygeneration")] 
 void RayGen() {
-  //// Initialize the ray payload
-  //HitInfo payload;
-  //payload.colorAndDistance = float4(0.9, 0.6, 0.2, 1);
-
-  //// Get the location within the dispatched 2D grid of work items
-  //// (often maps to pixels, so this could represent a pixel coordinate).
-  //uint2 launchIndex = DispatchRaysIndex();
-
-  //gOutput[launchIndex] = float4(payload.colorAndDistance.rgb, 1.f);
-    
     // Initialize the ray payload
     HitInfo payload;
     payload.colorAndDistance = float4(0, 0, 0, 0);
+    payload.hopCount = 2; //maximum ammount of reflections that we allow
 
     // Get the location within the dispatched 2D grid of work items
     // (often maps to pixels, so this could represent a pixel coordinate).
