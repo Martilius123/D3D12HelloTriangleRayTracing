@@ -40,7 +40,9 @@ void ClosestHit_Phong(inout HitInfo payload, Attributes attrib)
     float3 lightDir = normalize(lightPos - hitPos);
     float diff = max(dot(hitNormal, lightDir), 0.0f);
     
-    float3 viewDir = normalize(-hitPos); // assuming camera at origin
+    float3 incoming = WorldRayDirection();
+    float3 viewDir = normalize(-incoming);
+    
     float3 reflectDir = reflect(-lightDir, hitNormal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32.0f); // shininess 32
 
