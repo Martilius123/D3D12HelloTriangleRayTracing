@@ -5,6 +5,7 @@ struct STriVertex
     float3 vertex;
     float4 color;
     float3 normal;
+    int id;
 };
 
 cbuffer Lights : register(b1)

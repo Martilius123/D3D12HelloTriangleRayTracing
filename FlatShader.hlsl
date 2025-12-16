@@ -34,5 +34,5 @@ void ClosestHit_Flat(inout HitInfo payload, Attributes attrib)
     
     //payload.colorAndDistance = float4(inst.testColor, RayTCurrent());
 
-    payload.colorAndDistance = float4(gInstanceBuffer.testColor, RayTCurrent());
+    payload.colorAndDistance = float4(hitColor, RayTCurrent());
 }

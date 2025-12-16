@@ -5,6 +5,7 @@ struct STriVertex
     float3 vertex;
     float4 color;
     float3 normal;
+    int id;
 };
 
 cbuffer Lights : register(b1)
@@ -34,8 +35,10 @@ void ClosestHit_Phong(inout HitInfo payload, Attributes attrib)
     float3 n1 = BTriVertex[indices[vertId + 1]].normal;
     float3 n2 = BTriVertex[indices[vertId + 2]].normal;
     
-    float3 hitPos = p0 * barycentrics.x + p1 * barycentrics.y + p2 * barycentrics.z;
-    float3 hitNormal = normalize(n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z);
+    float3 hitPosObj = p0 * barycentrics.x + p1 * barycentrics.y + p2 * barycentrics.z;
+    float3 hitPos = mul(ObjectToWorld3x4(), float4(hitPosObj, 1.0f)).xyz;
+    float3 hitNormalObj = normalize(n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z);
+    float3 hitNormal = normalize(mul(hitNormalObj,(float3x3)WorldToObject3x4()));
     
     float3 lightDir = normalize(lightPos - hitPos);
     float diff = max(dot(hitNormal, lightDir), 0.0f);

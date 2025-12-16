@@ -5,6 +5,7 @@ struct STriVertex
     float3 vertex;
     float4 color;
     float3 normal;
+    int id;
 };
 
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
@@ -17,10 +18,10 @@ void ClosestHit_Normal(inout HitInfo payload, Attributes attrib)
     float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
     
     uint vertId = 3 * PrimitiveIndex();
-    float3 hitColor = BTriVertex[indices[vertId + 0]].normal * barycentrics.x +
+    float3 hitNormalObj = BTriVertex[indices[vertId + 0]].normal * barycentrics.x +
                     BTriVertex[indices[vertId + 1]].normal * barycentrics.y +
                     BTriVertex[indices[vertId + 2]].normal * barycentrics.z;
-    
+    float3 hitColor = normalize(mul(hitNormalObj, (float3x3)WorldToObject3x4()));
 
     payload.colorAndDistance = float4(hitColor, RayTCurrent());
 }
