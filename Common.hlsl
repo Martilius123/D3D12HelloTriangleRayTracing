@@ -6,7 +6,8 @@
 struct HitInfo
 {
   float4 colorAndDistance;
-  //uint hopCount;
+  uint hopCount;
+  uint pad0;
 };
 
 // Attributes output by the raytracing when hitting a surface,

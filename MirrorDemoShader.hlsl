@@ -15,10 +15,18 @@ cbuffer Lights : register(b1)
     float3 lightColor;
     float pad2;
 };
+struct ModelInstanceGPU
+{
+    float3 testColor;
+    float pad1;
+    int id;
+    float3 pad2;
+};
 
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
-
+StructuredBuffer<ModelInstanceGPU> gInstanceBuffer : register(t2);
+RaytracingAccelerationStructure SceneBVH : register(t3);
 
 [shader("closesthit")] 
 void ClosestHit_MirrorDemo(inout HitInfo payload, Attributes attrib) 
@@ -27,6 +35,7 @@ void ClosestHit_MirrorDemo(inout HitInfo payload, Attributes attrib)
     float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
     
     uint vertId = 3 * PrimitiveIndex();
+    ModelInstanceGPU inst = gInstanceBuffer[BTriVertex[indices[vertId + 0]].id];
     float3 p0 = BTriVertex[indices[vertId + 0]].vertex;
     float3 p1 = BTriVertex[indices[vertId + 1]].vertex;
     float3 p2 = BTriVertex[indices[vertId + 2]].vertex;
@@ -35,8 +44,10 @@ void ClosestHit_MirrorDemo(inout HitInfo payload, Attributes attrib)
     float3 n1 = BTriVertex[indices[vertId + 1]].normal;
     float3 n2 = BTriVertex[indices[vertId + 2]].normal;
     
-    float3 hitPos = p0 * barycentrics.x + p1 * barycentrics.y + p2 * barycentrics.z;
-    float3 hitNormal = normalize(n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z);
+    float3 hitPosObj = p0 * barycentrics.x + p1 * barycentrics.y + p2 * barycentrics.z;
+    float3 hitPos = mul(ObjectToWorld3x4(), float4(hitPosObj, 1.0f)).xyz;
+    float3 hitNormalObj = normalize(n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z);
+    float3 hitNormal = normalize(mul(hitNormalObj, (float3x3)WorldToObject3x4()));
 
     float3 lightDir = normalize(lightPos - hitPos);
     float diff = max(dot(hitNormal, lightDir), 0.0f);
@@ -46,7 +57,7 @@ void ClosestHit_MirrorDemo(inout HitInfo payload, Attributes attrib)
     
     float3 reflectDir = reflect(-viewDir, hitNormal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32.0f); // shininess 32
-    if(payload.hopCount==0)
+    if (payload.hopCount == 0 || inst.id == 3)
     {
         float3 baseColor = BTriVertex[indices[vertId + 0]].color.xyz; // or use average of vertices
         float3 ambient = 0.1f * baseColor; // 10% of material color
@@ -58,14 +69,14 @@ void ClosestHit_MirrorDemo(inout HitInfo payload, Attributes attrib)
     {
         payload.hopCount--;
         float3 incoming = WorldRayDirection();
-        float3 reflected = reflect(incoming, hitNormal);
+        float3 reflected = reflect(-incoming, hitNormal);
         reflected = normalize(reflected);
         
         float3 newOrigin = hitPos + hitNormal * 0.001f;
         RayDesc ray;
         ray.Origin = newOrigin;
         ray.Direction = reflected;
-        ray.TMin = 0.001f;
+        ray.TMin = 0;
         ray.TMax = 100000;
 
         // Trace the ray
@@ -115,5 +126,6 @@ void ClosestHit_MirrorDemo(inout HitInfo payload, Attributes attrib)
           // Payload associated to the ray, which will be used to communicate between the hit/miss
           // shaders and the raygen
           payload);
+		payload.colorAndDistance -= 0.1f; // darken a bit on each reflection
     }
 }

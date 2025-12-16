@@ -321,8 +321,9 @@ void D3D12HelloTriangle::LoadAssets()
 		std::vector<std::string> modelPaths = {
 			"Models/Clamp.stl",
 			"Models/Cube.obj",
-			"Models/Cube.obj",
-			"Models/FinalBaseMesh.obj"
+			//"Models/Cube.obj",
+			"Models/FinalBaseMesh.obj",
+			"Models/13517_Beach_Ball_v2_L3.obj"
 		};
 		//MODEL
 		Models.resize(modelPaths.size());
@@ -336,6 +337,7 @@ void D3D12HelloTriangle::LoadAssets()
 		ModelsShaderData[1].testColor = { 1.0f,1.0f,0.5f };
 		ModelsShaderData[2].testColor = { 0.7f,0.7f,0.0f };
 		ModelsShaderData[3].testColor = { 0.9f,0.0f,0.1f };
+		Models[3].scale = { 20.0f,20.0f,20.0f };
 		for (int i = 0; i < modelPaths.size(); i++)
 		{
 			
@@ -426,17 +428,19 @@ void D3D12HelloTriangle::OnUpdate()
 	//}
 
 	// Example: Dropdown for shaders
-	const char* items[] = { "Flat", "Normal", "Phong" };
+	const char* items[] = { "Flat", "Normal", "Phong", "MirrorDemo"};
 	static int item_current = 0;
 	// Sync current selection with your std::wstring currentShading
 	if (currentShading == L"Flat") item_current = 0;
 	else if (currentShading == L"Normal") item_current = 1;
 	else if (currentShading == L"Phong") item_current = 2;
+	else if (currentShading == L"MirrorDemo") item_current = 3;
 
 	if (ImGui::Combo("Shading Mode", &item_current, items, IM_ARRAYSIZE(items))) {
 		if (item_current == 0) SetShadingMode(L"Flat");
 		if (item_current == 1) SetShadingMode(L"Normal");
 		if (item_current == 2) SetShadingMode(L"Phong");
+		if (item_current == 3) SetShadingMode(L"MirrorDemo");
 	}
 	if (currentShading == L"Phong")
 	{
@@ -966,6 +970,7 @@ ComPtr<ID3D12RootSignature> D3D12HelloTriangle::CreateHitSignature() {
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 2); // t2 - ModelInstanceGPU buffer
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 1 /*b1*/); // light(s)
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 2 /*b2*/);
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 3 /*t3*/);
 	return rsc.Generate(m_device.Get(), true);
 }
 
@@ -999,6 +1004,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	m_flatShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"FlatShader.hlsl");
 	m_normalShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"NormalShader.hlsl");
 	m_phongShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"PhongShader.hlsl");
+	m_mirrorDemoShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"MirrorDemoShader.hlsl");
 	// In a way similar to DLLs, each library is associated with a number of
 	// exported symbols. This
 	// has to be done explicitly in the lines below. Note that a single library
@@ -1009,6 +1015,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	pipeline.AddLibrary(m_flatShaderLibrary.Get(), { L"ClosestHit_Flat" });
 	pipeline.AddLibrary(m_normalShaderLibrary.Get(), { L"ClosestHit_Normal" });
 	pipeline.AddLibrary(m_phongShaderLibrary.Get(), { L"ClosestHit_Phong" });
+	pipeline.AddLibrary(m_mirrorDemoShaderLibrary.Get(), { L"ClosestHit_MirrorDemo" });
 	// To be used, each DX12 shader needs a root signature defining which
 	// parameters and buffers will be accessed.
 	m_rayGenSignature = CreateRayGenSignature();
@@ -1037,13 +1044,16 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 		std::wstring FlatHitGroup = L"HitGroup_Flat_" + std::to_wstring(i);
 		std::wstring NormalHitGroup = L"HitGroup_Normal_" + std::to_wstring(i);
 		std::wstring PhongHitGroup = L"HitGroup_Phong_" + std::to_wstring(i);
+		std::wstring MirrorDemoHitGroup = L"HitGroup_MirrorDemo_" + std::to_wstring(i);
 		pipeline.AddHitGroup(FlatHitGroup, L"ClosestHit_Flat");
 		pipeline.AddHitGroup(NormalHitGroup, L"ClosestHit_Normal");
 		pipeline.AddHitGroup(PhongHitGroup, L"ClosestHit_Phong");
+		pipeline.AddHitGroup(MirrorDemoHitGroup, L"ClosestHit_MirrorDemo");
 
 		hitGroups.push_back(FlatHitGroup.c_str());
 		hitGroups.push_back(NormalHitGroup.c_str());
 		hitGroups.push_back(PhongHitGroup.c_str());
+		hitGroups.push_back(MirrorDemoHitGroup.c_str());
 
 	}
 	// The following section associates the root signature to each shader. Note
@@ -1059,7 +1069,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	// exchanged between shaders, such as the HitInfo structure in the HLSL code.
 	// It is important to keep this value as low as possible as a too high value
 	// would result in unnecessary memory consumption and cache trashing.
-	pipeline.SetMaxPayloadSize(4 * sizeof(float)); // RGB + distance
+	pipeline.SetMaxPayloadSize(4 * sizeof(float)+2*sizeof(uint32_t)); // RGB + distance
 
 	// Upon hitting a surface, DXR can provide several attributes to the hit. In
 	// our sample we just use the barycentric coordinates defined by the weights
@@ -1072,7 +1082,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	// then requires a trace depth of 1. Note that this recursion depth should be
 	// kept to a minimum for best performance. Path tracing algorithms can be
 	// easily flattened into a simple loop in the ray generation.
-	pipeline.SetMaxRecursionDepth(1);
+	pipeline.SetMaxRecursionDepth(2);
 	// Compile the pipeline for execution on the GPU
 	m_rtStateObject = pipeline.Generate();
 
@@ -1227,6 +1237,13 @@ void D3D12HelloTriangle::CreateShaderBindingTable() {
 	// Adding the triangle hit shader
 	//m_sbtHelper.AddHitGroup(L"HitGroup", { (void*)(m_vertexBuffer->GetGPUVirtualAddress()) });
 
+	D3D12_SHADER_RESOURCE_VIEW_DESC tlasSrvDesc = {};
+	tlasSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+	tlasSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+	tlasSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	tlasSrvDesc.RaytracingAccelerationStructure.Location =
+		m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
+
 	for (int i = 0; i < Models.size(); i++)
 	{
 		std::wstring hitGroupName = L"HitGroup_" + currentShading + L"_" + std::to_wstring(i);
@@ -1235,7 +1252,8 @@ void D3D12HelloTriangle::CreateShaderBindingTable() {
 		m_sbtHelper.AddHitGroup(hitGroupName.c_str(), { (void*)(Models[i].m_vertexBuffer->GetGPUVirtualAddress()),
 			(void*)(Models[i].m_indexBuffer->GetGPUVirtualAddress()),
 			(void*)(m_instancesBuffer->GetGPUVirtualAddress()),
-			(void*)(m_lightsBuffer->GetGPUVirtualAddress()) });
+			(void*)(m_lightsBuffer->GetGPUVirtualAddress()),
+			(void*)(tlasSrvDesc)});
 	}
 	
 	// Compute the size of the SBT given the number of shaders and their

@@ -186,6 +186,7 @@ ComPtr<IDxcBlob> m_missLibrary;
 ComPtr<IDxcBlob> m_flatShaderLibrary;
 ComPtr<IDxcBlob> m_normalShaderLibrary;
 ComPtr<IDxcBlob> m_phongShaderLibrary;
+ComPtr<IDxcBlob> m_mirrorDemoShaderLibrary;
 
 // Root signatures for each shader stage
 ComPtr<ID3D12RootSignature> m_rayGenSignature;
