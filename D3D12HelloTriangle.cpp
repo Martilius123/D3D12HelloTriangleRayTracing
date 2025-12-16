@@ -407,6 +407,20 @@ void D3D12HelloTriangle::OnUpdate()
 	// Define your UI here
 	ImGui::Begin("Raytracing Settings");
 
+	ImGui::Separator();
+	ImGui::TextColored(ImVec4(0, 1, 0, 1), "Scene Manager");
+
+	// Static buffer to hold the path text (persists between frames)
+	static char pathBuffer[128] = "Models/Cube.obj";
+	ImGui::InputText("Model Path", pathBuffer, _countof(pathBuffer));
+
+	if (ImGui::Button("Add Model")) {
+		// This triggers the heavy function we wrote earlier
+		AddModel(pathBuffer);
+	}
+
+	ImGui::Separator();
+
 	//if (ImGui::Button("Switch Raster/Raytrace")) {
 	//	m_raster = !m_raster;
 	//}
@@ -445,15 +459,26 @@ void D3D12HelloTriangle::OnUpdate()
 	}
 	ImGui::Separator();
 
+	int indexToRemove = -1; 
+
 	for (int i = 0; i < Models.size(); i++) {
 		auto& inst = Models[i];
 
 		ImGui::PushID(i);
 
-		if (ImGui::CollapsingHeader(std::to_string(inst.id).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-			ImGui::DragFloat3("Position", &inst.position.x, 0.05f);
-			ImGui::DragFloat3("Rotation", &inst.rotation.x, 0.05);
-			ImGui::DragFloat3("Scale", &inst.scale.x, 0.05f,0,100);
+
+		if (ImGui::CollapsingHeader((std::to_string(i) + ": " + std::to_string(inst.id)).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
+
+			if (ImGui::DragFloat3("Position", &inst.position.x, 0.05f));
+			if (ImGui::DragFloat3("Rotation", &inst.rotation.x, 0.05f));
+			if (ImGui::DragFloat3("Scale", &inst.scale.x, 0.05f, 0, 100));
+
+			ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
+			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
+			if (ImGui::Button("Remove Object")) {
+				indexToRemove = i;
+			}
+			ImGui::PopStyleColor(2);
 		}
 
 		ImGui::PopID();
@@ -461,7 +486,8 @@ void D3D12HelloTriangle::OnUpdate()
 
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 	ImGui::End();
-	// --- IMGUI UPDATE END ---
+	if (indexToRemove != -1)
+		RemoveModel(indexToRemove);
 }
 
 // Render the scene.
@@ -540,21 +566,24 @@ void D3D12HelloTriangle::PopulateCommandList()
 	//}
 	//else
 	{
-		m_instances.clear();
-		for (int i = 0; i < BLASes.size(); i++)
-		{
-			XMMATRIX scaleMatrix = XMMatrixScaling(Models[i].scale.x, Models[i].scale.y, Models[i].scale.z);
-			XMMATRIX rotationMatrix =
-				XMMatrixRotationRollPitchYaw(Models[i].rotation.x, Models[i].rotation.y, Models[i].rotation.z);
-			XMMATRIX translationMatrix = XMMatrixTranslation(Models[i].position.x, Models[i].position.y, Models[i].position.z);
-			XMMATRIX transform = scaleMatrix * rotationMatrix * translationMatrix;
+		//m_instances.clear();
+		//for (int i = 0; i < BLASes.size(); i++)
+		//{
+		//	XMMATRIX scaleMatrix = XMMatrixScaling(Models[i].scale.x, Models[i].scale.y, Models[i].scale.z);
+		//	XMMATRIX rotationMatrix =
+		//		XMMatrixRotationRollPitchYaw(Models[i].rotation.x, Models[i].rotation.y, Models[i].rotation.z);
+		//	XMMATRIX translationMatrix = XMMatrixTranslation(Models[i].position.x, Models[i].position.y, Models[i].position.z);
+		//	XMMATRIX transform = scaleMatrix * rotationMatrix * translationMatrix;
 
-			m_instances.push_back({
-				BLASes[i].pResult.Get(),
-				transform
-				});
-		}
-		CreateTopLevelAS(m_instances, true);
+		//	m_instances.push_back({
+		//		BLASes[i].pResult.Get(),
+		//		transform
+		//		});
+		//}
+		//CreateTopLevelAS(m_instances, true);
+
+		BuildTLAS();
+		// Get the start of the heap
 
 		ID3D12DescriptorHeap* heaps[] = { m_srvUavHeap.Get() };
 
@@ -790,58 +819,96 @@ D3D12HelloTriangle::CreateBottomLevelAS(
 // the instances, computing the memory requirements for the AS, and building the
 // AS itself
 //
+//////void D3D12HelloTriangle::CreateTopLevelAS(
+//////	const std::vector<std::pair<ID3D12Resource*, DirectX::XMMATRIX> >
+//////	& instances, bool updateOnly) {
+//////	if (!updateOnly)
+//////	{
+//////		// Gather all the instances into the builder helper
+//////		for (size_t i = 0; i < instances.size(); i++) {
+//////			m_topLevelASGenerator.AddInstance(instances[i].first,
+//////				instances[i].second, static_cast<UINT>(0),
+//////				static_cast<UINT>(i));
+//////		}
+//////
+//////		// As for the bottom-level AS, the building the AS requires some scratch space
+//////		// to store temporary data in addition to the actual AS. In the case of the
+//////		// top-level AS, the instance descriptors also need to be stored in GPU
+//////		// memory. This call outputs the memory requirements for each (scratch,
+//////		// results, instance descriptors) so that the application can allocate the
+//////		// corresponding memory
+//////		UINT64 scratchSize, resultSize, instanceDescsSize;
+//////
+//////		m_topLevelASGenerator.ComputeASBufferSizes(m_device.Get(), true, &scratchSize,
+//////			&resultSize, &instanceDescsSize);
+//////
+//////		// Create the scratch and result buffers. Since the build is all done on GPU,
+//////		// those can be allocated on the default heap
+//////		m_topLevelASBuffers.pScratch = nv_helpers_dx12::CreateBuffer(
+//////			m_device.Get(), scratchSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+//////			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+//////			nv_helpers_dx12::kDefaultHeapProps);
+//////		m_topLevelASBuffers.pResult = nv_helpers_dx12::CreateBuffer(
+//////			m_device.Get(), resultSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
+//////			D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
+//////			nv_helpers_dx12::kDefaultHeapProps);
+//////
+//////		// The buffer describing the instances: ID, shader binding information,
+//////		// matrices ... Those will be copied into the buffer by the helper through
+//////		// mapping, so the buffer has to be allocated on the upload heap.
+//////		m_topLevelASBuffers.pInstanceDesc = nv_helpers_dx12::CreateBuffer(
+//////			m_device.Get(), instanceDescsSize, D3D12_RESOURCE_FLAG_NONE,
+//////			D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+//////	}
+//////	// After all the buffers are allocated, or if only an update is required, we
+//////	// can build the acceleration structure. Note that in the case of the update
+//////	// we also pass the existing AS as the 'previous' AS, so that it can be
+//////	// refitted in place.
+//////	m_topLevelASGenerator.Generate(m_commandList.Get(),
+//////		m_topLevelASBuffers.pScratch.Get(),
+//////		m_topLevelASBuffers.pResult.Get(),
+//////		m_topLevelASBuffers.pInstanceDesc.Get(),
+//////		updateOnly, m_topLevelASBuffers.pResult.Get());
+//////}
 void D3D12HelloTriangle::CreateTopLevelAS(
-	const std::vector<std::pair<ID3D12Resource*, DirectX::XMMATRIX> >
-	& instances, bool updateOnly) {
-	if (!updateOnly)
-	{
-		// Gather all the instances into the builder helper
-		for (size_t i = 0; i < instances.size(); i++) {
-			m_topLevelASGenerator.AddInstance(instances[i].first,
-				instances[i].second, static_cast<UINT>(0),
-				static_cast<UINT>(i));
-		}
+	const std::vector<std::pair<ID3D12Resource*, DirectX::XMMATRIX>>& instances,
+	bool updateOnly)
+{
+	nv_helpers_dx12::TopLevelASGenerator generator;
 
-		// As for the bottom-level AS, the building the AS requires some scratch space
-		// to store temporary data in addition to the actual AS. In the case of the
-		// top-level AS, the instance descriptors also need to be stored in GPU
-		// memory. This call outputs the memory requirements for each (scratch,
-		// results, instance descriptors) so that the application can allocate the
-		// corresponding memory
-		UINT64 scratchSize, resultSize, instanceDescsSize;
+	for (size_t i = 0; i < instances.size(); i++) {
+		generator.AddInstance(instances[i].first,
+			instances[i].second, static_cast<UINT>(0),
+			static_cast<UINT>(i));
+	}
 
-		m_topLevelASGenerator.ComputeASBufferSizes(m_device.Get(), true, &scratchSize,
-			&resultSize, &instanceDescsSize);
+	UINT64 scratchSize, resultSize, instanceDescsSize;
+	generator.ComputeASBufferSizes(m_device.Get(), true, &scratchSize, &resultSize, &instanceDescsSize);
 
-		// Create the scratch and result buffers. Since the build is all done on GPU,
-		// those can be allocated on the default heap
+	if (!m_topLevelASBuffers.pScratch || m_topLevelASBuffers.pScratch->GetDesc().Width < scratchSize) {
 		m_topLevelASBuffers.pScratch = nv_helpers_dx12::CreateBuffer(
 			m_device.Get(), scratchSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
 			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
 			nv_helpers_dx12::kDefaultHeapProps);
+	}
+	if (!m_topLevelASBuffers.pResult || m_topLevelASBuffers.pResult->GetDesc().Width < resultSize) {
 		m_topLevelASBuffers.pResult = nv_helpers_dx12::CreateBuffer(
 			m_device.Get(), resultSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
 			D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
 			nv_helpers_dx12::kDefaultHeapProps);
-
-		// The buffer describing the instances: ID, shader binding information,
-		// matrices ... Those will be copied into the buffer by the helper through
-		// mapping, so the buffer has to be allocated on the upload heap.
+	}
+	if (!m_topLevelASBuffers.pInstanceDesc || m_topLevelASBuffers.pInstanceDesc->GetDesc().Width < instanceDescsSize) {
 		m_topLevelASBuffers.pInstanceDesc = nv_helpers_dx12::CreateBuffer(
 			m_device.Get(), instanceDescsSize, D3D12_RESOURCE_FLAG_NONE,
 			D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
 	}
-	// After all the buffers are allocated, or if only an update is required, we
-	// can build the acceleration structure. Note that in the case of the update
-	// we also pass the existing AS as the 'previous' AS, so that it can be
-	// refitted in place.
-	m_topLevelASGenerator.Generate(m_commandList.Get(),
+	generator.Generate(m_commandList.Get(),
 		m_topLevelASBuffers.pScratch.Get(),
 		m_topLevelASBuffers.pResult.Get(),
 		m_topLevelASBuffers.pInstanceDesc.Get(),
-		updateOnly, m_topLevelASBuffers.pResult.Get());
+		updateOnly,
+		m_topLevelASBuffers.pResult.Get());
 }
-
 
 //-----------------------------------------------------------------------------
 //
@@ -1405,3 +1472,116 @@ void D3D12HelloTriangle::UpdateLightsBuffer()
 }
 
 
+void D3D12HelloTriangle::BuildTLAS() {
+	m_instances.clear();
+
+	for (size_t i = 0; i < BLASes.size(); i++)
+	{
+		XMMATRIX scaleMatrix = XMMatrixScaling(Models[i].scale.x, Models[i].scale.y, Models[i].scale.z);
+		XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(Models[i].rotation.x, Models[i].rotation.y, Models[i].rotation.z);
+		XMMATRIX translationMatrix = XMMatrixTranslation(Models[i].position.x, Models[i].position.y, Models[i].position.z);
+		XMMATRIX transform = scaleMatrix * rotationMatrix * translationMatrix;
+
+		m_instances.push_back({
+			BLASes[i].pResult.Get(),
+			transform
+			});
+	}
+
+	CreateTopLevelAS(m_instances, !BLASChanged);
+	if (BLASChanged == true) {
+		D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_srvUavHeap->GetCPUDescriptorHandleForHeapStart();
+
+		srvHandle.ptr += m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
+		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.RaytracingAccelerationStructure.Location = m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
+
+		m_device->CreateShaderResourceView(nullptr, &srvDesc, srvHandle);
+		BLASChanged = false;
+	}
+}
+
+void D3D12HelloTriangle::AddModel(const std::string& path) {
+	WaitForPreviousFrame();
+
+	ThrowIfFailed(m_commandAllocator->Reset());
+	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
+
+	ModelInstance newModel = {};
+	newModel.id = static_cast<int>(Models.size());
+	LoadModel(path, newModel.vertices, newModel.indices);
+	const UINT vertexBufferSize = static_cast<UINT>(newModel.vertices.size()) * sizeof(Vertex);
+	ThrowIfFailed(m_device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize), D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr, IID_PPV_ARGS(&(newModel.m_vertexBuffer))));
+
+	UINT8* pVertexDataBegin;
+	CD3DX12_RANGE readRange(0, 0);
+	ThrowIfFailed(newModel.m_vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)));
+	memcpy(pVertexDataBegin, newModel.vertices.data(), vertexBufferSize);
+	newModel.m_vertexBuffer->Unmap(0, nullptr);
+
+	const UINT indexBufferSize = static_cast<UINT>(newModel.indices.size()) * sizeof(uint32_t);
+	ThrowIfFailed(m_device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize), D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr, IID_PPV_ARGS(&(newModel.m_indexBuffer))));
+
+	UINT8* pIndexDataBegin;
+	ThrowIfFailed(newModel.m_indexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pIndexDataBegin)));
+	memcpy(pIndexDataBegin, newModel.indices.data(), indexBufferSize);
+	newModel.m_indexBuffer->Unmap(0, nullptr);
+
+	AccelerationStructureBuffers newBLAS = CreateBottomLevelAS(
+		{ {newModel.m_vertexBuffer.Get(), (uint32_t)newModel.vertices.size()} },
+		{ {newModel.m_indexBuffer.Get(),  (uint32_t)newModel.indices.size()} }
+	);
+
+	BLASes.push_back(newBLAS);
+	m_bottomLevelAS.clear();
+	for (auto& b : BLASes) m_bottomLevelAS.push_back(b.pResult);
+	Models.push_back(newModel);
+
+	CreateRaytracingPipeline();
+	CreateShaderBindingTable();
+
+	ThrowIfFailed(m_commandList->Close());
+	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
+	m_commandQueue->ExecuteCommandLists(1, ppCommandLists);
+
+	WaitForPreviousFrame();
+	BLASChanged = true;
+}
+
+void D3D12HelloTriangle::RemoveModel(int index) {
+
+	if (index < 0 || index >= Models.size()) return;
+
+	WaitForPreviousFrame();
+
+
+	Models.erase(Models.begin() + index);
+	for (int i = 0; i < Models.size(); i++)
+	{
+		Models[i].id = i;
+	}
+	BLASes.erase(BLASes.begin() + index);
+	BLASChanged = true;
+	m_bottomLevelAS.clear();
+	for (auto& b : BLASes) m_bottomLevelAS.push_back(b.pResult);
+
+	CreateRaytracingPipeline();
+	CreateShaderBindingTable();
+	ThrowIfFailed(m_commandAllocator->Reset());
+	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
+
+	ThrowIfFailed(m_commandList->Close());
+	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
+	m_commandQueue->ExecuteCommandLists(1, ppCommandLists);
+
+	WaitForPreviousFrame();
+}
