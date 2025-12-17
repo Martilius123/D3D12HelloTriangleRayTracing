@@ -216,6 +216,10 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 void OnButtonDown(UINT32 lParam);
 void OnMouseMove(UINT8 wParam, UINT32 lParam);
 //for changing shading mode
+void D3D12HelloTriangle::AddModel(const std::string& path);
+void D3D12HelloTriangle::RemoveModel(int index);
+void D3D12HelloTriangle::BuildTLAS();
+bool BLASChanged=false;
 public:
 	void D3D12HelloTriangle::SetShadingMode(const std::wstring& mode);
 

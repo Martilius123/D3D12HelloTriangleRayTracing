@@ -19,7 +19,6 @@ cbuffer Lights : register(b1)
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
 
-
 [shader("closesthit")] 
 void ClosestHit_Phong(inout HitInfo payload, Attributes attrib) 
 {
@@ -53,6 +52,5 @@ void ClosestHit_Phong(inout HitInfo payload, Attributes attrib)
     float3 ambient = 0.1f * baseColor; // 10% of material color
     float3 finalColor = ambient + baseColor * lightColor * diff + spec * lightColor * 0.2;
     finalColor = saturate(finalColor);
-
     payload.colorAndDistance = float4(finalColor, RayTCurrent());
 }

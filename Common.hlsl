@@ -16,3 +16,10 @@ struct Attributes
 {
   float2 bary;
 };
+
+float3 TransformLocalToWorld(float3 localVector)
+{
+    float3x4 objToWorld = ObjectToWorld3x4();
+    float3x3 worldRotateScale = (float3x3) objToWorld;
+    return normalize(mul(worldRotateScale, localVector));
+}
