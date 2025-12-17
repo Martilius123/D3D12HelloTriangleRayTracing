@@ -321,9 +321,9 @@ void D3D12HelloTriangle::LoadAssets()
 		std::vector<std::string> modelPaths = {
 			"Models/Clamp.stl",
 			"Models/Cube.obj",
-			//"Models/Cube.obj",
+			"Models/Cube.obj",
 			"Models/FinalBaseMesh.obj",
-			"Models/13517_Beach_Ball_v2_L3.obj"
+			//"Models/13517_Beach_Ball_v2_L3.obj"
 		};
 		//MODEL
 		Models.resize(modelPaths.size());
@@ -1145,7 +1145,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	// then requires a trace depth of 1. Note that this recursion depth should be
 	// kept to a minimum for best performance. Path tracing algorithms can be
 	// easily flattened into a simple loop in the ray generation.
-	pipeline.SetMaxRecursionDepth(2);
+	pipeline.SetMaxRecursionDepth(3);
 	// Compile the pipeline for execution on the GPU
 	m_rtStateObject = pipeline.Generate();
 
@@ -1274,70 +1274,201 @@ void D3D12HelloTriangle::CreateShaderResourceHeap() {
 // contains a series of shader IDs with their resource pointers. The SBT
 // contains the ray generation shader, the miss shaders, then the hit groups.
 // Using the helper class, those can be specified in arbitrary order.
+//void D3D12HelloTriangle::CreateShaderBindingTable() {
+//	// The SBT helper class collects calls to Add*Program.  If called several
+//	// times, the helper must be emptied before re-adding shaders.
+//	m_sbtHelper.Reset();
+//
+//	// The pointer to the beginning of the heap is the only parameter required by
+//	// shaders without root parameters
+//	D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle =
+//		m_srvUavHeap->GetGPUDescriptorHandleForHeapStart();
+//	// The helper treats both root parameter pointers and heap pointers as void*,
+//	// while DX12 uses the
+//	// D3D12_GPU_DESCRIPTOR_HANDLE to define heap pointers. The pointer in this
+//	// struct is a UINT64, which then has to be reinterpreted as a pointer.
+//	//auto heapPointer = reinterpret_cast<UINT64>(srvUavHeapHandle.ptr);
+//	//// The ray generation only uses heap data
+//	//m_sbtHelper.AddRayGenerationProgram(L"RayGen", { heapPointer });
+//	auto heapPointer = reinterpret_cast<void*>(srvUavHeapHandle.ptr);
+//	m_sbtHelper.AddRayGenerationProgram(L"RayGen", { heapPointer });
+//
+//	// The miss and hit shaders do not access any external resources: instead they
+//	// communicate their results through the ray payload
+//	m_sbtHelper.AddMissProgram(L"Miss", {});
+//
+//	// Adding the triangle hit shader
+//	//m_sbtHelper.AddHitGroup(L"HitGroup", { (void*)(m_vertexBuffer->GetGPUVirtualAddress()) });
+//
+//	D3D12_SHADER_RESOURCE_VIEW_DESC tlasSrvDesc = {};
+//	tlasSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+//	tlasSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+//	tlasSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+//	tlasSrvDesc.RaytracingAccelerationStructure.Location =
+//		m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
+//
+////	D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle1 = m_srvUavHeap->GetGPUDescriptorHandleForHeapStart();
+//	//void* heapPointer = reinterpret_cast<void*>(srvUavHeapHandle.ptr);
+//
+//
+//	for (int i = 0; i < Models.size(); i++)
+//	{
+//		std::wstring hitGroupName = L"HitGroup_" + currentShading + L"_" + std::to_wstring(i);
+//
+//		//m_sbtHelper.AddHitGroup(hitGroupName.c_str(), { &hitDataVec.back() });
+//		m_sbtHelper.AddHitGroup(hitGroupName.c_str(), { (void*)(Models[i].m_vertexBuffer->GetGPUVirtualAddress()),
+//			(void*)(Models[i].m_indexBuffer->GetGPUVirtualAddress()),
+//			(void*)(m_instancesBuffer->GetGPUVirtualAddress()),
+//			(void*)(m_lightsBuffer->GetGPUVirtualAddress()),
+//			(void*)(m_topLevelASBuffers.pResult->GetGPUVirtualAddress())});
+//	}
+//	
+//	// Compute the size of the SBT given the number of shaders and their
+//	// parameters
+//	uint32_t sbtSize = m_sbtHelper.ComputeSBTSize();
+//
+//	// Create the SBT on the upload heap. This is required as the helper will use
+//	// mapping to write the SBT contents. After the SBT compilation it could be
+//	// copied to the default heap for performance.
+//	m_sbtStorage = nv_helpers_dx12::CreateBuffer(
+//		m_device.Get(), sbtSize, D3D12_RESOURCE_FLAG_NONE,
+//		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+//	if (!m_sbtStorage) {
+//		throw std::logic_error("Could not allocate the shader binding table");
+//	}
+//	// Compile the SBT from the shader and parameters info
+//	m_sbtHelper.Generate(m_sbtStorage.Get(), m_rtStateObjectProps.Get());
+//}
+
+//void D3D12HelloTriangle::CreateShaderBindingTable() {
+//	// Reset helper
+//	m_sbtHelper.Reset();
+//
+//	// Get GPU descriptor heap pointer for raygen if raygen uses descriptor table.
+//	D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle = m_srvUavHeap->GetGPUDescriptorHandleForHeapStart();
+//	void* heapPointer = reinterpret_cast<void*>(srvUavHeapHandle.ptr);
+//
+//	// RayGen uses descriptor-table pointer (as before)
+//	m_sbtHelper.AddRayGenerationProgram(L"RayGen", { heapPointer });
+//
+//	// Miss program
+//	m_sbtHelper.AddMissProgram(L"Miss", {});
+//
+//	// Helper to convert GPU virtual addresses to void* for SBT parameters.
+//	auto GPUVaToVoidPtr = [](D3D12_GPU_VIRTUAL_ADDRESS va) -> void* {
+//		return reinterpret_cast<void*>(static_cast<uintptr_t>(va));
+//		};
+//
+//	// Ensure TLAS is available
+//	if (!m_topLevelASBuffers.pResult) {
+//		throw std::logic_error("TLAS not built before creating SBT");
+//	}
+//
+//	// Add one hit group per model; match names with pipeline (HitGroup_<Shading>_<index>)
+//	for (int i = 0; i < static_cast<int>(Models.size()); ++i) {
+//		std::wstring hitGroupName = L"HitGroup_" + currentShading + L"_" + std::to_wstring(i);
+//
+//		// For a hit signature that declares SRV root parameters (t0,t1,t2,t3),
+//		// pass GPU virtual addresses (vertex/index/instances/lights/TLAS).
+//		void* v0_va = GPUVaToVoidPtr(Models[i].m_vertexBuffer->GetGPUVirtualAddress());
+//		void* idx_va = GPUVaToVoidPtr(Models[i].m_indexBuffer->GetGPUVirtualAddress());
+//		void* instances_va = GPUVaToVoidPtr(m_instancesBuffer->GetGPUVirtualAddress());
+//		void* lights_va = GPUVaToVoidPtr(m_lightsBuffer->GetGPUVirtualAddress());
+//		void* tlas_va = GPUVaToVoidPtr(m_topLevelASBuffers.pResult->GetGPUVirtualAddress());
+//
+//		m_sbtHelper.AddHitGroup(hitGroupName.c_str(), {
+//			v0_va,
+//			idx_va,
+//			instances_va,
+//			lights_va,
+//			tlas_va
+//			});
+//	}
+//
+//	// Create SBT storage
+//	uint32_t sbtSize = m_sbtHelper.ComputeSBTSize();
+//	m_sbtStorage = nv_helpers_dx12::CreateBuffer(
+//		m_device.Get(), sbtSize, D3D12_RESOURCE_FLAG_NONE,
+//		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+//	if (!m_sbtStorage) {
+//		throw std::logic_error("Could not allocate the shader binding table");
+//	}
+//	m_sbtHelper.Generate(m_sbtStorage.Get(), m_rtStateObjectProps.Get());
+//}
+
 void D3D12HelloTriangle::CreateShaderBindingTable() {
-	// The SBT helper class collects calls to Add*Program.  If called several
-	// times, the helper must be emptied before re-adding shaders.
+	// 1. Reset the helper
 	m_sbtHelper.Reset();
 
-	// The pointer to the beginning of the heap is the only parameter required by
-	// shaders without root parameters
-	D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle =
-		m_srvUavHeap->GetGPUDescriptorHandleForHeapStart();
-	// The helper treats both root parameter pointers and heap pointers as void*,
-	// while DX12 uses the
-	// D3D12_GPU_DESCRIPTOR_HANDLE to define heap pointers. The pointer in this
-	// struct is a UINT64, which then has to be reinterpreted as a pointer.
-	//auto heapPointer = reinterpret_cast<UINT64>(srvUavHeapHandle.ptr);
-	//// The ray generation only uses heap data
-	//m_sbtHelper.AddRayGenerationProgram(L"RayGen", { heapPointer });
+	// 2. Add Ray Generation Program
+	// This shader only needs the heap pointer (global resources)
+	D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle = m_srvUavHeap->GetGPUDescriptorHandleForHeapStart();
 	auto heapPointer = reinterpret_cast<void*>(srvUavHeapHandle.ptr);
 	m_sbtHelper.AddRayGenerationProgram(L"RayGen", { heapPointer });
 
-	// The miss and hit shaders do not access any external resources: instead they
-	// communicate their results through the ray payload
+	// 3. Add Miss Program
 	m_sbtHelper.AddMissProgram(L"Miss", {});
 
-	// Adding the triangle hit shader
-	//m_sbtHelper.AddHitGroup(L"HitGroup", { (void*)(m_vertexBuffer->GetGPUVirtualAddress()) });
+	// 4. Prepare TLAS GPU Address
+	// CRITICAL FIX: We need the GPU Virtual Address of the result buffer, NOT the descriptor struct.
+	void* tlasAddress = (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
 
-	D3D12_SHADER_RESOURCE_VIEW_DESC tlasSrvDesc = {};
-	tlasSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
-	tlasSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
-	tlasSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-	tlasSrvDesc.RaytracingAccelerationStructure.Location =
-		m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
-
+	// 5. Add Hit Groups for every model
 	for (int i = 0; i < Models.size(); i++)
 	{
+		// Construct the hit group name based on current shading mode
 		std::wstring hitGroupName = L"HitGroup_" + currentShading + L"_" + std::to_wstring(i);
 
-		//m_sbtHelper.AddHitGroup(hitGroupName.c_str(), { &hitDataVec.back() });
-		m_sbtHelper.AddHitGroup(hitGroupName.c_str(), { (void*)(Models[i].m_vertexBuffer->GetGPUVirtualAddress()),
-			(void*)(Models[i].m_indexBuffer->GetGPUVirtualAddress()),
-			(void*)(m_instancesBuffer->GetGPUVirtualAddress()),
-			(void*)(m_lightsBuffer->GetGPUVirtualAddress()),
-			(void*)(tlasSrvDesc)});
+		// Define the pointers for the Hit Shader arguments.
+		// These MUST match the order defined in CreateHitSignature EXACTLY.
+
+		// Slot 0: t0 (Vertices)
+		void* vertexBufferAddr = (void*)(Models[i].m_vertexBuffer->GetGPUVirtualAddress());
+
+		// Slot 1: t1 (Indices)
+		void* indexBufferAddr = (void*)(Models[i].m_indexBuffer->GetGPUVirtualAddress());
+
+		// Slot 2: t2 (Instance Data / ModelInstanceGPU)
+		void* instanceBufferAddr = (void*)(m_instancesBuffer->GetGPUVirtualAddress());
+
+		// Slot 3: b1 (Lights)
+		void* lightsBufferAddr = (void*)(m_lightsBuffer->GetGPUVirtualAddress());
+
+		// Slot 4: b2 (Extra Buffer) 
+		// You said this is needed for another shader. We MUST fill this slot.
+		// If the Mirror shader doesn't use it, we can pass the lights buffer again or nullptr.
+		// If it DOES use it, replace 'lightsBufferAddr' below with the correct buffer.
+		void* b2BufferPlaceholder = lightsBufferAddr;
+
+		// Slot 5: t3 (TLAS)
+		// This is the one that was failing before because the slots were misaligned.
+		void* tlasBufferAddr = tlasAddress;
+
+		// Add to SBT
+		m_sbtHelper.AddHitGroup(hitGroupName.c_str(), {
+			vertexBufferAddr,       // t0
+			indexBufferAddr,        // t1
+			instanceBufferAddr,     // t2
+			lightsBufferAddr,       // b1
+			b2BufferPlaceholder,    // b2 (The slot you requested)
+			tlasBufferAddr          // t3 (Now correctly aligned!)
+			});
 	}
-	
-	// Compute the size of the SBT given the number of shaders and their
-	// parameters
+
+	// 6. Compute Size and Allocate
 	uint32_t sbtSize = m_sbtHelper.ComputeSBTSize();
 
-	// Create the SBT on the upload heap. This is required as the helper will use
-	// mapping to write the SBT contents. After the SBT compilation it could be
-	// copied to the default heap for performance.
 	m_sbtStorage = nv_helpers_dx12::CreateBuffer(
 		m_device.Get(), sbtSize, D3D12_RESOURCE_FLAG_NONE,
 		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+
 	if (!m_sbtStorage) {
 		throw std::logic_error("Could not allocate the shader binding table");
 	}
-	// Compile the SBT from the shader and parameters info
+
+	// 7. Generate SBT on GPU
 	m_sbtHelper.Generate(m_sbtStorage.Get(), m_rtStateObjectProps.Get());
 }
-
-
-
 
 //----------------------------------------------------------------------------------
 //

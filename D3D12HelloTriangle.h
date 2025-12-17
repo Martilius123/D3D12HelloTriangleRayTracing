@@ -73,7 +73,7 @@ private:
 		DirectX::XMMATRIX worldMatrix;
 		
 	};
-
+public:
 	ComPtr<ID3D12Resource> m_instancesBuffer;       // GPU buffer (ModelInstanceGPU)
 	ComPtr<ID3D12Resource> m_instancesUpload;       // Upload buffer
 
