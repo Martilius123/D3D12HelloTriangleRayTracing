@@ -1032,7 +1032,7 @@ ComPtr<ID3D12RootSignature> D3D12HelloTriangle::CreateHitSignature() {
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 1 /*t1*/); // indices
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 2); // t2 - ModelInstanceGPU buffer
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 1 /*b1*/); // light(s)
-	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 2 /*b2*/);
+	//rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 2 /*b2*/);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 3 /*t3*/);
 	return rsc.Generate(m_device.Get(), true);
 }
@@ -1438,7 +1438,7 @@ void D3D12HelloTriangle::CreateShaderBindingTable() {
 		// You said this is needed for another shader. We MUST fill this slot.
 		// If the Mirror shader doesn't use it, we can pass the lights buffer again or nullptr.
 		// If it DOES use it, replace 'lightsBufferAddr' below with the correct buffer.
-		void* b2BufferPlaceholder = lightsBufferAddr;
+		//void* b2BufferPlaceholder = lightsBufferAddr;
 
 		// Slot 5: t3 (TLAS)
 		// This is the one that was failing before because the slots were misaligned.
@@ -1450,7 +1450,7 @@ void D3D12HelloTriangle::CreateShaderBindingTable() {
 			indexBufferAddr,        // t1
 			instanceBufferAddr,     // t2
 			lightsBufferAddr,       // b1
-			b2BufferPlaceholder,    // b2 (The slot you requested)
+		//	b2BufferPlaceholder,    // b2 (The slot you requested)
 			tlasBufferAddr          // t3 (Now correctly aligned!)
 			});
 	}

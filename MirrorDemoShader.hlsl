@@ -55,6 +55,8 @@ void ClosestHit_MirrorDemo(inout HitInfo payload, Attributes attrib)
     float3 incoming = WorldRayDirection();
     float3 viewDir = normalize(-incoming);
     
+
+
     float3 reflectDir = reflect(-viewDir, hitNormal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32.0f); // shininess 32
     if (payload.hopCount == 0 || inst.id != 1)
