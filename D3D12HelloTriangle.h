@@ -48,6 +48,8 @@ private:
 		XMFLOAT3 position;
 		XMFLOAT4 color;
 		XMFLOAT3 normal;
+		float roughness;
+		XMFLOAT3 emmision;
 		int id;
 	};
 
@@ -74,6 +76,7 @@ private:
 		
 	};
 public:
+	//buffers:
 	ComPtr<ID3D12Resource> m_instancesBuffer;       // GPU buffer (ModelInstanceGPU)
 	ComPtr<ID3D12Resource> m_instancesUpload;       // Upload buffer
 
@@ -93,6 +96,16 @@ public:
 		XMFLOAT3 position; float pad1;
 		XMFLOAT3 color;    float pad2;
 	};
+	//HDR Image
+	struct HDRImage
+	{
+		int width = 0;
+		int height = 0;
+		int channels = 0; // should be 3
+		std::vector<float> pixels; // RGBRGBRGB...
+	};
+	HDRImage LoadHDR(const std::string& path);
+	ComPtr<ID3D12Resource> m_envTexture;
 
 	// #DXR Extra: Perspective Camera
 	void CreateCameraBuffer();
@@ -102,13 +115,16 @@ public:
 
 	void CreateModelDataBuffer();
 	void UpdateModelDataBuffer();
+	void CreateEnvironmentTexture(const HDRImage& img);
 
 	ComPtr< ID3D12Resource > m_cameraBuffer;
 	LightData m_lightData;
 	ComPtr< ID3D12Resource > m_lightsBuffer;
 	ComPtr< ID3D12DescriptorHeap > m_constHeap;
+	ComPtr< ID3D12DescriptorHeap > m_samplerHeap;
 	uint32_t m_cameraBufferSize = 0;
 	uint32_t m_lightsBufferSize = 0;
+	UINT m_envSrvIndex = UINT_MAX;
 
 	// Pipeline objects.
 	CD3DX12_VIEWPORT m_viewport;

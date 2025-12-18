@@ -1,26 +1,11 @@
 #include "Common.hlsl"
 
-struct STriVertex
-{
-    float3 vertex;
-    float4 color;
-    float3 normal;
-    int id;
-};
-
 cbuffer Lights : register(b1)
 {
     float3 lightPos;
     float pad1;
     float3 lightColor;
     float pad2;
-};
-struct ModelInstanceGPU
-{
-    float3 testColor;
-    float pad1;
-    int id;
-    float3 pad2;
 };
 
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
@@ -128,7 +113,7 @@ void ClosestHit_MirrorDemo(inout HitInfo payload, Attributes attrib)
           // Payload associated to the ray, which will be used to communicate between the hit/miss
           // shaders and the raygen
           payload);
-		payload.colorAndDistance -= 0.0f; // darken a bit on each reflection
+		payload.colorAndDistance = 0.9f * payload.colorAndDistance; // darken a bit on each reflection
     }
 }
 

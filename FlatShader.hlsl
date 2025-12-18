@@ -1,20 +1,5 @@
 #include "Common.hlsl"
 
-struct STriVertex
-{
-    float3 vertex;
-    float4 color;
-    float3 normal;
-    int id;
-};
-struct ModelInstanceGPU 
-{
-    float3 testColor;
-    float pad1;
-    int id;
-    float3 pad2;
-};
-
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
 StructuredBuffer<ModelInstanceGPU> gInstanceBuffer : register(t2);

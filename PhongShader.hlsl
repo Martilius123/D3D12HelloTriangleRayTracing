@@ -1,13 +1,5 @@
 #include "Common.hlsl"
 
-struct STriVertex
-{
-    float3 vertex;
-    float4 color;
-    float3 normal;
-    int id;
-};
-
 cbuffer Lights : register(b1)
 {
     float3 lightPos;

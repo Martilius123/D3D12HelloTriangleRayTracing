@@ -1,13 +1,5 @@
 #include "Common.hlsl"
 
-struct STriVertex
-{
-    float3 vertex;
-    float4 color;
-    float3 normal;
-    int id;
-};
-
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
 

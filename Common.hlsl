@@ -23,3 +23,21 @@ float3 TransformLocalToWorld(float3 localVector)
     float3x3 worldRotateScale = (float3x3) objToWorld;
     return normalize(mul(worldRotateScale, localVector));
 }
+
+struct STriVertex
+{
+    float3 vertex;
+    float4 color;
+    float3 normal;
+    float roughness;
+    float3 emmision;
+    int id;
+};
+
+struct ModelInstanceGPU
+{
+    float3 testColor;
+    float pad1;
+    int id;
+    float3 pad2;
+};

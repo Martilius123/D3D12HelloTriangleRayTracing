@@ -26,6 +26,11 @@
 #include "imgui.h"
 #include "imgui_impl_win32.h"
 #include "imgui_impl_dx12.h"
+#include <stdexcept>
+#include <iostream>
+#define STB_IMAGE_IMPLEMENTATION
+#include "packages/stb_image/stb_image.h"
+
 //
 D3D12HelloTriangle::D3D12HelloTriangle(UINT width, UINT height, std::wstring name) :
 	DXSample(width, height, name),
@@ -45,7 +50,12 @@ void D3D12HelloTriangle::OnInit() {
 	nv_helpers_dx12::CameraManip.setSpeed(1);
 
 	LoadPipeline();
-	LoadAssets();
+	LoadAssets(); // Models
+
+	HDRImage environment =
+		LoadHDR("HDR/river.hdr"); // loading an HDR image for environment lighting
+
+	CreateEnvironmentTexture(environment);
 
 	// Check the raytracing capabilities of the device
 	CheckRaytracingSupport();
@@ -329,7 +339,7 @@ void D3D12HelloTriangle::LoadAssets()
 		Models.resize(modelPaths.size());
 
 		ModelsShaderData.resize(modelPaths.size());
-		//Models[0].position = { 3.0f,0.0f,0.0f };
+		Models[1].scale = { 50.0f,1.0f,50.0f };
 		//Models[0].rotation = { XMConvertToRadians(45.0f), 0.0f, 0.0f };
 		//Models[1].rotation = { XMConvertToRadians(-45.0f), 0.0f, 0.0f };
 		//ModelsShaderData[0].testColor = { 1.0f,1.0f,0.5f };
@@ -456,7 +466,7 @@ void D3D12HelloTriangle::OnUpdate()
 		if (item_current == 2) SetShadingMode(L"Phong");
 		if (item_current == 3) SetShadingMode(L"MirrorDemo");
 	}
-	if (currentShading == L"Phong")
+	if (currentShading == L"Phong" || currentShading == L"MirrorDemo")
 	{
 		ImGui::Separator();
 		ImGui::Text("Light Parameters");
@@ -559,51 +569,12 @@ void D3D12HelloTriangle::PopulateCommandList()
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
 	m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
-
-	// Record commands.
-	// #DXR
-	//if (m_raster)
-	//{
-	//	// #DXR Extra: Perspective Camera
-	//	std::vector< ID3D12DescriptorHeap* > heaps = { m_constHeap.Get() };
-	//	m_commandList->SetDescriptorHeaps(static_cast<UINT>(heaps.size()), heaps.data());
-	//	// set the root descriptor table 0 to the constant buffer descriptor heap
-	//	m_commandList->SetGraphicsRootDescriptorTable(
-	//		0, m_constHeap->GetGPUDescriptorHandleForHeapStart());
-	//	const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-	//	m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	//	m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-	//	//m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-	//	//m_commandList->DrawInstanced(3, 1, 0, 0);
-	//	//////////m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-	//	//////////m_commandList->IASetIndexBuffer(&m_indexBufferView);
-	//	//////////m_commandList->DrawIndexedInstanced(12, 1, 0, 0, 0);
-	//	m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-	//	m_commandList->IASetIndexBuffer(&m_indexBufferView);
-	//	m_commandList->DrawIndexedInstanced(IndexCount, 1, 0, 0, 0);
-	//}
-	//else
 	{
-		//m_instances.clear();
-		//for (int i = 0; i < BLASes.size(); i++)
-		//{
-		//	XMMATRIX scaleMatrix = XMMatrixScaling(Models[i].scale.x, Models[i].scale.y, Models[i].scale.z);
-		//	XMMATRIX rotationMatrix =
-		//		XMMatrixRotationRollPitchYaw(Models[i].rotation.x, Models[i].rotation.y, Models[i].rotation.z);
-		//	XMMATRIX translationMatrix = XMMatrixTranslation(Models[i].position.x, Models[i].position.y, Models[i].position.z);
-		//	XMMATRIX transform = scaleMatrix * rotationMatrix * translationMatrix;
-
-		//	m_instances.push_back({
-		//		BLASes[i].pResult.Get(),
-		//		transform
-		//		});
-		//}
-		//CreateTopLevelAS(m_instances, true);
 
 		BuildTLAS();
 		// Get the start of the heap
 
-		ID3D12DescriptorHeap* heaps[] = { m_srvUavHeap.Get() };
+		ID3D12DescriptorHeap* heaps[] = { m_srvUavHeap.Get(), m_samplerHeap.Get() };
 
 		m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
 		// 
@@ -649,6 +620,10 @@ void D3D12HelloTriangle::PopulateCommandList()
 		desc.Depth = 1;
 		// Bind the raytracing pipeline
 		m_commandList->SetPipelineState1(m_rtStateObject.Get());
+
+		
+		//ID3D12DescriptorHeap heaps = {m_srvUavHeap.Get(), m_samplerHeap.Get()};
+		m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
 		// Dispatch the rays and write to the raytracing output
 		m_commandList->DispatchRays(&desc);
 		// The raytracing output needs to be copied to the actual render target used
@@ -1041,10 +1016,24 @@ ComPtr<ID3D12RootSignature> D3D12HelloTriangle::CreateHitSignature() {
 // The miss shader communicates only through the ray payload, and therefore
 // does not require any resources
 //
-ComPtr<ID3D12RootSignature> D3D12HelloTriangle::CreateMissSignature() {
+ComPtr<ID3D12RootSignature> D3D12HelloTriangle::CreateMissSignature()
+{
 	nv_helpers_dx12::RootSignatureGenerator rsc;
+
+	// Root parameter 0: SRV descriptor table (t0)
+	rsc.AddHeapRangesParameter({
+		{ 0 /*base t0*/, 1 /*num*/, 0 /*space*/, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 0 }
+		});
+
+	// Root parameter 1: Sampler descriptor table (s0)
+	rsc.AddHeapRangesParameter({
+		{ 0 /*base s0*/, 1 /*num*/, 0 /*space*/, D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 0 }
+		});
+
+	// IMPORTANT: this must be a LOCAL root signature
 	return rsc.Generate(m_device.Get(), true);
 }
+
 
 //-----------------------------------------------------------------------------
 //
@@ -1188,287 +1177,188 @@ void D3D12HelloTriangle::CreateRaytracingOutputBuffer() {
 // raytracing output and the top-level acceleration structure
 //
 void D3D12HelloTriangle::CreateShaderResourceHeap() {
-	//// Create a SRV/UAV/CBV descriptor heap. We need 2 entries - 1 UAV for the
-	//// raytracing output and 1 SRV for the TLAS
-	//m_srvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(
-	//	m_device.Get(), 2, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
-	// #DXR Extra: Perspective Camera
-	// Create a SRV/UAV/CBV descriptor heap. We need 3 entries - 1 SRV for the TLAS, 1 UAV for the
-	// raytracing output and 1 CBV for the camera matrices
-	UINT descriptorCount = 3 + Models.size();
+	// Reserve slots: 0 = UAV(output), 1 = TLAS SRV, 2 = Camera CBV, 3..(3+N-1) = instance SRVs, last = env SRV
+	UINT descriptorCount = 4 + static_cast<UINT>(Models.size()); // <- poprawione (dodatkowy slot na env)
 	m_srvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(
 		m_device.Get(), descriptorCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
 
 	UINT incSize = m_device->GetDescriptorHandleIncrementSize(
-        D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-	// Get a handle to the heap memory on the CPU side, to be able to write the
-	// descriptors directly
-	// Start of heap
-    D3D12_CPU_DESCRIPTOR_HANDLE handle =
-        m_srvUavHeap->GetCPUDescriptorHandleForHeapStart();
+	// Start of heap (CPU handle)
+	CD3DX12_CPU_DESCRIPTOR_HANDLE handle(m_srvUavHeap->GetCPUDescriptorHandleForHeapStart());
 
-	// Create the UAV. Based on the root signature we created it is the first
-	// entry. The Create*View methods write the view information directly into
-	// srvHandle
+	// Slot 0: UAV for raytracing output
 	D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-    uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
-    m_device->CreateUnorderedAccessView(
-        m_outputResource.Get(), nullptr, &uavDesc, handle);
+	uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+	m_device->CreateUnorderedAccessView(m_outputResource.Get(), nullptr, &uavDesc, handle);
 
-	// Add the Top Level AS SRV right after the raytracing output buffer
-	handle.ptr += incSize;
+	// Slot 1: TLAS SRV
+	handle.Offset(1, incSize);
+	D3D12_SHADER_RESOURCE_VIEW_DESC tlasSrvDesc = {};
+	tlasSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+	tlasSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+	tlasSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+	tlasSrvDesc.RaytracingAccelerationStructure.Location =
+		m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
+	m_device->CreateShaderResourceView(nullptr, &tlasSrvDesc, handle);
 
-    D3D12_SHADER_RESOURCE_VIEW_DESC tlasSrvDesc = {};
-    tlasSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
-    tlasSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
-    tlasSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    tlasSrvDesc.RaytracingAccelerationStructure.Location =
-        m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
+	// Slot 2: Camera CBV
+	handle.Offset(1, incSize);
+	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
+	cbvDesc.BufferLocation = m_cameraBuffer->GetGPUVirtualAddress();
+	cbvDesc.SizeInBytes = m_cameraBufferSize;
+	m_device->CreateConstantBufferView(&cbvDesc, handle);
 
-    m_device->CreateShaderResourceView(nullptr, &tlasSrvDesc, handle);
-
-	// #DXR Extra: Perspective Camera
-	// Add the constant buffer for the camera after the TLAS
-	//srvHandle.ptr +=
-	//	m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-
-	// Describe and create a constant buffer view for the camera
-	handle.ptr += incSize;
-
-    D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
-    cbvDesc.BufferLocation = m_cameraBuffer->GetGPUVirtualAddress();
-    cbvDesc.SizeInBytes   = m_cameraBufferSize;
-    m_device->CreateConstantBufferView(&cbvDesc, handle);
-
-    // --- [3..] Instance buffer SRVs (one per model) ---
-    handle.ptr += incSize; // now handle points to slot index 3
-
-///
-	//for (int i = 0; i < Models.size(); i++)
-	{
+	// Slot 3..: instance buffer SRVs (one per model slot)
+	handle.Offset(1, incSize); // now points to slot index 3
+	for (size_t i = 0; i < Models.size(); ++i) {
 		D3D12_SHADER_RESOURCE_VIEW_DESC instSrvDesc = {};
-        instSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-        instSrvDesc.Buffer.FirstElement = 0;
-        instSrvDesc.Buffer.NumElements = (UINT)ModelsShaderData.size(); // or per-model count
-        instSrvDesc.Buffer.StructureByteStride = sizeof(ModelInstanceGPU);
-        instSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
-        instSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		instSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		instSrvDesc.Buffer.FirstElement = 0;
+		instSrvDesc.Buffer.NumElements = static_cast<UINT>(ModelsShaderData.size());
+		instSrvDesc.Buffer.StructureByteStride = sizeof(ModelInstanceGPU);
+		instSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
+		instSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
 
-        m_device->CreateShaderResourceView(
-            m_instancesBuffer.Get(),
-            &instSrvDesc,
-            handle);
+		m_device->CreateShaderResourceView(
+			m_instancesBuffer.Get(),
+			&instSrvDesc,
+			handle);
 
-        // Advance to the next descriptor slot
-        handle.ptr += incSize;
-
+		// next slot
+		handle.Offset(1, incSize);
 	}
+
+	// Current handle now points to the next free slot -> use it for environment SRV
+	m_envSrvIndex = 3 + static_cast<UINT>(Models.size());
+
+	D3D12_SHADER_RESOURCE_VIEW_DESC envSrv = {};
+	envSrv.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	envSrv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	envSrv.Texture2D.MipLevels = 1;
+	envSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+	m_device->CreateShaderResourceView(
+		m_envTexture.Get(),
+		&envSrv,
+		handle
+	);
+
+	// Create shader-visible sampler heap (1 sampler)
+	D3D12_DESCRIPTOR_HEAP_DESC sampDesc = {};
+	sampDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER;
+	sampDesc.NumDescriptors = 1;
+	sampDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	ThrowIfFailed(m_device->CreateDescriptorHeap(&sampDesc, IID_PPV_ARGS(&m_samplerHeap)));
+
+	D3D12_SAMPLER_DESC samp = {};
+	samp.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+	samp.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+	samp.AddressV = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samp.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+	samp.MaxAnisotropy = 1;
+	samp.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
+	samp.MinLOD = 0;
+	samp.MaxLOD = D3D12_FLOAT32_MAX;
+	m_device->CreateSampler(&samp, m_samplerHeap->GetCPUDescriptorHandleForHeapStart());
 }
 
 //-----------------------------------------------------------------------------
-//
-// The Shader Binding Table (SBT) is the cornerstone of the raytracing setup:
-// this is where the shader resources are bound to the shaders, in a way that
-// can be interpreted by the raytracer on GPU. In terms of layout, the SBT
-// contains a series of shader IDs with their resource pointers. The SBT
-// contains the ray generation shader, the miss shaders, then the hit groups.
-// Using the helper class, those can be specified in arbitrary order.
-//void D3D12HelloTriangle::CreateShaderBindingTable() {
-//	// The SBT helper class collects calls to Add*Program.  If called several
-//	// times, the helper must be emptied before re-adding shaders.
-//	m_sbtHelper.Reset();
-//
-//	// The pointer to the beginning of the heap is the only parameter required by
-//	// shaders without root parameters
-//	D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle =
-//		m_srvUavHeap->GetGPUDescriptorHandleForHeapStart();
-//	// The helper treats both root parameter pointers and heap pointers as void*,
-//	// while DX12 uses the
-//	// D3D12_GPU_DESCRIPTOR_HANDLE to define heap pointers. The pointer in this
-//	// struct is a UINT64, which then has to be reinterpreted as a pointer.
-//	//auto heapPointer = reinterpret_cast<UINT64>(srvUavHeapHandle.ptr);
-//	//// The ray generation only uses heap data
-//	//m_sbtHelper.AddRayGenerationProgram(L"RayGen", { heapPointer });
-//	auto heapPointer = reinterpret_cast<void*>(srvUavHeapHandle.ptr);
-//	m_sbtHelper.AddRayGenerationProgram(L"RayGen", { heapPointer });
-//
-//	// The miss and hit shaders do not access any external resources: instead they
-//	// communicate their results through the ray payload
-//	m_sbtHelper.AddMissProgram(L"Miss", {});
-//
-//	// Adding the triangle hit shader
-//	//m_sbtHelper.AddHitGroup(L"HitGroup", { (void*)(m_vertexBuffer->GetGPUVirtualAddress()) });
-//
-//	D3D12_SHADER_RESOURCE_VIEW_DESC tlasSrvDesc = {};
-//	tlasSrvDesc.Format = DXGI_FORMAT_UNKNOWN;
-//	tlasSrvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
-//	tlasSrvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-//	tlasSrvDesc.RaytracingAccelerationStructure.Location =
-//		m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
-//
-////	D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle1 = m_srvUavHeap->GetGPUDescriptorHandleForHeapStart();
-//	//void* heapPointer = reinterpret_cast<void*>(srvUavHeapHandle.ptr);
-//
-//
-//	for (int i = 0; i < Models.size(); i++)
-//	{
-//		std::wstring hitGroupName = L"HitGroup_" + currentShading + L"_" + std::to_wstring(i);
-//
-//		//m_sbtHelper.AddHitGroup(hitGroupName.c_str(), { &hitDataVec.back() });
-//		m_sbtHelper.AddHitGroup(hitGroupName.c_str(), { (void*)(Models[i].m_vertexBuffer->GetGPUVirtualAddress()),
-//			(void*)(Models[i].m_indexBuffer->GetGPUVirtualAddress()),
-//			(void*)(m_instancesBuffer->GetGPUVirtualAddress()),
-//			(void*)(m_lightsBuffer->GetGPUVirtualAddress()),
-//			(void*)(m_topLevelASBuffers.pResult->GetGPUVirtualAddress())});
-//	}
-//	
-//	// Compute the size of the SBT given the number of shaders and their
-//	// parameters
-//	uint32_t sbtSize = m_sbtHelper.ComputeSBTSize();
-//
-//	// Create the SBT on the upload heap. This is required as the helper will use
-//	// mapping to write the SBT contents. After the SBT compilation it could be
-//	// copied to the default heap for performance.
-//	m_sbtStorage = nv_helpers_dx12::CreateBuffer(
-//		m_device.Get(), sbtSize, D3D12_RESOURCE_FLAG_NONE,
-//		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
-//	if (!m_sbtStorage) {
-//		throw std::logic_error("Could not allocate the shader binding table");
-//	}
-//	// Compile the SBT from the shader and parameters info
-//	m_sbtHelper.Generate(m_sbtStorage.Get(), m_rtStateObjectProps.Get());
-//}
 
-//void D3D12HelloTriangle::CreateShaderBindingTable() {
-//	// Reset helper
-//	m_sbtHelper.Reset();
-//
-//	// Get GPU descriptor heap pointer for raygen if raygen uses descriptor table.
-//	D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle = m_srvUavHeap->GetGPUDescriptorHandleForHeapStart();
-//	void* heapPointer = reinterpret_cast<void*>(srvUavHeapHandle.ptr);
-//
-//	// RayGen uses descriptor-table pointer (as before)
-//	m_sbtHelper.AddRayGenerationProgram(L"RayGen", { heapPointer });
-//
-//	// Miss program
-//	m_sbtHelper.AddMissProgram(L"Miss", {});
-//
-//	// Helper to convert GPU virtual addresses to void* for SBT parameters.
-//	auto GPUVaToVoidPtr = [](D3D12_GPU_VIRTUAL_ADDRESS va) -> void* {
-//		return reinterpret_cast<void*>(static_cast<uintptr_t>(va));
-//		};
-//
-//	// Ensure TLAS is available
-//	if (!m_topLevelASBuffers.pResult) {
-//		throw std::logic_error("TLAS not built before creating SBT");
-//	}
-//
-//	// Add one hit group per model; match names with pipeline (HitGroup_<Shading>_<index>)
-//	for (int i = 0; i < static_cast<int>(Models.size()); ++i) {
-//		std::wstring hitGroupName = L"HitGroup_" + currentShading + L"_" + std::to_wstring(i);
-//
-//		// For a hit signature that declares SRV root parameters (t0,t1,t2,t3),
-//		// pass GPU virtual addresses (vertex/index/instances/lights/TLAS).
-//		void* v0_va = GPUVaToVoidPtr(Models[i].m_vertexBuffer->GetGPUVirtualAddress());
-//		void* idx_va = GPUVaToVoidPtr(Models[i].m_indexBuffer->GetGPUVirtualAddress());
-//		void* instances_va = GPUVaToVoidPtr(m_instancesBuffer->GetGPUVirtualAddress());
-//		void* lights_va = GPUVaToVoidPtr(m_lightsBuffer->GetGPUVirtualAddress());
-//		void* tlas_va = GPUVaToVoidPtr(m_topLevelASBuffers.pResult->GetGPUVirtualAddress());
-//
-//		m_sbtHelper.AddHitGroup(hitGroupName.c_str(), {
-//			v0_va,
-//			idx_va,
-//			instances_va,
-//			lights_va,
-//			tlas_va
-//			});
-//	}
-//
-//	// Create SBT storage
-//	uint32_t sbtSize = m_sbtHelper.ComputeSBTSize();
-//	m_sbtStorage = nv_helpers_dx12::CreateBuffer(
-//		m_device.Get(), sbtSize, D3D12_RESOURCE_FLAG_NONE,
-//		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
-//	if (!m_sbtStorage) {
-//		throw std::logic_error("Could not allocate the shader binding table");
-//	}
-//	m_sbtHelper.Generate(m_sbtStorage.Get(), m_rtStateObjectProps.Get());
-//}
+void D3D12HelloTriangle::CreateShaderBindingTable()
+{
+    // 1. Reset the helper
+    m_sbtHelper.Reset();
 
-void D3D12HelloTriangle::CreateShaderBindingTable() {
-	// 1. Reset the helper
-	m_sbtHelper.Reset();
+    // 2. RayGen: pass start of SRV/UAV heap (global descriptor table)
+    D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle =
+        m_srvUavHeap->GetGPUDescriptorHandleForHeapStart();
 
-	// 2. Add Ray Generation Program
-	// This shader only needs the heap pointer (global resources)
-	D3D12_GPU_DESCRIPTOR_HANDLE srvUavHeapHandle = m_srvUavHeap->GetGPUDescriptorHandleForHeapStart();
-	auto heapPointer = reinterpret_cast<void*>(srvUavHeapHandle.ptr);
-	m_sbtHelper.AddRayGenerationProgram(L"RayGen", { heapPointer });
+    void* rayGenHeapPtr =
+        reinterpret_cast<void*>(srvUavHeapHandle.ptr);
 
-	// 3. Add Miss Program
-	m_sbtHelper.AddMissProgram(L"Miss", {});
+    m_sbtHelper.AddRayGenerationProgram(L"RayGen", { rayGenHeapPtr });
 
-	// 4. Prepare TLAS GPU Address
-	// CRITICAL FIX: We need the GPU Virtual Address of the result buffer, NOT the descriptor struct.
-	void* tlasAddress = (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
+    // 3. Miss shader: pass ENV SRV + SAMPLER
+    assert(m_envSrvIndex != UINT_MAX);
 
-	// 5. Add Hit Groups for every model
-	for (int i = 0; i < Models.size(); i++)
-	{
-		// Construct the hit group name based on current shading mode
-		std::wstring hitGroupName = L"HitGroup_" + currentShading + L"_" + std::to_wstring(i);
+    UINT incSize =
+        m_device->GetDescriptorHandleIncrementSize(
+            D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
-		// Define the pointers for the Hit Shader arguments.
-		// These MUST match the order defined in CreateHitSignature EXACTLY.
+    D3D12_GPU_DESCRIPTOR_HANDLE envGpuHandle =
+        m_srvUavHeap->GetGPUDescriptorHandleForHeapStart();
 
-		// Slot 0: t0 (Vertices)
-		void* vertexBufferAddr = (void*)(Models[i].m_vertexBuffer->GetGPUVirtualAddress());
+    envGpuHandle.ptr += static_cast<SIZE_T>(incSize) * m_envSrvIndex;
 
-		// Slot 1: t1 (Indices)
-		void* indexBufferAddr = (void*)(Models[i].m_indexBuffer->GetGPUVirtualAddress());
+    void* envSrvPtr =
+        reinterpret_cast<void*>(envGpuHandle.ptr);
 
-		// Slot 2: t2 (Instance Data / ModelInstanceGPU)
-		void* instanceBufferAddr = (void*)(m_instancesBuffer->GetGPUVirtualAddress());
+    D3D12_GPU_DESCRIPTOR_HANDLE sampGpuHandle =
+        m_samplerHeap->GetGPUDescriptorHandleForHeapStart();
 
-		// Slot 3: b1 (Lights)
-		void* lightsBufferAddr = (void*)(m_lightsBuffer->GetGPUVirtualAddress());
+    void* samplerPtr =
+        reinterpret_cast<void*>(sampGpuHandle.ptr);
 
-		// Slot 4: b2 (Extra Buffer) 
-		// You said this is needed for another shader. We MUST fill this slot.
-		// If the Mirror shader doesn't use it, we can pass the lights buffer again or nullptr.
-		// If it DOES use it, replace 'lightsBufferAddr' below with the correct buffer.
-		//void* b2BufferPlaceholder = lightsBufferAddr;
+    // Order MUST match Miss root signature:
+    //  0 = SRV table (t0)
+    //  1 = Sampler table (s0)
+    m_sbtHelper.AddMissProgram(
+        L"Miss",
+        { envSrvPtr, samplerPtr }
+    );
 
-		// Slot 5: t3 (TLAS)
-		// This is the one that was failing before because the slots were misaligned.
-		void* tlasBufferAddr = tlasAddress;
+    // 4. Hit groups (unchanged)
+    for (int i = 0; i < Models.size(); i++)
+    {
+        std::wstring hitGroupName =
+            L"HitGroup_" + currentShading + L"_" + std::to_wstring(i);
 
-		// Add to SBT
-		m_sbtHelper.AddHitGroup(hitGroupName.c_str(), {
-			vertexBufferAddr,       // t0
-			indexBufferAddr,        // t1
-			instanceBufferAddr,     // t2
-			lightsBufferAddr,       // b1
-		//	b2BufferPlaceholder,    // b2 (The slot you requested)
-			tlasBufferAddr          // t3 (Now correctly aligned!)
-			});
-	}
+        void* vertexBufferAddr =
+            (void*)Models[i].m_vertexBuffer->GetGPUVirtualAddress();
+        void* indexBufferAddr =
+            (void*)Models[i].m_indexBuffer->GetGPUVirtualAddress();
+        void* instanceBufferAddr =
+            (void*)m_instancesBuffer->GetGPUVirtualAddress();
+        void* lightsBufferAddr =
+            (void*)m_lightsBuffer->GetGPUVirtualAddress();
+        void* tlasBufferAddr =
+            (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
 
-	// 6. Compute Size and Allocate
-	uint32_t sbtSize = m_sbtHelper.ComputeSBTSize();
+        m_sbtHelper.AddHitGroup(
+            hitGroupName.c_str(),
+            {
+                vertexBufferAddr,
+                indexBufferAddr,
+                instanceBufferAddr,
+                lightsBufferAddr,
+                tlasBufferAddr
+            }
+        );
+    }
 
-	m_sbtStorage = nv_helpers_dx12::CreateBuffer(
-		m_device.Get(), sbtSize, D3D12_RESOURCE_FLAG_NONE,
-		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
+    // 5. Allocate SBT
+    uint32_t sbtSize = m_sbtHelper.ComputeSBTSize();
 
-	if (!m_sbtStorage) {
-		throw std::logic_error("Could not allocate the shader binding table");
-	}
+    m_sbtStorage = nv_helpers_dx12::CreateBuffer(
+        m_device.Get(),
+        sbtSize,
+        D3D12_RESOURCE_FLAG_NONE,
+        D3D12_RESOURCE_STATE_GENERIC_READ,
+        nv_helpers_dx12::kUploadHeapProps
+    );
 
-	// 7. Generate SBT on GPU
-	m_sbtHelper.Generate(m_sbtStorage.Get(), m_rtStateObjectProps.Get());
+    if (!m_sbtStorage)
+        throw std::logic_error("Could not allocate the shader binding table");
+
+    // 6. Generate SBT
+    m_sbtHelper.Generate(
+        m_sbtStorage.Get(),
+        m_rtStateObjectProps.Get()
+    );
 }
+
 
 //----------------------------------------------------------------------------------
 //
@@ -1857,4 +1747,141 @@ void D3D12HelloTriangle::RemoveModel(int index) {
 	m_commandQueue->ExecuteCommandLists(1, ppCommandLists);
 
 	WaitForPreviousFrame();
+}
+
+D3D12HelloTriangle::HDRImage D3D12HelloTriangle::LoadHDR(const std::string& path)
+{
+	D3D12HelloTriangle::HDRImage img;
+
+	// Force float loading
+	float* data = stbi_loadf(
+		path.c_str(),
+		&img.width,
+		&img.height,
+		&img.channels,
+		3 // force RGB
+	);
+
+	if (!data)
+	{
+		throw std::runtime_error(
+			"Failed to load HDR image: " + path
+		);
+	}
+
+	img.channels = 3;
+	img.pixels.assign(
+		data,
+		data + img.width * img.height * 3
+	);
+
+	stbi_image_free(data);
+
+	std::cout << "Loaded HDR: "
+		<< img.width << "x" << img.height << "\n";
+
+	return img;
+}
+
+void D3D12HelloTriangle::CreateEnvironmentTexture(const HDRImage& img)
+{
+	// Basic validation
+	if (img.width <= 0 || img.height <= 0 || img.pixels.empty())
+		throw std::runtime_error("CreateEnvironmentTexture: invalid HDR image (empty or zero size).");
+
+	if (!m_device) throw std::runtime_error("CreateEnvironmentTexture: m_device is null.");
+	if (!m_commandQueue) throw std::runtime_error("CreateEnvironmentTexture: m_commandQueue is null.");
+	if (!m_fence || m_fenceEvent == nullptr) throw std::runtime_error("CreateEnvironmentTexture: fence or fenceEvent not initialized.");
+
+	// Resource description
+	D3D12_RESOURCE_DESC texDesc = {};
+	texDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	texDesc.Alignment = 0;
+	texDesc.Width = static_cast<UINT64>(img.width);
+	texDesc.Height = static_cast<UINT>(img.height);
+	texDesc.DepthOrArraySize = 1;
+	texDesc.MipLevels = 1;
+	texDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; // RGBA float
+	texDesc.SampleDesc.Count = 1;
+	texDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	texDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+	HRESULT hr = S_OK;
+	hr = m_device->CreateCommittedResource(
+		&nv_helpers_dx12::kDefaultHeapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&texDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(&m_envTexture));
+	if (FAILED(hr)) {
+		throw std::runtime_error("CreateCommittedResource(env texture) failed. HRESULT = " + std::to_string(hr));
+	}
+
+	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(m_envTexture.Get(), 0, 1);
+	if (uploadBufferSize == 0) {
+		throw std::runtime_error("CreateEnvironmentTexture: GetRequiredIntermediateSize returned 0.");
+	}
+
+	// create upload buffer
+	ComPtr<ID3D12Resource> uploadBuffer;
+	CD3DX12_HEAP_PROPERTIES heapUpload(D3D12_HEAP_TYPE_UPLOAD);
+	CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
+	hr = m_device->CreateCommittedResource(
+		&heapUpload,
+		D3D12_HEAP_FLAG_NONE,
+		&bufDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&uploadBuffer));
+	if (FAILED(hr)) {
+		throw std::runtime_error("CreateCommittedResource(uploadBuffer) failed. HRESULT = " + std::to_string(hr));
+	}
+
+	// Expand RGB -> RGBA
+	size_t pixelCount = static_cast<size_t>(img.width) * static_cast<size_t>(img.height);
+	std::vector<float> rgba;
+	rgba.resize(pixelCount * 4);
+	for (size_t i = 0, s = 0; i < pixelCount; ++i) {
+		rgba[s++] = img.pixels[i * 3 + 0];
+		rgba[s++] = img.pixels[i * 3 + 1];
+		rgba[s++] = img.pixels[i * 3 + 2];
+		rgba[s++] = 1.0f;
+	}
+
+	D3D12_SUBRESOURCE_DATA subresource = {};
+	subresource.pData = rgba.data();
+	subresource.RowPitch = static_cast<SIZE_T>(img.width) * 4 * sizeof(float);
+	subresource.SlicePitch = subresource.RowPitch * img.height;
+
+	// Create transient command allocator + list for upload
+	ComPtr<ID3D12CommandAllocator> uploadAlloc;
+	ComPtr<ID3D12GraphicsCommandList> uploadList;
+	hr = m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&uploadAlloc));
+	if (FAILED(hr)) throw std::runtime_error("CreateCommandAllocator failed. HRESULT = " + std::to_string(hr));
+	hr = m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, uploadAlloc.Get(), nullptr, IID_PPV_ARGS(&uploadList));
+	if (FAILED(hr)) throw std::runtime_error("CreateCommandList failed. HRESULT = " + std::to_string(hr));
+
+	// Record copy
+	UpdateSubresources(uploadList.Get(), m_envTexture.Get(), uploadBuffer.Get(), 0, 0, 1, &subresource);
+	CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+		m_envTexture.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	uploadList->ResourceBarrier(1, &barrier);
+
+	hr = uploadList->Close();
+	if (FAILED(hr)) throw std::runtime_error("uploadList->Close() failed. HRESULT = " + std::to_string(hr));
+
+	// Execute and wait
+	ID3D12CommandList* lists[] = { uploadList.Get() };
+	m_commandQueue->ExecuteCommandLists(1, lists);
+
+	const UINT64 fenceValue = ++m_fenceValue;
+	hr = m_commandQueue->Signal(m_fence.Get(), fenceValue);
+	if (FAILED(hr)) throw std::runtime_error("Signal(fence) failed. HRESULT = " + std::to_string(hr));
+	hr = m_fence->SetEventOnCompletion(fenceValue, m_fenceEvent);
+	if (FAILED(hr)) throw std::runtime_error("SetEventOnCompletion failed. HRESULT = " + std::to_string(hr));
+	WaitForSingleObject(m_fenceEvent, INFINITE);
+
+	// success
+	std::cout << "CreateEnvironmentTexture: uploaded " << img.width << "x" << img.height << " env texture\n";
 }
