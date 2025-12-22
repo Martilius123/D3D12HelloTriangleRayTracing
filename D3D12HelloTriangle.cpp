@@ -1506,7 +1506,7 @@ void D3D12HelloTriangle::UpdateCameraBuffer()
 	sceneCB.InvProj = XMMatrixInverse(&det, sceneCB.Proj);
 
 	// Frame index
-	sceneCB.FrameIndex = m_frameIndexCPU;
+	sceneCB.FrameIndex = m_frameIndexCPU++;
 
 	// --- Upload constant buffer ---
 	uint8_t* pData;
@@ -1579,6 +1579,7 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 
 			v.color = meshColor;
 			v.id = modelId; // Assign mesh index as ID
+			v.roughness = 0.5f; // Default roughness
 
 			if (mesh->HasNormals())
 			{

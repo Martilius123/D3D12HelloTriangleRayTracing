@@ -44,9 +44,13 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
 
     float3 reflectDir = reflect(-viewDir, hitNormal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32.0f); // shininess 32
-    if (payload.hopCount == 0 || inst.id != 1)
+
+    float3 baseColor = BTriVertex[indices[vertId + 0]].color * barycentrics.x +
+        BTriVertex[indices[vertId + 1]].color * barycentrics.y +
+        BTriVertex[indices[vertId + 2]].color * barycentrics.z;
+    if (payload.hopCount == 0)
     {
-        float3 baseColor = BTriVertex[indices[vertId + 0]].color.xyz; // or use average of vertices
+        //End of recursion, Phong shading
         float3 ambient = 0.1f * baseColor; // 10% of material color
         float3 finalColor = ambient + baseColor * lightColor * diff + spec * lightColor * 0.2;
         finalColor = saturate(finalColor);
@@ -58,16 +62,53 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
         float3 incoming = WorldRayDirection();
         float3 reflected = reflect(incoming, hitNormal);
         reflected = normalize(reflected);
-        
+
+		//roughness interpolation
+        float3 r0 = BTriVertex[indices[vertId + 0]].roughness;
+        float3 r1 = BTriVertex[indices[vertId + 1]].roughness;
+        float3 r2 = BTriVertex[indices[vertId + 2]].roughness;
+        float roughness = r0 * barycentrics.x + r1 * barycentrics.y + r2 * barycentrics.z;
+
+        //Starting the preparation of the new ray
         float3 newOrigin = hitPos + hitNormal * 0.001f;
         RayDesc ray;
         ray.Origin = newOrigin;
-        ray.Direction = reflected;
         ray.TMin = 0;
         ray.TMax = 100000;
 
-        // Trace the ray
-        TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload);
-		payload.colorAndDistance = 0.5f * payload.colorAndDistance; // darken a bit on each reflection
+        // Different behaviour for 0 roughness
+        if(roughness < 0.01f)
+        {
+			// Perfect mirror reflection
+            ray.Direction = reflected;
+            TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
+            payload.colorAndDistance = 0.5f * payload.colorAndDistance; // darken a bit on each reflection
+		}
+        else
+        {
+			float4 averageColor = float4(0, 0, 0, 0);
+			for (int i = 0; i < 4; i++)
+            {
+                // Random samples for hemisphere sampling
+                float u1 = RandomFloat(payload.randomSeed);
+                float u2 = RandomFloat(payload.randomSeed);
+
+                //Hemisphere sample in local space
+                float3 H_local = SampleCosineHemisphere(float2(u1, u2));
+
+                //Build orthonormal basis around the reflected direction
+                float3 T, B;
+                BuildOrthonormalBasis(reflected, T, B);
+
+                float3 scatteredDir = normalize(lerp(reflected, H_local.x * T + H_local.y * B + H_local.z * reflected, roughness * roughness));
+                ray.Direction = scatteredDir;
+                TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
+				averageColor += payload.colorAndDistance;
+            }
+            payload.colorAndDistance = averageColor / 4.0f;
+            payload.colorAndDistance.x *= baseColor.x;
+            payload.colorAndDistance.y *= baseColor.y;
+            payload.colorAndDistance.z *= baseColor.z;
+        }
     }
 }

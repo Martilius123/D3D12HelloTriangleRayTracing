@@ -46,7 +46,9 @@ void ClosestHit_MirrorDemo(inout HitInfo payload, Attributes attrib)
     float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32.0f); // shininess 32
     if (payload.hopCount == 0 || inst.id != 1)
     {
-        float3 baseColor = BTriVertex[indices[vertId + 0]].color.xyz; // or use average of vertices
+        float3 baseColor = BTriVertex[indices[vertId + 0]].color * barycentrics.x +
+            BTriVertex[indices[vertId + 1]].color * barycentrics.y +
+            BTriVertex[indices[vertId + 2]].color * barycentrics.z;
         float3 ambient = 0.1f * baseColor; // 10% of material color
         float3 finalColor = ambient + baseColor * lightColor * diff + spec * lightColor * 0.2;
         finalColor = saturate(finalColor);

@@ -1,3 +1,5 @@
+static const float PI = 3.14159265f;
+
 // Hit information, aka ray payload
 // This sample only carries a shading color and hit distance.
 // Note that the payload should be kept as small as possible,
@@ -29,6 +31,35 @@ uint InitSeed(uint2 pixel, uint frameIndex)
     uint seed = pixel.x * 1973u + pixel.y * 9277u + frameIndex * 26699u;
     return seed | 1u; // avoid zero seed
 }
+
+float RandomFloat(inout uint state)
+{
+    state = 1664525u * state + 1013904223u;
+    return float(state & 0x00FFFFFF) / float(0x01000000);
+}
+
+float3 SampleCosineHemisphere(float2 u)
+{
+    float r = sqrt(u.x);
+    float phi = 2.0 * PI * u.y;
+
+    float x = r * cos(phi);
+    float y = r * sin(phi);
+    float z = sqrt(1.0 - u.x);
+
+    return float3(x, y, z);
+}
+
+void BuildOrthonormalBasis(float3 n, out float3 t, out float3 b)
+{
+    if (abs(n.z) < 0.999)
+        t = normalize(cross(float3(0, 0, 1), n));
+    else
+        t = normalize(cross(float3(0, 1, 0), n));
+
+    b = cross(n, t);
+}
+
 
 struct STriVertex
 {
