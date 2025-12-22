@@ -7,7 +7,7 @@ struct HitInfo
 {
   float4 colorAndDistance;
   uint hopCount;
-  uint pad0;
+  uint randomSeed; // used for stochastic effects like rough reflections
 };
 
 // Attributes output by the raytracing when hitting a surface,
@@ -22,6 +22,12 @@ float3 TransformLocalToWorld(float3 localVector)
     float3x4 objToWorld = ObjectToWorld3x4();
     float3x3 worldRotateScale = (float3x3) objToWorld;
     return normalize(mul(worldRotateScale, localVector));
+}
+
+uint InitSeed(uint2 pixel, uint frameIndex)
+{
+    uint seed = pixel.x * 1973u + pixel.y * 9277u + frameIndex * 26699u;
+    return seed | 1u; // avoid zero seed
 }
 
 struct STriVertex

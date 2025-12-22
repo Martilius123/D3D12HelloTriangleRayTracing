@@ -16,6 +16,8 @@ cbuffer CameraParams : register(b0)
     float4x4 projection;
     float4x4 viewI;
     float4x4 projectionI;
+    uint FrameIndex;
+    uint pad0[3];
 }
 
 [shader("raygeneration")] 
@@ -28,6 +30,7 @@ void RayGen() {
     // Get the location within the dispatched 2D grid of work items
     // (often maps to pixels, so this could represent a pixel coordinate).
     uint2 launchIndex = DispatchRaysIndex().xy;
+    payload.randomSeed = InitSeed(launchIndex, FrameIndex);
     float2 dims = float2(DispatchRaysDimensions().xy);
     float2 d = (((launchIndex.xy + 0.5f) / dims.xy) * 2.f - 1.f);
     

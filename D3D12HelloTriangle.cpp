@@ -452,21 +452,23 @@ void D3D12HelloTriangle::OnUpdate()
 	//}
 
 	// Example: Dropdown for shaders
-	const char* items[] = { "Flat", "Normal", "Phong", "MirrorDemo"};
+	const char* items[] = { "Flat", "Normal", "Phong", "MirrorDemo", "BDSF"};
 	static int item_current = 0;
 	// Sync current selection with your std::wstring currentShading
 	if (currentShading == L"Flat") item_current = 0;
 	else if (currentShading == L"Normal") item_current = 1;
 	else if (currentShading == L"Phong") item_current = 2;
 	else if (currentShading == L"MirrorDemo") item_current = 3;
+	else if (currentShading == L"BDSF") item_current = 4;
 
 	if (ImGui::Combo("Shading Mode", &item_current, items, IM_ARRAYSIZE(items))) {
 		if (item_current == 0) SetShadingMode(L"Flat");
 		if (item_current == 1) SetShadingMode(L"Normal");
 		if (item_current == 2) SetShadingMode(L"Phong");
 		if (item_current == 3) SetShadingMode(L"MirrorDemo");
+		if (item_current == 4) SetShadingMode(L"BDSF");
 	}
-	if (currentShading == L"Phong" || currentShading == L"MirrorDemo")
+	if (currentShading == L"Phong" || currentShading == L"MirrorDemo" || currentShading == L"BDSF")
 	{
 		ImGui::Separator();
 		ImGui::Text("Light Parameters");
@@ -1057,6 +1059,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	m_normalShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"NormalShader.hlsl");
 	m_phongShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"PhongShader.hlsl");
 	m_mirrorDemoShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"MirrorDemoShader.hlsl");
+	m_BDSFShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"BDSFShader.hlsl");
 	// In a way similar to DLLs, each library is associated with a number of
 	// exported symbols. This
 	// has to be done explicitly in the lines below. Note that a single library
@@ -1068,6 +1071,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	pipeline.AddLibrary(m_normalShaderLibrary.Get(), { L"ClosestHit_Normal" });
 	pipeline.AddLibrary(m_phongShaderLibrary.Get(), { L"ClosestHit_Phong" });
 	pipeline.AddLibrary(m_mirrorDemoShaderLibrary.Get(), { L"ClosestHit_MirrorDemo" });
+	pipeline.AddLibrary(m_BDSFShaderLibrary.Get(), { L"ClosestHit_BDSF" });
 	// To be used, each DX12 shader needs a root signature defining which
 	// parameters and buffers will be accessed.
 	m_rayGenSignature = CreateRayGenSignature();
@@ -1097,16 +1101,17 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 		std::wstring NormalHitGroup = L"HitGroup_Normal_" + std::to_wstring(i);
 		std::wstring PhongHitGroup = L"HitGroup_Phong_" + std::to_wstring(i);
 		std::wstring MirrorDemoHitGroup = L"HitGroup_MirrorDemo_" + std::to_wstring(i);
+		std::wstring BDSFHitGroup = L"HitGroup_BDSF_" + std::to_wstring(i);
 		pipeline.AddHitGroup(FlatHitGroup, L"ClosestHit_Flat");
 		pipeline.AddHitGroup(NormalHitGroup, L"ClosestHit_Normal");
 		pipeline.AddHitGroup(PhongHitGroup, L"ClosestHit_Phong");
 		pipeline.AddHitGroup(MirrorDemoHitGroup, L"ClosestHit_MirrorDemo");
-
+		pipeline.AddHitGroup(BDSFHitGroup, L"ClosestHit_BDSF");
 		hitGroups.push_back(FlatHitGroup.c_str());
 		hitGroups.push_back(NormalHitGroup.c_str());
 		hitGroups.push_back(PhongHitGroup.c_str());
 		hitGroups.push_back(MirrorDemoHitGroup.c_str());
-
+		hitGroups.push_back(BDSFHitGroup.c_str());
 	}
 	// The following section associates the root signature to each shader. Note
 	// that we can explicitly show that some shaders share the same root signature
@@ -1371,7 +1376,7 @@ void D3D12HelloTriangle::CreateShaderBindingTable()
 // #DXR Extra: Perspective Camera
 void D3D12HelloTriangle::CreateCameraBuffer() {
 	uint32_t nbMatrix = 4; // view, perspective, viewInv, perspectiveInv
-	m_cameraBufferSize = nbMatrix * sizeof(XMMATRIX);
+	m_cameraBufferSize = (sizeof(SceneCB) + 255) & ~255;
 
 	// Create the constant buffer for all matrices
 	m_cameraBuffer = nv_helpers_dx12::CreateBuffer(
@@ -1467,47 +1472,52 @@ void D3D12HelloTriangle::UpdateModelDataBuffer() {
 //--------------------------------------------------------------------------------
 // Create and copies the viewmodel and perspective matrices of the camera
 //
-void D3D12HelloTriangle::UpdateCameraBuffer() {
+void D3D12HelloTriangle::UpdateCameraBuffer()
+{
 	using namespace nv_helpers_dx12;
+
 	Manipulator& manip = CameraManip;
+
+	// --- Timing ---
 	static DWORD lastTime = GetTickCount();
 	DWORD now = GetTickCount();
-	float deltaTime = (now - lastTime) / 1000.0f; // seconds
+	float deltaTime = (now - lastTime) / 1000.0f;
 	lastTime = now;
-	std::vector<XMMATRIX> matrices(4);
-	// 
-	// Initialize the view matrix, ideally this should be based on user
-	// interactions The lookat and perspective matrices used for rasterization are
-	// defined to transform world-space vertices into a [0,1]x[0,1]x[0,1] camera
-	// space
-	XMVECTOR Eye = XMVectorSet(1.5f, 1.5f, 1.5f, 0.0f);
-	XMVECTOR At = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
-	XMVECTOR Up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-	//matrices[0] = XMMatrixLookAtRH(Eye, At, Up);
-	const glm::mat4& mat = nv_helpers_dx12::CameraManip.getMatrix();
-	memcpy(&matrices[0].r->m128_f32[0], glm::value_ptr(mat), 16 * sizeof(float));
 
+	// --- Camera matrices ---
+	SceneCB sceneCB = {};
+
+	// View matrix from manipulator (GLM -> XMMATRIX)
+	const glm::mat4& glmView = manip.getMatrix();
+	memcpy(&sceneCB.View, glm::value_ptr(glmView), sizeof(XMMATRIX));
+
+	// Projection matrix
 	float fovAngleY = 45.0f * XM_PI / 180.0f;
-	matrices[1] =
-		XMMatrixPerspectiveFovRH(fovAngleY, m_aspectRatio, 0.1f, 1000.0f);
+	sceneCB.Proj = XMMatrixPerspectiveFovRH(
+		fovAngleY,
+		m_aspectRatio,
+		0.1f,
+		1000.0f
+	);
 
-	// Raytracing has to do the contrary of rasterization: rays are defined in
-	// camera space, and are transformed into world space. To do this, we need to
-	// store the inverse matrices as well.
+	// Inverses (needed for ray tracing)
 	XMVECTOR det;
-	matrices[2] = XMMatrixInverse(&det, matrices[0]);
-	matrices[3] = XMMatrixInverse(&det, matrices[1]);
+	sceneCB.InvView = XMMatrixInverse(&det, sceneCB.View);
+	sceneCB.InvProj = XMMatrixInverse(&det, sceneCB.Proj);
 
-	// Copy the matrix contents
+	// Frame index
+	sceneCB.FrameIndex = m_frameIndexCPU;
+
+	// --- Upload constant buffer ---
 	uint8_t* pData;
 	ThrowIfFailed(m_cameraBuffer->Map(0, nullptr, (void**)&pData));
-	memcpy(pData, matrices.data(), m_cameraBufferSize);
+	memcpy(pData, &sceneCB, sizeof(SceneCB));
 	m_cameraBuffer->Unmap(0, nullptr);
-	// --- 2. Keyboard movement ---
+
+	// --- Keyboard movement ---
 	glm::vec3 eye, center, up;
 	manip.getLookat(eye, center, up);
 
-//=======
 	glm::vec3 forward = glm::normalize(center - eye);
 	glm::vec3 right = glm::normalize(glm::cross(forward, up));
 
@@ -1520,14 +1530,11 @@ void D3D12HelloTriangle::UpdateCameraBuffer() {
 	if (keyQDown) eye -= up * speed * deltaTime;
 	if (keyEDown) eye += up * speed * deltaTime;
 
-	// Update manipulator with new position
+	// Update manipulator
 	manip.setLookat(eye, eye + forward, up);
 
-	// --- 3. Retrieve view matrix for raytracing ---
-	glm::mat4 viewMatrix = manip.getMatrix();
-	// Use viewMatrix for ray generation
-
 }
+
 
 
 //>>>>>>> d39e81118fd7890f397c9ccb920fcc011bd96d50

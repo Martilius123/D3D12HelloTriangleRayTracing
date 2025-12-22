@@ -43,6 +43,18 @@ private:
 	ComPtr<ID3D12DescriptorHeap> m_imguiHeap;
 	static const UINT FrameCount = 2;
 
+	UINT m_frameIndexCPU = 0;
+
+	struct SceneCB
+	{
+		XMMATRIX View;
+		XMMATRIX Proj;
+		XMMATRIX InvView;
+		XMMATRIX InvProj;
+		UINT FrameIndex;
+		UINT Padding[3]; // align to 16 bytes
+	};
+
 	struct Vertex
 	{
 		XMFLOAT3 position;
@@ -203,6 +215,7 @@ ComPtr<IDxcBlob> m_flatShaderLibrary;
 ComPtr<IDxcBlob> m_normalShaderLibrary;
 ComPtr<IDxcBlob> m_phongShaderLibrary;
 ComPtr<IDxcBlob> m_mirrorDemoShaderLibrary;
+ComPtr<IDxcBlob> m_BDSFShaderLibrary;
 
 // Root signatures for each shader stage
 ComPtr<ID3D12RootSignature> m_rayGenSignature;
