@@ -15,9 +15,6 @@
 #include "nv_helpers_dx12/BottomLevelASGenerator.h"
 #include "nv_helpers_dx12/RaytracingPipelineGenerator.h"   
 #include "nv_helpers_dx12/RootSignatureGenerator.h"
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
 #include <vector>
 #include "glm/gtc/type_ptr.hpp"
 #include "manipulator.h"
@@ -250,173 +247,6 @@ void D3D12HelloTriangle::LoadPipeline()
 	}
 
 	ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)));
-}
-
-// Load the sample assets.
-void D3D12HelloTriangle::LoadAssets()
-{
-	// #DXR Extra: Perspective Camera
-	// The root signature describes which data is accessed by the shader. The camera matrices are held
-	// in a constant buffer, itself referenced the heap. To do this we reference a range in the heap,
-	// and use that range as the sole parameter of the shader. The camera buffer is associated in the
-	// index 0, making it accessible in the shader in the b0 register.
-	CD3DX12_ROOT_PARAMETER constantParameter;
-	CD3DX12_DESCRIPTOR_RANGE range;
-	range.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
-	constantParameter.InitAsDescriptorTable(1, &range, D3D12_SHADER_VISIBILITY_ALL);
-
-	CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-	rootSignatureDesc.Init(1, &constantParameter, 0, nullptr,
-		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-
-	// Create an empty root signature.
-	{
-		//CD3DX12_ROOT_SIGNATURE_DESC rootSignatureDesc;
-		//rootSignatureDesc.Init(0, nullptr, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
-
-		ComPtr<ID3DBlob> signature;
-		ComPtr<ID3DBlob> error;
-		ThrowIfFailed(D3D12SerializeRootSignature(&rootSignatureDesc, D3D_ROOT_SIGNATURE_VERSION_1, &signature, &error));
-		ThrowIfFailed(m_device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
-	}
-
-	// Create the pipeline state, which includes compiling and loading shaders.
-	{
-		ComPtr<ID3DBlob> vertexShader;
-		ComPtr<ID3DBlob> pixelShader;
-
-#if defined(_DEBUG)
-		// Enable better shader debugging with the graphics debugging tools.
-		UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#else
-		UINT compileFlags = 0;
-#endif
-
-		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"shaders.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, nullptr));
-		ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"shaders.hlsl").c_str(), nullptr, nullptr, "PSMain", "ps_5_0", compileFlags, 0, &pixelShader, nullptr));
-
-		// Define the vertex input layout.
-		D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
-		{
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			{ "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-		};
-
-		// Describe and create the graphics pipeline state object (PSO).
-		D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc = {};
-		psoDesc.InputLayout = { inputElementDescs, _countof(inputElementDescs) };
-		psoDesc.pRootSignature = m_rootSignature.Get();
-		psoDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader.Get());
-		psoDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
-		psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-		psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-		psoDesc.DepthStencilState.DepthEnable = FALSE;
-		psoDesc.DepthStencilState.StencilEnable = FALSE;
-		psoDesc.SampleMask = UINT_MAX;
-		psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-		psoDesc.NumRenderTargets = 1;
-		psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-		psoDesc.SampleDesc.Count = 1;
-		ThrowIfFailed(m_device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pipelineState)));
-	}
-
-	// Create the command list.
-	ThrowIfFailed(m_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocator.Get(), m_pipelineState.Get(), IID_PPV_ARGS(&m_commandList)));
-
-	// Command lists are created in the recording state, but there is nothing
-	// to record yet. The main loop expects it to be closed, so close it now.
-
-	// Create the vertex buffer.
-	{
-		std::vector<std::string> modelPaths = {
-			"Models/Clamp.stl",
-			"Models/Cube.obj",
-			"Models/Cube.obj",
-			"Models/FinalBaseMesh.obj",
-			//"Models/13517_Beach_Ball_v2_L3.obj"
-		};
-		//MODEL
-		Models.resize(modelPaths.size());
-
-		ModelsShaderData.resize(modelPaths.size());
-		Models[1].scale = { 50.0f,1.0f,50.0f };
-		//Models[0].rotation = { XMConvertToRadians(45.0f), 0.0f, 0.0f };
-		//Models[1].rotation = { XMConvertToRadians(-45.0f), 0.0f, 0.0f };
-		//ModelsShaderData[0].albedo = { 1.0f,1.0f,0.5f };
-		ModelsShaderData[0].albedo = { 0.0f,1.0f,0.5f };
-		ModelsShaderData[1].albedo = { 1.0f,1.0f,0.5f };
-		ModelsShaderData[2].albedo = { 0.7f,0.7f,0.0f };
-		ModelsShaderData[3].albedo = { 0.9f,0.0f,0.1f };
-		Models[3].scale = { 20.0f,20.0f,20.0f };
-		for (int i = 0; i < modelPaths.size(); i++)
-		{
-			
-			LoadModel(modelPaths[i], Models[i].vertices, Models[i].indices);
-			
-
-			ModelsShaderData[i].id = Models[i].id = i;
-
-			const UINT vertexBufferSize = static_cast<UINT>(Models[i].vertices.size()) * sizeof(Vertex);
-
-			ThrowIfFailed(m_device->CreateCommittedResource(
-				&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-				D3D12_HEAP_FLAG_NONE,
-				&CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize),
-				D3D12_RESOURCE_STATE_GENERIC_READ,
-				nullptr,
-				IID_PPV_ARGS(&(Models[i].m_vertexBuffer))));
-
-			UINT8* pVertexDataBegin;
-			CD3DX12_RANGE readRange(0, 0);		// We do not intend to read from this resource on the CPU.
-			ThrowIfFailed(Models[i].m_vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)));
-			memcpy(pVertexDataBegin, Models[i].vertices.data(), vertexBufferSize);
-			Models[i].m_vertexBuffer->Unmap(0, nullptr);
-
-			Models[i].m_vertexBufferView.BufferLocation = Models[i].m_vertexBuffer->GetGPUVirtualAddress();
-			Models[i].m_vertexBufferView.StrideInBytes = sizeof(Vertex);
-			Models[i].m_vertexBufferView.SizeInBytes = vertexBufferSize;
-
-			const UINT indexBufferSize = static_cast<UINT>(Models[i].indices.size()) * sizeof(UINT);
-
-			CD3DX12_HEAP_PROPERTIES heapProperty = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
-			CD3DX12_RESOURCE_DESC bufferResource = CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize);
-			ThrowIfFailed(m_device->CreateCommittedResource(
-				&heapProperty, D3D12_HEAP_FLAG_NONE, &bufferResource, //
-				D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(&(Models[i].m_indexBuffer))));
-
-			// Copy the triangle data to the index buffer.
-			UINT8* pIndexDataBegin;
-			ThrowIfFailed(Models[i].m_indexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pIndexDataBegin)));
-			memcpy(pIndexDataBegin, Models[i].indices.data(), indexBufferSize);
-			Models[i].m_indexBuffer->Unmap(0, nullptr);
-
-			// Initialize the index buffer view.
-			Models[i].m_indexBufferView.BufferLocation = Models[i].m_indexBuffer->GetGPUVirtualAddress();
-			Models[i].m_indexBufferView.Format = DXGI_FORMAT_R32_UINT;
-			Models[i].m_indexBufferView.SizeInBytes = indexBufferSize;
-
-			//IndexCount = static_cast<UINT>(Models[i].indices.size());
-			//VertexCount = static_cast<UINT>(Models[i].vertices.size());
-		}
-	}
-
-	// Create synchronization objects and wait until assets have been uploaded to the GPU.
-	{
-		ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
-		m_fenceValue = 1;
-
-		// Create an event handle to use for frame synchronization.
-		m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-		if (m_fenceEvent == nullptr)
-		{
-			ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
-		}
-
-		// Wait for the command list to execute; we are reusing the same command 
-		// list in our main loop but for now, we just want to wait for setup to 
-		// complete before continuing.
-		WaitForPreviousFrame();
-	}
 }
 
 // Update frame-based values.
@@ -806,17 +636,11 @@ void D3D12HelloTriangle::OnKeyDown(UINT8 key)
 	case 'D': keyDDown = true; break;
 	case 'Q': keyQDown = true; break;
 	case 'E': keyEDown = true; break;
-		// add more keys if needed
 	}
 }
 
 void D3D12HelloTriangle::OnKeyUp(UINT8 key)
 {
-	// Alternate between rasterization and raytracing using the spacebar
-	if (key == VK_SPACE)
-	{
-		m_raster = !m_raster;
-	}
 	switch (key)
 	{
 	case 'W': keyWDown = false; break;
@@ -826,14 +650,6 @@ void D3D12HelloTriangle::OnKeyUp(UINT8 key)
 	case 'Q': keyQDown = false; break;
 	case 'E': keyEDown = false; break;
 	}
-	/*if (key == 'Q')
-	{
-		if (currentShading == L"Flat")
-			currentShading = L"Normal";
-		else
-			currentShading = L"Flat";
-		CreateShaderBindingTable();
-	}*/
 }
 
 //-----------------------------------------------------------------------------
@@ -912,57 +728,6 @@ D3D12HelloTriangle::CreateBottomLevelAS(
 // the instances, computing the memory requirements for the AS, and building the
 // AS itself
 //
-//////void D3D12HelloTriangle::CreateTopLevelAS(
-//////	const std::vector<std::pair<ID3D12Resource*, DirectX::XMMATRIX> >
-//////	& instances, bool updateOnly) {
-//////	if (!updateOnly)
-//////	{
-//////		// Gather all the instances into the builder helper
-//////		for (size_t i = 0; i < instances.size(); i++) {
-//////			m_topLevelASGenerator.AddInstance(instances[i].first,
-//////				instances[i].second, static_cast<UINT>(0),
-//////				static_cast<UINT>(i));
-//////		}
-//////
-//////		// As for the bottom-level AS, the building the AS requires some scratch space
-//////		// to store temporary data in addition to the actual AS. In the case of the
-//////		// top-level AS, the instance descriptors also need to be stored in GPU
-//////		// memory. This call outputs the memory requirements for each (scratch,
-//////		// results, instance descriptors) so that the application can allocate the
-//////		// corresponding memory
-//////		UINT64 scratchSize, resultSize, instanceDescsSize;
-//////
-//////		m_topLevelASGenerator.ComputeASBufferSizes(m_device.Get(), true, &scratchSize,
-//////			&resultSize, &instanceDescsSize);
-//////
-//////		// Create the scratch and result buffers. Since the build is all done on GPU,
-//////		// those can be allocated on the default heap
-//////		m_topLevelASBuffers.pScratch = nv_helpers_dx12::CreateBuffer(
-//////			m_device.Get(), scratchSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
-//////			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-//////			nv_helpers_dx12::kDefaultHeapProps);
-//////		m_topLevelASBuffers.pResult = nv_helpers_dx12::CreateBuffer(
-//////			m_device.Get(), resultSize, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS,
-//////			D3D12_RESOURCE_STATE_RAYTRACING_ACCELERATION_STRUCTURE,
-//////			nv_helpers_dx12::kDefaultHeapProps);
-//////
-//////		// The buffer describing the instances: ID, shader binding information,
-//////		// matrices ... Those will be copied into the buffer by the helper through
-//////		// mapping, so the buffer has to be allocated on the upload heap.
-//////		m_topLevelASBuffers.pInstanceDesc = nv_helpers_dx12::CreateBuffer(
-//////			m_device.Get(), instanceDescsSize, D3D12_RESOURCE_FLAG_NONE,
-//////			D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
-//////	}
-//////	// After all the buffers are allocated, or if only an update is required, we
-//////	// can build the acceleration structure. Note that in the case of the update
-//////	// we also pass the existing AS as the 'previous' AS, so that it can be
-//////	// refitted in place.
-//////	m_topLevelASGenerator.Generate(m_commandList.Get(),
-//////		m_topLevelASBuffers.pScratch.Get(),
-//////		m_topLevelASBuffers.pResult.Get(),
-//////		m_topLevelASBuffers.pInstanceDesc.Get(),
-//////		updateOnly, m_topLevelASBuffers.pResult.Get());
-//////}
 void D3D12HelloTriangle::CreateTopLevelAS(
 	const std::vector<std::pair<ID3D12Resource*, DirectX::XMMATRIX>>& instances,
 	bool updateOnly)
@@ -1150,7 +915,6 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	pipeline.AddLibrary(m_phongShaderLibrary.Get(), { L"ClosestHit_Phong" });
 	pipeline.AddLibrary(m_mirrorDemoShaderLibrary.Get(), { L"ClosestHit_MirrorDemo" });
 	pipeline.AddLibrary(m_BDSFShaderLibrary.Get(), { L"ClosestHit_BDSF" });
-	pipeline.AddLibrary(m_BDSFShaderLibrary.Get(), { L"ClosestHit_Shadow" });
 	// To be used, each DX12 shader needs a root signature defining which
 	// parameters and buffers will be accessed.
 	m_rayGenSignature = CreateRayGenSignature();
@@ -1181,19 +945,16 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 		std::wstring PhongHitGroup = L"HitGroup_Phong_" + std::to_wstring(i);
 		std::wstring MirrorDemoHitGroup = L"HitGroup_MirrorDemo_" + std::to_wstring(i);
 		std::wstring BDSFHitGroup = L"HitGroup_BDSF_" + std::to_wstring(i);
-		std::wstring BDSFShadowHitGroup = L"HitGroup_BDSF_Shadow_" + std::to_wstring(i);
 		pipeline.AddHitGroup(FlatHitGroup, L"ClosestHit_Flat");
 		pipeline.AddHitGroup(NormalHitGroup, L"ClosestHit_Normal");
 		pipeline.AddHitGroup(PhongHitGroup, L"ClosestHit_Phong");
 		pipeline.AddHitGroup(MirrorDemoHitGroup, L"ClosestHit_MirrorDemo");
 		pipeline.AddHitGroup(BDSFHitGroup, L"ClosestHit_BDSF");
-		pipeline.AddHitGroup(BDSFShadowHitGroup, L"ClosestHit_Shadow");
 		hitGroups.push_back(FlatHitGroup.c_str());
 		hitGroups.push_back(NormalHitGroup.c_str());
 		hitGroups.push_back(PhongHitGroup.c_str());
 		hitGroups.push_back(MirrorDemoHitGroup.c_str());
 		hitGroups.push_back(BDSFHitGroup.c_str());
-		hitGroups.push_back(BDSFShadowHitGroup.c_str());
 	}
 	// The following section associates the root signature to each shader. Note
 	// that we can explicitly show that some shaders share the same root signature
@@ -1423,21 +1184,6 @@ void D3D12HelloTriangle::CreateShaderBindingTable()
                 tlasBufferAddr
             }
         );
-		/*if (currentShading == L"BDSF")
-		{
-			hitGroupName =
-				L"HitGroup_BDSF_Shadow_" + std::to_wstring(i);
-			m_sbtHelper.AddHitGroup(
-				hitGroupName.c_str(),
-				{
-					vertexBufferAddr,
-					indexBufferAddr,
-					instanceBufferAddr,
-					lightsBufferAddr,
-					tlasBufferAddr
-				}
-			);
-		}*/
     }
 
     // 5. Allocate SBT
@@ -1459,249 +1205,6 @@ void D3D12HelloTriangle::CreateShaderBindingTable()
         m_sbtStorage.Get(),
         m_rtStateObjectProps.Get()
     );
-}
-
-
-//----------------------------------------------------------------------------------
-//
-// The camera buffer is a constant buffer that stores the transform matrices of
-// the camera, for use by both the rasterization and raytracing. This method
-// allocates the buffer where the matrices will be copied. For the sake of code
-// clarity, it also creates a heap containing only this buffer, to use in the
-// rasterization path.
-//
-// #DXR Extra: Perspective Camera
-void D3D12HelloTriangle::CreateCameraBuffer() {
-	uint32_t nbMatrix = 4; // view, perspective, viewInv, perspectiveInv
-	m_cameraBufferSize = (sizeof(SceneCB) + 255) & ~255;
-
-	// Create the constant buffer for all matrices
-	m_cameraBuffer = nv_helpers_dx12::CreateBuffer(
-		m_device.Get(), m_cameraBufferSize, D3D12_RESOURCE_FLAG_NONE,
-		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
-
-	// Create a descriptor heap that will be used by the rasterization shaders //TODO: remove RAST
-	m_constHeap = nv_helpers_dx12::CreateDescriptorHeap(
-		m_device.Get(), 1, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
-
-	// Describe and create the constant buffer view.
-	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {};
-	cbvDesc.BufferLocation = m_cameraBuffer->GetGPUVirtualAddress();
-	cbvDesc.SizeInBytes = m_cameraBufferSize;
-
-	// Get a handle to the heap memory on the CPU side, to be able to write the
-	// descriptors directly
-	D3D12_CPU_DESCRIPTOR_HANDLE srvHandle =
-		m_constHeap->GetCPUDescriptorHandleForHeapStart();
-	m_device->CreateConstantBufferView(&cbvDesc, srvHandle);
-}
-
-void D3D12HelloTriangle::CreateLightsBuffer() {
-	m_lightsBufferSize = sizeof(LightData);
-	m_lightsBuffer = nv_helpers_dx12::CreateBuffer(
-		m_device.Get(), m_lightsBufferSize, D3D12_RESOURCE_FLAG_NONE,
-		D3D12_RESOURCE_STATE_GENERIC_READ, nv_helpers_dx12::kUploadHeapProps);
-
-	// Copy CPU memory to GPU
-	uint8_t* pData;
-	ThrowIfFailed(m_lightsBuffer->Map(0, nullptr, (void**)&pData));
-	memcpy(pData, &m_lightData, sizeof(LightData));
-	m_lightsBuffer->Unmap(0, nullptr);
-}
-
-
-
-
-
-void D3D12HelloTriangle::CreateModelDataBuffer()
-{
-
-	//for (int i = 0; i < Models.size(); i++)
-	{
-
-		UINT bufferSize = sizeof(ModelInstanceGPU) * ModelsShaderData.size();
-
-		CD3DX12_HEAP_PROPERTIES heapDefault(D3D12_HEAP_TYPE_DEFAULT);
-		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize);
-
-
-
-		ThrowIfFailed(m_device->CreateCommittedResource(
-			&heapDefault,
-			D3D12_HEAP_FLAG_NONE,
-			&bufferDesc,
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			nullptr,
-			IID_PPV_ARGS(&(m_instancesBuffer)))
-		);
-
-		// Upload heap
-		CD3DX12_HEAP_PROPERTIES heapUpload(D3D12_HEAP_TYPE_UPLOAD);
-
-		ThrowIfFailed(m_device->CreateCommittedResource(
-			&heapUpload,
-			D3D12_HEAP_FLAG_NONE,
-			&bufferDesc,
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			nullptr,
-			IID_PPV_ARGS(&(m_instancesUpload)))
-		);
-
-		UpdateModelDataBuffer();
-	}
-
-}
-
-void D3D12HelloTriangle::UpdateModelDataBuffer() {
-
-	UINT bufferSize = sizeof(ModelInstanceGPU) * ModelsShaderData.size();
-	void* mapped = nullptr;
-	m_instancesUpload->Map(0, nullptr, &mapped);
-	memcpy(mapped, ModelsShaderData.data(), bufferSize);
-	m_instancesUpload->Unmap(0, nullptr);
-
-
-
-}
-
-
-// #DXR Extra: Perspective Camera
-//--------------------------------------------------------------------------------
-// Create and copies the viewmodel and perspective matrices of the camera
-//
-void D3D12HelloTriangle::UpdateCameraBuffer()
-{
-	using namespace nv_helpers_dx12;
-
-	Manipulator& manip = CameraManip;
-
-	// --- Timing ---
-	static DWORD lastTime = GetTickCount();
-	DWORD now = GetTickCount();
-	float deltaTime = (now - lastTime) / 1000.0f;
-	lastTime = now;
-
-	// --- Camera matrices ---
-	SceneCB sceneCB = {};
-
-	// View matrix from manipulator (GLM -> XMMATRIX)
-	const glm::mat4& glmView = manip.getMatrix();
-	memcpy(&sceneCB.View, glm::value_ptr(glmView), sizeof(XMMATRIX));
-
-	// Projection matrix
-	float fovAngleY = 45.0f * XM_PI / 180.0f;
-	sceneCB.Proj = XMMatrixPerspectiveFovRH(
-		fovAngleY,
-		m_aspectRatio,
-		0.1f,
-		1000.0f
-	);
-
-	// Inverses (needed for ray tracing)
-	XMVECTOR det;
-	sceneCB.InvView = XMMatrixInverse(&det, sceneCB.View);
-	sceneCB.InvProj = XMMatrixInverse(&det, sceneCB.Proj);
-
-	// Frame index
-	sceneCB.FrameIndex = m_frameIndexCPU++;
-	sceneCB.SampleCount = m_sampleCount;
-
-	// --- Upload constant buffer ---
-	uint8_t* pData;
-	ThrowIfFailed(m_cameraBuffer->Map(0, nullptr, (void**)&pData));
-	memcpy(pData, &sceneCB, sizeof(SceneCB));
-	m_cameraBuffer->Unmap(0, nullptr);
-
-	// --- Keyboard movement ---
-	glm::vec3 eye, center, up;
-	manip.getLookat(eye, center, up);
-
-	glm::vec3 forward = glm::normalize(center - eye);
-	glm::vec3 right = glm::normalize(glm::cross(forward, up));
-
-	float speed = manip.getSpeed();
-
-	if (keyWDown) eye += forward * speed * deltaTime;
-	if (keySDown) eye -= forward * speed * deltaTime;
-	if (keyADown) eye -= right * speed * deltaTime;
-	if (keyDDown) eye += right * speed * deltaTime;
-	if (keyQDown) eye -= up * speed * deltaTime;
-	if (keyEDown) eye += up * speed * deltaTime;
-
-	// Update manipulator
-	manip.setLookat(eye, eye + forward, up);
-
-}
-
-
-
-//>>>>>>> d39e81118fd7890f397c9ccb920fcc011bd96d50
-void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
-	std::vector<Vertex>& outVertices,
-	std::vector<uint32_t>& outIndices)
-{
-	static int modelId = -1;
-	modelId++;
-	Assimp::Importer importer;
-
-	const aiScene* scene = importer.ReadFile(modelPath,
-		aiProcess_Triangulate |
-		aiProcess_ConvertToLeftHanded |
-		aiProcess_GenNormals |
-		aiProcess_JoinIdenticalVertices
-	);
-
-	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
-	{
-		return;
-	}
-
-	for (UINT m = 0; m < scene->mNumMeshes; ++m)
-	{
-		aiMesh* mesh = scene->mMeshes[m];
-		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
-		aiColor4D diffuseColor(1.0f, 1.0f, 1.0f, 1.0f); // Default to white
-		material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColor);
-
-		// Convert from Assimp's color to DirectX's XMFLOAT4
-		DirectX::XMFLOAT4 meshColor = { diffuseColor.r, diffuseColor.g, diffuseColor.b, diffuseColor.a };
-
-		UINT vertexOffset = (UINT)outVertices.size();
-
-		for (UINT i = 0; i < mesh->mNumVertices; ++i)
-		{
-			Vertex v;
-			v.position.x = mesh->mVertices[i].x;
-			v.position.y = mesh->mVertices[i].y;
-			v.position.z = mesh->mVertices[i].z;
-
-			v.color = meshColor;
-			v.id = modelId; // Assign mesh index as ID
-			v.roughness = 0.5f; // Default roughness
-
-			if (mesh->HasNormals())
-			{
-				v.normal.x = mesh->mNormals[i].x;
-				v.normal.y = mesh->mNormals[i].y;
-				v.normal.z = mesh->mNormals[i].z;
-			}
-			else
-			{
-				v.normal = { 0.0f, 1.0f, 0.0f };
-			}
-
-			outVertices.push_back(v);
-		}
-
-		for (UINT i = 0; i < mesh->mNumFaces; ++i)
-		{
-			aiFace face = mesh->mFaces[i];
-			for (UINT j = 0; j < face.mNumIndices; ++j)
-			{
-				outIndices.push_back(face.mIndices[j] + vertexOffset);
-			}
-		}
-	}
 }
 
 void D3D12HelloTriangle::OnButtonDown(UINT32 lParam)
@@ -1730,14 +1233,6 @@ void D3D12HelloTriangle::SetShadingMode(const std::wstring& mode)
 {
 	currentShading = mode;
 	CreateShaderBindingTable();
-}
-
-void D3D12HelloTriangle::UpdateLightsBuffer()
-{
-	uint8_t* pData;
-	ThrowIfFailed(m_lightsBuffer->Map(0, nullptr, (void**)&pData));
-	memcpy(pData, &m_lightData, sizeof(LightData));
-	m_lightsBuffer->Unmap(0, nullptr);
 }
 
 
@@ -1771,103 +1266,6 @@ void D3D12HelloTriangle::BuildTLAS() {
 		m_device->CreateShaderResourceView(nullptr, &srvDesc, srvHandle);
 		BLASChanged = false;
 	}
-}
-
-void D3D12HelloTriangle::AddModel(const std::string& path) {
-	WaitForPreviousFrame();
-
-	ThrowIfFailed(m_commandAllocator->Reset());
-	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
-
-	ModelInstance newModel = {};
-	newModel.id = static_cast<int>(Models.size());
-	LoadModel(path, newModel.vertices, newModel.indices);
-	const UINT vertexBufferSize = static_cast<UINT>(newModel.vertices.size()) * sizeof(Vertex);
-	ThrowIfFailed(m_device->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize), D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr, IID_PPV_ARGS(&(newModel.m_vertexBuffer))));
-
-	UINT8* pVertexDataBegin;
-	CD3DX12_RANGE readRange(0, 0);
-	ThrowIfFailed(newModel.m_vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)));
-	memcpy(pVertexDataBegin, newModel.vertices.data(), vertexBufferSize);
-	newModel.m_vertexBuffer->Unmap(0, nullptr);
-
-	const UINT indexBufferSize = static_cast<UINT>(newModel.indices.size()) * sizeof(uint32_t);
-	ThrowIfFailed(m_device->CreateCommittedResource(
-		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
-		&CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize), D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr, IID_PPV_ARGS(&(newModel.m_indexBuffer))));
-
-	UINT8* pIndexDataBegin;
-	ThrowIfFailed(newModel.m_indexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pIndexDataBegin)));
-	memcpy(pIndexDataBegin, newModel.indices.data(), indexBufferSize);
-	newModel.m_indexBuffer->Unmap(0, nullptr);
-
-	AccelerationStructureBuffers newBLAS = CreateBottomLevelAS(
-		{ {newModel.m_vertexBuffer.Get(), (uint32_t)newModel.vertices.size()} },
-		{ {newModel.m_indexBuffer.Get(),  (uint32_t)newModel.indices.size()} }
-	);
-
-	BLASes.push_back(newBLAS);
-	m_bottomLevelAS.clear();
-	for (auto& b : BLASes) m_bottomLevelAS.push_back(b.pResult);
-	Models.push_back(newModel);
-
-	ModelInstanceGPU newModelInstance;
-	newModelInstance.id = newModel.id;
-	ModelsShaderData.push_back(newModelInstance);
-	//UpdateModelDataBuffer();
-	CreateModelDataBuffer();
-
-	CreateRaytracingPipeline();
-	CreateShaderBindingTable();
-
-	ThrowIfFailed(m_commandList->Close());
-	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-	m_commandQueue->ExecuteCommandLists(1, ppCommandLists);
-
-	WaitForPreviousFrame();
-	BLASChanged = true;
-
-}
-
-void D3D12HelloTriangle::RemoveModel(int index) {
-
-	if (index < 0 || index >= Models.size()) return;
-
-	WaitForPreviousFrame();
-
-
-	ModelsShaderData.erase(ModelsShaderData.begin() + index);
-	for (int i = 0; i < ModelsShaderData.size(); i++)
-	{
-		ModelsShaderData[i].id = i;
-	}
-	UpdateModelDataBuffer();
-
-	Models.erase(Models.begin() + index);
-	for (int i = 0; i < Models.size(); i++)
-	{
-		Models[i].id = i;
-	}
-
-	BLASes.erase(BLASes.begin() + index);
-	BLASChanged = true;
-	m_bottomLevelAS.clear();
-	for (auto& b : BLASes) m_bottomLevelAS.push_back(b.pResult);
-
-	CreateRaytracingPipeline();
-	CreateShaderBindingTable();
-	ThrowIfFailed(m_commandAllocator->Reset());
-	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
-
-	ThrowIfFailed(m_commandList->Close());
-	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-	m_commandQueue->ExecuteCommandLists(1, ppCommandLists);
-
-	WaitForPreviousFrame();
 }
 
 D3D12HelloTriangle::HDRImage D3D12HelloTriangle::LoadHDR(const std::string& path)

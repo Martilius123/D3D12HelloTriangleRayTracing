@@ -11,14 +11,18 @@
 
 #pragma once
 
-#include "DXSample.h"
+#include <windows.h>
+#include "d3dx12.h"
+#include "DXSampleHelper.h"
 #include <dxcapi.h>
 #include <d3d12.h>
+#include <dxgi1_4.h>
 #include <array>
 #include <stdexcept>
 #include "nv_helpers_dx12/TopLevelASGenerator.h"
 #include "nv_helpers_dx12/ShaderBindingTableGenerator.h"
 #include <string>
+#include "DXSample.h"
 
 using namespace DirectX;
 

@@ -13,6 +13,10 @@
 #include "Win32Application.h"
 #include <d3d12.h>
 #include <wrl/client.h>
+#include <exception>
+#include <cstdlib>
+#include <wrl/wrappers/corewrappers.h>
+#include <stdio.h>
 inline void ThrowIfFailed(HRESULT hr)
 {
 	if (FAILED(hr))

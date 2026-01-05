@@ -11,6 +11,7 @@
 
 #include "stdafx.h"
 #include "Win32Application.h"
+#include "DXSample.h"
 #include "imgui.h"
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 HWND Win32Application::m_hwnd = nullptr;
@@ -45,8 +46,8 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
 		CW_USEDEFAULT,
 		windowRect.right - windowRect.left,
 		windowRect.bottom - windowRect.top,
-		nullptr,		// We have no parent window.
-		nullptr,		// We aren't using menus.
+		nullptr,        // We have no parent window.
+		nullptr,        // We aren't using menus.
 		hInstance,
 		pSample);
 

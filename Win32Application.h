@@ -11,7 +11,8 @@
 
 #pragma once
 
-#include "DXSample.h"
+// Avoid including DXSample.h here to prevent a circular include
+#include <windows.h>
 
 class DXSample;
 

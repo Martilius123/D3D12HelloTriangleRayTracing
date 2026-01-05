@@ -14,6 +14,8 @@
 #include "DXSampleHelper.h"
 #include "Win32Application.h"
 #include <dxgi1_2.h>
+#include <string>
+
 class DXSample
 {
 public:
