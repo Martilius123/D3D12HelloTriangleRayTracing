@@ -109,9 +109,10 @@ public:
 
 	std::vector<ModelInstanceGPU> ModelsShaderData;
 	
+	XMFLOAT3 tempLight;
 	struct LightData {
-		XMFLOAT3 position; float pad1;
-		XMFLOAT3 color;    float pad2;
+		XMFLOAT3 position; float intensity;
+		XMFLOAT3 color;    int type;
 	};
 	//HDR Image
 	struct HDRImage

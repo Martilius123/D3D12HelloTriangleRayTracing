@@ -475,13 +475,24 @@ void D3D12HelloTriangle::OnUpdate()
 
 		bool lightChanged = false;
 
-		if (ImGui::DragFloat3("Light Pos", &m_lightData.position.x, 0.1f))
+		const char* lightTypes[] = { "Point Light", "Directional Light" };
+
+		if (ImGui::Combo("Light Type", &m_lightData.type, lightTypes, IM_ARRAYSIZE(lightTypes)))
+		{
+			lightChanged = true;
+		}
+
+		const char* posLabel = (m_lightData.type == 1) ? "Light Direction" : "Light Position";
+
+		if (ImGui::DragFloat3(posLabel, &m_lightData.position.x, 0.1f))
 			lightChanged = true;
 
 		if (ImGui::ColorEdit3("Light Color", &m_lightData.color.x))
 			lightChanged = true;
 
-		// Only upload to GPU if the user actually touched the UI
+		if (ImGui::DragFloat("Intensity", &m_lightData.intensity, 0.1f, 0.0f, 1000.0f))
+			lightChanged = true;
+
 		if (lightChanged)
 		{
 			UpdateLightsBuffer();
