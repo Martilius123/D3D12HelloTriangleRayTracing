@@ -971,7 +971,7 @@ void D3D12HelloTriangle::CreateTopLevelAS(
 
 	for (size_t i = 0; i < instances.size(); i++) {
 		generator.AddInstance(instances[i].first,
-			instances[i].second, static_cast<UINT>(0),
+			instances[i].second, static_cast<UINT>(i),
 			static_cast<UINT>(i));
 	}
 
@@ -1817,7 +1817,8 @@ void D3D12HelloTriangle::AddModel(const std::string& path) {
 	ModelInstanceGPU newModelInstance;
 	newModelInstance.id = newModel.id;
 	ModelsShaderData.push_back(newModelInstance);
-	UpdateModelDataBuffer();
+	//UpdateModelDataBuffer();
+	CreateModelDataBuffer();
 
 	CreateRaytracingPipeline();
 	CreateShaderBindingTable();

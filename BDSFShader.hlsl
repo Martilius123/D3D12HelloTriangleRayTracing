@@ -31,7 +31,10 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
     payload.randomSeed = HashSeed(payload.randomSeed);
 
     uint vertId = 3 * PrimitiveIndex();
-    ModelInstanceGPU inst = gInstanceBuffer[BTriVertex[indices[vertId + 0]].id];
+    //ModelInstanceGPU inst = gInstanceBuffer[BTriVertex[indices[vertId + 0]].id];
+    uint id = InstanceID(); // Now returns 0, 1, 2... based on the C++ loop index
+    ModelInstanceGPU inst = gInstanceBuffer[id]; // Correctly fetches the material
+    
     float3 p0 = BTriVertex[indices[vertId + 0]].vertex;
     float3 p1 = BTriVertex[indices[vertId + 1]].vertex;
     float3 p2 = BTriVertex[indices[vertId + 2]].vertex;
