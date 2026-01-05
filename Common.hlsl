@@ -8,7 +8,7 @@ static const float PI = 3.14159265f;
 struct HitInfo
 {
   float4 colorAndDistance;
-  uint hopCount;
+  int hopCount;
   uint randomSeed; // used for stochastic effects like rough reflections
 };
 

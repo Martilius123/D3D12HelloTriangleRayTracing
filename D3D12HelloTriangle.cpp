@@ -1150,6 +1150,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	pipeline.AddLibrary(m_phongShaderLibrary.Get(), { L"ClosestHit_Phong" });
 	pipeline.AddLibrary(m_mirrorDemoShaderLibrary.Get(), { L"ClosestHit_MirrorDemo" });
 	pipeline.AddLibrary(m_BDSFShaderLibrary.Get(), { L"ClosestHit_BDSF" });
+	pipeline.AddLibrary(m_BDSFShaderLibrary.Get(), { L"ClosestHit_Shadow" });
 	// To be used, each DX12 shader needs a root signature defining which
 	// parameters and buffers will be accessed.
 	m_rayGenSignature = CreateRayGenSignature();
@@ -1180,16 +1181,19 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 		std::wstring PhongHitGroup = L"HitGroup_Phong_" + std::to_wstring(i);
 		std::wstring MirrorDemoHitGroup = L"HitGroup_MirrorDemo_" + std::to_wstring(i);
 		std::wstring BDSFHitGroup = L"HitGroup_BDSF_" + std::to_wstring(i);
+		std::wstring BDSFShadowHitGroup = L"HitGroup_BDSF_Shadow_" + std::to_wstring(i);
 		pipeline.AddHitGroup(FlatHitGroup, L"ClosestHit_Flat");
 		pipeline.AddHitGroup(NormalHitGroup, L"ClosestHit_Normal");
 		pipeline.AddHitGroup(PhongHitGroup, L"ClosestHit_Phong");
 		pipeline.AddHitGroup(MirrorDemoHitGroup, L"ClosestHit_MirrorDemo");
 		pipeline.AddHitGroup(BDSFHitGroup, L"ClosestHit_BDSF");
+		pipeline.AddHitGroup(BDSFShadowHitGroup, L"ClosestHit_Shadow");
 		hitGroups.push_back(FlatHitGroup.c_str());
 		hitGroups.push_back(NormalHitGroup.c_str());
 		hitGroups.push_back(PhongHitGroup.c_str());
 		hitGroups.push_back(MirrorDemoHitGroup.c_str());
 		hitGroups.push_back(BDSFHitGroup.c_str());
+		hitGroups.push_back(BDSFShadowHitGroup.c_str());
 	}
 	// The following section associates the root signature to each shader. Note
 	// that we can explicitly show that some shaders share the same root signature
@@ -1217,7 +1221,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	// then requires a trace depth of 1. Note that this recursion depth should be
 	// kept to a minimum for best performance. Path tracing algorithms can be
 	// easily flattened into a simple loop in the ray generation.
-	pipeline.SetMaxRecursionDepth(3);
+	pipeline.SetMaxRecursionDepth(4);
 	// Compile the pipeline for execution on the GPU
 	m_rtStateObject = pipeline.Generate();
 
@@ -1419,6 +1423,21 @@ void D3D12HelloTriangle::CreateShaderBindingTable()
                 tlasBufferAddr
             }
         );
+		/*if (currentShading == L"BDSF")
+		{
+			hitGroupName =
+				L"HitGroup_BDSF_Shadow_" + std::to_wstring(i);
+			m_sbtHelper.AddHitGroup(
+				hitGroupName.c_str(),
+				{
+					vertexBufferAddr,
+					indexBufferAddr,
+					instanceBufferAddr,
+					lightsBufferAddr,
+					tlasBufferAddr
+				}
+			);
+		}*/
     }
 
     // 5. Allocate SBT

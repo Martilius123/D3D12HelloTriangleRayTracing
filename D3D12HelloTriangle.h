@@ -179,7 +179,7 @@ public:
 	virtual void OnKeyUp(UINT8 key);
 	virtual void OnKeyDown(UINT8 key);
 	bool m_raster = false;
-	std::wstring currentShading = L"Flat";
+	std::wstring currentShading = L"BDSF";
 	// #DXR
 	struct AccelerationStructureBuffers
 	{

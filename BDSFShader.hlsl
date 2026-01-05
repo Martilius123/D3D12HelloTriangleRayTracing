@@ -3,9 +3,9 @@
 cbuffer Lights : register(b1)
 {
     float3 lightPos;
-    float pad1;
+    float lightIntensity;
     float3 lightColor;
-    float pad2;
+    int lightType;
 };
 
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
@@ -16,9 +16,20 @@ RaytracingAccelerationStructure SceneBVH : register(t3);
 [shader("closesthit")] 
 void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib) 
 {
+    //Shadow Ray Logic
+    if(payload.hopCount==-10)//-10marks a shadow ray
+    {
+        float3 hitColor = float3(1.0f,0,1.0f);
+        payload.colorAndDistance = float4(hitColor, RayTCurrent());
+        return;
+    }
+
+    //BDSF logic
     float3 barycentrics =
     float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
     
+    payload.randomSeed = HashSeed(payload.randomSeed);
+
     uint vertId = 3 * PrimitiveIndex();
     ModelInstanceGPU inst = gInstanceBuffer[BTriVertex[indices[vertId + 0]].id];
     float3 p0 = BTriVertex[indices[vertId + 0]].vertex;
@@ -53,20 +64,49 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
             BTriVertex[indices[vertId + 1]].color * barycentrics.y +
             BTriVertex[indices[vertId + 2]].color * barycentrics.z;
     }
+    payload.colorAndDistance.xyz = float3(0, 0, 0);
+
     // Emmision
     if(inst.emmision>0)
     {
         payload.colorAndDistance = float4(baseColor * inst.emmision, RayTCurrent());
         return;
     }
+    
+    float3 newOrigin = hitPos + hitNormal * 0.001f;
 
-    if (payload.hopCount == 0)
+    //first, we will start with calculating the light contribution
+    {
+        float3 shadowRay = lightPos - hitPos;
+        float3 lightDirection = normalize(shadowRay);
+        float lightDistance = length(shadowRay);
+        float attenuation = 1.0f / (lightDistance * lightDistance);  // Inverse square attenuation
+        float diffuseFactor = max(dot(hitNormal, lightDirection), 0.0f);
+        HitInfo shadowPayload;
+        shadowPayload.colorAndDistance = float4(0, 0, 0, 0);
+        shadowPayload.hopCount = -10;
+        RayDesc ray;
+        ray.Origin = newOrigin;
+        ray.TMin = 0;
+        ray.TMax = lightDistance;
+        ray.Direction = lightDirection;
+        TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, shadowPayload);
+        if(shadowPayload.colorAndDistance.w<0.0f)
+        {
+            //light not obstructed
+            payload.colorAndDistance+=float4(lightColor * lightIntensity * attenuation * diffuseFactor,0);
+        }
+    }
+
+
+    if (payload.hopCount <= 0)
     {
         //End of recursion, Phong shading
         float3 ambient = 0.1f * baseColor; // 10% of material color
         float3 finalColor = ambient + baseColor * lightColor * diff + spec * lightColor * 0.2;
         finalColor = saturate(finalColor);
-        payload.colorAndDistance = float4(finalColor, RayTCurrent());
+        finalColor = ambient * 4.0f;
+        payload.colorAndDistance += float4(finalColor, RayTCurrent());
     }
     else
     {
@@ -88,7 +128,6 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
 		
 
         //Starting the preparation of the new ray
-        float3 newOrigin = hitPos + hitNormal * 0.001f;
         RayDesc ray;
         ray.Origin = newOrigin;
         ray.TMin = 0;
@@ -125,10 +164,17 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
                 TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
 				averageColor += payload.colorAndDistance;
             }
-            payload.colorAndDistance = averageColor / 4.0f;
+            payload.colorAndDistance += averageColor / 4.0f;
         }
         payload.colorAndDistance.x *= baseColor.x;
         payload.colorAndDistance.y *= baseColor.y;
         payload.colorAndDistance.z *= baseColor.z;
     }
+}
+
+[shader("closesthit")] 
+void ClosestHit_Shadow(inout HitInfo payload, Attributes attrib) 
+{
+    float3 hitColor = float3(1.0f,0,1.0f);
+    payload.colorAndDistance = float4(hitColor, RayTCurrent());
 }
