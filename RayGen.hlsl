@@ -17,7 +17,8 @@ cbuffer CameraParams : register(b0)
     float4x4 viewI;
     float4x4 projectionI;
     uint FrameIndex;
-    uint pad0[3];
+    uint SampleCount;
+    uint pad0[2];
 }
 
 [shader("raygeneration")] 
@@ -26,6 +27,7 @@ void RayGen() {
     HitInfo payload;
     payload.colorAndDistance = float4(0, 0, 0, 0);
     payload.hopCount = 1; //maximum ammount of reflections that we allow
+    payload.sampleCount = SampleCount;
 
     // Get the location within the dispatched 2D grid of work items
     // (often maps to pixels, so this could represent a pixel coordinate).
@@ -100,4 +102,9 @@ void RayGen() {
       // shaders and the raygen
       payload);
     gOutput[launchIndex] = float4(payload.colorAndDistance.rgb, 1.f);
+
+    //for depth visualization:
+    //float3 depthColor = float3(payload.colorAndDistance.w / 1000.0f,0,0);
+    //depthColor.z = depthColor.y = depthColor.x;
+    //gOutput[launchIndex] = float4(depthColor, 1.f);
 }

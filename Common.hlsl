@@ -10,6 +10,7 @@ struct HitInfo
   float4 colorAndDistance;
   int hopCount;
   uint randomSeed; // used for stochastic effects like rough reflections
+  uint sampleCount;
 };
 
 // Attributes output by the raytracing when hitting a surface,

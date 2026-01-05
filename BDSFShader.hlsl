@@ -102,7 +102,7 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
     }
 
 
-    if (payload.hopCount <= 0)
+    if (payload.hopCount <= -1)
     {
         //End of recursion, Phong shading
         float3 ambient = 0.1f * baseColor; // 10% of material color
@@ -147,7 +147,7 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
         else
         {
 			float4 averageColor = float4(0, 0, 0, 0);
-			for (int i = 0; i < 4; i++)
+			for (int i = 0; i < payload.sampleCount; i++)
             {
                 //change the random seed
                 payload.randomSeed = HashSeed(payload.randomSeed);
@@ -167,11 +167,12 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
                 TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
 				averageColor += payload.colorAndDistance;
             }
-            payload.colorAndDistance += averageColor / 4.0f;
+            payload.colorAndDistance += averageColor / float(payload.sampleCount);
         }
         payload.colorAndDistance.x *= baseColor.x;
         payload.colorAndDistance.y *= baseColor.y;
         payload.colorAndDistance.z *= baseColor.z;
+        payload.colorAndDistance.w = RayTCurrent();
     }
 }
 

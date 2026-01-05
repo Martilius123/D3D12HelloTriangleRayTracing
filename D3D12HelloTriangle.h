@@ -44,6 +44,7 @@ private:
 	static const UINT FrameCount = 2;
 
 	UINT m_frameIndexCPU = 0;
+	UINT m_sampleCount = 4;
 
 	struct SceneCB
 	{
@@ -52,7 +53,8 @@ private:
 		XMMATRIX InvView;
 		XMMATRIX InvProj;
 		UINT FrameIndex;
-		UINT Padding[3]; // align to 16 bytes
+		UINT SampleCount;
+		UINT Padding[2]; // align to 16 bytes
 	};
 
 	struct Vertex
