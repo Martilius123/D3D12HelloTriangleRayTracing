@@ -96,10 +96,15 @@ public:
 
 	struct ModelInstanceGPU
 	{
-		XMFLOAT3 testColor; float pad1;
+		////XMFLOAT3 testColor; float pad1;
+		////int id; XMFLOAT3 pad2;
+		//////DirectX::XMFLOAT4X4 worldMatrix;
+		//////DirectX::XMMATRIX worldMatrix;
+		XMFLOAT3 albedo = { -1.0f, -1.0f, -1.0f }; float pad1;
 		int id; XMFLOAT3 pad2;
-		//DirectX::XMFLOAT4X4 worldMatrix;
-		//DirectX::XMMATRIX worldMatrix;
+		float emission = -1;
+		float roughness = -1;
+		XMFLOAT2 padding;
 	};
 
 	std::vector<ModelInstanceGPU> ModelsShaderData;

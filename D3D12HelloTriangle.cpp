@@ -342,11 +342,11 @@ void D3D12HelloTriangle::LoadAssets()
 		Models[1].scale = { 50.0f,1.0f,50.0f };
 		//Models[0].rotation = { XMConvertToRadians(45.0f), 0.0f, 0.0f };
 		//Models[1].rotation = { XMConvertToRadians(-45.0f), 0.0f, 0.0f };
-		//ModelsShaderData[0].testColor = { 1.0f,1.0f,0.5f };
-		ModelsShaderData[0].testColor = { 0.0f,1.0f,0.5f };
-		ModelsShaderData[1].testColor = { 1.0f,1.0f,0.5f };
-		ModelsShaderData[2].testColor = { 0.7f,0.7f,0.0f };
-		ModelsShaderData[3].testColor = { 0.9f,0.0f,0.1f };
+		//ModelsShaderData[0].albedo = { 1.0f,1.0f,0.5f };
+		ModelsShaderData[0].albedo = { 0.0f,1.0f,0.5f };
+		ModelsShaderData[1].albedo = { 1.0f,1.0f,0.5f };
+		ModelsShaderData[2].albedo = { 0.7f,0.7f,0.0f };
+		ModelsShaderData[3].albedo = { 0.9f,0.0f,0.1f };
 		Models[3].scale = { 20.0f,20.0f,20.0f };
 		for (int i = 0; i < modelPaths.size(); i++)
 		{
@@ -493,6 +493,7 @@ void D3D12HelloTriangle::OnUpdate()
 
 	for (int i = 0; i < Models.size(); i++) {
 		auto& inst = Models[i];
+		auto& inst2 = ModelsShaderData[i];
 
 		ImGui::PushID(i);
 
@@ -502,6 +503,71 @@ void D3D12HelloTriangle::OnUpdate()
 			if (ImGui::DragFloat3("Position", &inst.position.x, 0.05f));
 			if (ImGui::DragFloat3("Rotation", &inst.rotation.x, 0.05f));
 			if (ImGui::DragFloat3("Scale", &inst.scale.x, 0.05f, 0, 100));
+
+			ImGui::Spacing();
+
+			// --- NEW: Nested Header for GPU Instance Data ---
+			if (ImGui::TreeNode("Material / Instance Settings")) {
+				// COLOR
+				{
+					bool useVertexData = (inst2.albedo.x == -1.0f &&
+						inst2.albedo.y == -1.0f &&
+						inst2.albedo.z == -1.0f);
+
+					if (ImGui::Checkbox("Use Vertex Data", &useVertexData)) {
+						if (useVertexData) {
+							inst2.albedo = DirectX::XMFLOAT3(-1.0f, -1.0f, -1.0f);
+						}
+						else {
+							inst2.albedo = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
+						}
+					}
+
+					if (!useVertexData) {
+						ImGui::Indent();
+						ImGui::ColorEdit3("Instance Color", &inst2.albedo.x);
+						ImGui::Unindent();
+					}
+				}
+				// EMISSION
+				{
+					bool useTextureEmission = (inst2.emission == -1.0f);
+					if (ImGui::Checkbox("Use Texture Emission", &useTextureEmission)) {
+						if (useTextureEmission) {
+							inst2.emission = -1.0f;
+						}
+						else {
+							inst2.emission = 1.0f;
+						}
+					}
+					if (!useTextureEmission) {
+						ImGui::Indent();
+						ImGui::DragFloat("Emission Value", &inst2.emission, 0.01f, 0.0f, 10.0f);
+						ImGui::Unindent();
+					}
+				}
+				ImGui::Spacing();
+				// ROUGHNESS
+				{
+					bool useTextureRoughness = (inst2.roughness == -1.0f);
+					if (ImGui::Checkbox("Use Texture Roughness", &useTextureRoughness)) {
+						if (useTextureRoughness) {
+							inst2.roughness = -1.0f;
+						}
+						else {
+							inst2.roughness = 0.5f;
+						}
+					}
+					if (!useTextureRoughness) {
+						ImGui::Indent();
+						ImGui::DragFloat("Roughness Value", &inst2.roughness, 0.01f, 0.0f, 1.0f);
+						ImGui::Unindent();
+					}
+				}
+				ImGui::TreePop();
+			}
+
+			ImGui::Separator();
 
 			ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
@@ -518,6 +584,7 @@ void D3D12HelloTriangle::OnUpdate()
 	ImGui::End();
 	if (indexToRemove != -1)
 		RemoveModel(indexToRemove);
+	UpdateModelDataBuffer();
 }
 
 // Render the scene.
@@ -1717,6 +1784,11 @@ void D3D12HelloTriangle::AddModel(const std::string& path) {
 	for (auto& b : BLASes) m_bottomLevelAS.push_back(b.pResult);
 	Models.push_back(newModel);
 
+	ModelInstanceGPU newModelInstance;
+	newModelInstance.id = newModel.id;
+	ModelsShaderData.push_back(newModelInstance);
+	UpdateModelDataBuffer();
+
 	CreateRaytracingPipeline();
 	CreateShaderBindingTable();
 
@@ -1726,6 +1798,7 @@ void D3D12HelloTriangle::AddModel(const std::string& path) {
 
 	WaitForPreviousFrame();
 	BLASChanged = true;
+
 }
 
 void D3D12HelloTriangle::RemoveModel(int index) {
@@ -1735,11 +1808,19 @@ void D3D12HelloTriangle::RemoveModel(int index) {
 	WaitForPreviousFrame();
 
 
+	ModelsShaderData.erase(ModelsShaderData.begin() + index);
+	for (int i = 0; i < ModelsShaderData.size(); i++)
+	{
+		ModelsShaderData[i].id = i;
+	}
+	UpdateModelDataBuffer();
+
 	Models.erase(Models.begin() + index);
 	for (int i = 0; i < Models.size(); i++)
 	{
 		Models[i].id = i;
 	}
+
 	BLASes.erase(BLASes.begin() + index);
 	BLASChanged = true;
 	m_bottomLevelAS.clear();
