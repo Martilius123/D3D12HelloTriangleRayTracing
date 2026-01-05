@@ -351,7 +351,7 @@ void D3D12HelloTriangle::LoadAssets()
 		for (int i = 0; i < modelPaths.size(); i++)
 		{
 			
-			LoadModel(modelPaths[i], Models[i].vertices, Models[i].indices);
+			LoadModel(modelPaths[i], Models[i].vertices, Models[i].indices, i);
 			
 
 			ModelsShaderData[i].id = Models[i].id = i;
@@ -1637,10 +1637,11 @@ void D3D12HelloTriangle::UpdateCameraBuffer()
 //>>>>>>> d39e81118fd7890f397c9ccb920fcc011bd96d50
 void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 	std::vector<Vertex>& outVertices,
-	std::vector<uint32_t>& outIndices)
+	std::vector<uint32_t>& outIndices,
+	int modelId)
 {
-	static int modelId = -1;
-	modelId++;
+	//static int modelId = -1;
+	//modelId++;
 	Assimp::Importer importer;
 
 	const aiScene* scene = importer.ReadFile(modelPath,
@@ -1780,7 +1781,7 @@ void D3D12HelloTriangle::AddModel(const std::string& path) {
 
 	ModelInstance newModel = {};
 	newModel.id = static_cast<int>(Models.size());
-	LoadModel(path, newModel.vertices, newModel.indices);
+	LoadModel(path, newModel.vertices, newModel.indices, newModel.id);
 	const UINT vertexBufferSize = static_cast<UINT>(newModel.vertices.size()) * sizeof(Vertex);
 	ThrowIfFailed(m_device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,

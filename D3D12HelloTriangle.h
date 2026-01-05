@@ -245,7 +245,8 @@ ComPtr<ID3D12Resource> m_sbtStorage;
 
 void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 	std::vector<Vertex>& outVertices,
-	std::vector<uint32_t>& outIndices);
+	std::vector<uint32_t>& outIndices,
+	int modelId);
 
 // #DXR Extra: Perspective Camera++
 void OnButtonDown(UINT32 lParam);
