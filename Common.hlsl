@@ -32,6 +32,16 @@ uint InitSeed(uint2 pixel, uint frameIndex)
     return seed | 1u; // avoid zero seed
 }
 
+uint HashSeed(uint x)
+{
+    x ^= x >> 16;
+    x *= 0x7feb352d;
+    x ^= x >> 15;
+    x *= 0x846ca68b;
+    x ^= x >> 16;
+    return x;
+}
+
 float RandomFloat(inout uint state)
 {
     state = 1664525u * state + 1013904223u;
@@ -73,8 +83,10 @@ struct STriVertex
 
 struct ModelInstanceGPU
 {
-    float3 testColor;
+    float3 albedo;
     float pad1;
     int id;
-    float3 pad2;
+    float emmision;
+    float roughness;
+    float padding;
 };

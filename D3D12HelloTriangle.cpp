@@ -29,7 +29,7 @@
 #include <stdexcept>
 #include <iostream>
 #define STB_IMAGE_IMPLEMENTATION
-#include "packages/stb_image/stb_image.h"
+#include "libraries/stb_image/stb_image.h"
 
 //
 D3D12HelloTriangle::D3D12HelloTriangle(UINT width, UINT height, std::wstring name) :

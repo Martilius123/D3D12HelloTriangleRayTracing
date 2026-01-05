@@ -45,9 +45,21 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
     float3 reflectDir = reflect(-viewDir, hitNormal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32.0f); // shininess 32
 
-    float3 baseColor = BTriVertex[indices[vertId + 0]].color * barycentrics.x +
-        BTriVertex[indices[vertId + 1]].color * barycentrics.y +
-        BTriVertex[indices[vertId + 2]].color * barycentrics.z;
+    // albedo
+    float3 baseColor = inst.albedo;
+    if(inst.albedo.x<0)
+    {
+        baseColor = BTriVertex[indices[vertId + 0]].color * barycentrics.x +
+            BTriVertex[indices[vertId + 1]].color * barycentrics.y +
+            BTriVertex[indices[vertId + 2]].color * barycentrics.z;
+    }
+    // Emmision
+    if(inst.emmision>0)
+    {
+        payload.colorAndDistance = float4(baseColor * inst.emmision, RayTCurrent());
+        return;
+    }
+
     if (payload.hopCount == 0)
     {
         //End of recursion, Phong shading
@@ -63,11 +75,17 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
         float3 reflected = reflect(incoming, hitNormal);
         reflected = normalize(reflected);
 
-		//roughness interpolation
-        float3 r0 = BTriVertex[indices[vertId + 0]].roughness;
-        float3 r1 = BTriVertex[indices[vertId + 1]].roughness;
-        float3 r2 = BTriVertex[indices[vertId + 2]].roughness;
-        float roughness = r0 * barycentrics.x + r1 * barycentrics.y + r2 * barycentrics.z;
+        //roughness
+        float roughness = inst.roughness;
+        if(inst.roughness<0)
+        {
+            //roughness interpolation
+            float3 r0 = BTriVertex[indices[vertId + 0]].roughness;
+            float3 r1 = BTriVertex[indices[vertId + 1]].roughness;
+            float3 r2 = BTriVertex[indices[vertId + 2]].roughness;
+            roughness = r0 * barycentrics.x + r1 * barycentrics.y + r2 * barycentrics.z;
+        }
+		
 
         //Starting the preparation of the new ray
         float3 newOrigin = hitPos + hitNormal * 0.001f;
@@ -82,13 +100,15 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
 			// Perfect mirror reflection
             ray.Direction = reflected;
             TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
-            payload.colorAndDistance = 0.5f * payload.colorAndDistance; // darken a bit on each reflection
+            //payload.colorAndDistance = 0.5f * payload.colorAndDistance; // darken a bit on each reflection
 		}
         else
         {
 			float4 averageColor = float4(0, 0, 0, 0);
 			for (int i = 0; i < 4; i++)
             {
+                //change the random seed
+                payload.randomSeed = HashSeed(payload.randomSeed);
                 // Random samples for hemisphere sampling
                 float u1 = RandomFloat(payload.randomSeed);
                 float u2 = RandomFloat(payload.randomSeed);
@@ -106,9 +126,9 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
 				averageColor += payload.colorAndDistance;
             }
             payload.colorAndDistance = averageColor / 4.0f;
-            payload.colorAndDistance.x *= baseColor.x;
-            payload.colorAndDistance.y *= baseColor.y;
-            payload.colorAndDistance.z *= baseColor.z;
         }
+        payload.colorAndDistance.x *= baseColor.x;
+        payload.colorAndDistance.y *= baseColor.y;
+        payload.colorAndDistance.z *= baseColor.z;
     }
 }
