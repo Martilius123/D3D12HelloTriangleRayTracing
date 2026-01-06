@@ -14,7 +14,7 @@ StructuredBuffer<ModelInstanceGPU> gInstanceBuffer : register(t2);
 RaytracingAccelerationStructure SceneBVH : register(t3);
 
 [shader("closesthit")] 
-void ClosestHit_MirrorDemo(inout HitInfo payload, Attributes attrib) 
+void ClosestHit_MirrorDemo(inout HitInfo payload : SV_RayPayload, Attributes attrib) 
 {
     float3 barycentrics =
     float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);

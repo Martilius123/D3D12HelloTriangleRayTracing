@@ -4,7 +4,7 @@ StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
 
 [shader("closesthit")]
-void ClosestHit_Normal(inout HitInfo payload, Attributes attrib)
+void ClosestHit_Normal(inout HitInfo payload : SV_RayPayload, Attributes attrib)
 {
     float3 barycentrics =
     float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);

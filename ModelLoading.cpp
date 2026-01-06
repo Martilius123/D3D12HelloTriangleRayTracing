@@ -103,10 +103,11 @@ void D3D12HelloTriangle::LoadAssets()
 		//Models[1].rotation = { XMConvertToRadians(-45.0f), 0.0f, 0.0f };
 		//ModelsShaderData[0].albedo = { 1.0f,1.0f,0.5f };
 		ModelsShaderData[0].albedo = { 0.0f,1.0f,0.5f };
-		ModelsShaderData[1].albedo = { 1.0f,1.0f,0.5f };
-		ModelsShaderData[2].albedo = { 0.7f,0.7f,0.0f };
-		ModelsShaderData[3].albedo = { 0.9f,0.0f,0.1f };
-		Models[3].scale = { 20.0f,20.0f,20.0f };
+		//ModelsShaderData[1].albedo = { 1.0f,1.0f,0.5f };
+		//ModelsShaderData[2].albedo = { 0.7f,0.7f,0.0f };
+		//ModelsShaderData[3].albedo = { 0.9f,0.0f,0.1f };
+		Models[3].scale = { 2.0f,2.0f,2.0f };
+		Models[3].position = { 0.0f,0.0f,10.0f };
 		for (int i = 0; i < modelPaths.size(); i++)
 		{
 

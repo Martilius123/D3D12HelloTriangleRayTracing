@@ -14,7 +14,7 @@ StructuredBuffer<ModelInstanceGPU> gInstanceBuffer : register(t2);
 RaytracingAccelerationStructure SceneBVH : register(t3);
 
 [shader("closesthit")] 
-void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib) 
+void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib) 
 {
     //Shadow Ray Logic
     if(payload.hopCount==-10)//-10marks a shadow ray
@@ -138,10 +138,14 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
         {
 			float4 averageColor = float4(0, 0, 0, 0);
             int hopCountBackup = payload.hopCount;
-			for (int i = 0; i < payload.sampleCount; i++)
+            int sampleCount = payload.sampleCount;
+            //sample Count for subsequent rays
+            payload.sampleCount = 2;
+			for (int i = 0; i < sampleCount; i++)
             {
                 //change the random seed
                 payload.randomSeed = HashSeed(payload.randomSeed);
+                
                 // Random samples for hemisphere sampling
                 float u1 = RandomFloat(payload.randomSeed);
                 float u2 = RandomFloat(payload.randomSeed);
@@ -159,7 +163,7 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
 				averageColor += payload.colorAndDistance;
                 payload.hopCount = hopCountBackup;
             }
-            payload.colorAndDistance = averageColor / float(payload.sampleCount);
+            payload.colorAndDistance = averageColor / float(sampleCount);
         }
     }
     payload.colorAndDistance.x *= baseColor.x;
