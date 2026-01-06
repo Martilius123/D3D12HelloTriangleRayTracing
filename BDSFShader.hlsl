@@ -177,10 +177,3 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
     payload.colorAndDistance.z *= baseColor.z;
     payload.colorAndDistance.w = RayTCurrent();
 }
-
-[shader("closesthit")] 
-void ClosestHit_Shadow(inout HitInfo payload, Attributes attrib) 
-{
-    float3 hitColor = float3(1.0f,0,1.0f);
-    payload.colorAndDistance = float4(hitColor, RayTCurrent());
-}

@@ -267,12 +267,13 @@ void D3D12HelloTriangle::OnUpdate()
 	ImGui::TextColored(ImVec4(0, 1, 0, 1), "Scene Manager");
 
 	// Static buffer to hold the path text (persists between frames)
-	static char pathBuffer[128] = "Models/Cube.obj";
-	ImGui::InputText("Model Path", pathBuffer, _countof(pathBuffer));
+	static char modelPathBuffer[128] = "Models/Cube.obj";
+	static char environmentPathBuffer[128] = "HDR/studio.hdr";
+	ImGui::InputText("Model Path", modelPathBuffer, _countof(modelPathBuffer));
 
 	if (ImGui::Button("Add Model")) {
 		// This triggers the heavy function we wrote earlier
-		AddModel(pathBuffer);
+		AddModel(modelPathBuffer);
 	}
 
 	ImGui::Separator();
@@ -303,6 +304,12 @@ void D3D12HelloTriangle::OnUpdate()
 		ImGui::Separator();
 		ImGui::Text("BDSF Parameters");
 		ImGui::DragInt("Sample Count", (int*) & m_sampleCount, 1);
+		ImGui::InputText("HDR Path", environmentPathBuffer, _countof(environmentPathBuffer));
+
+		if (ImGui::Button("Change Environment")) {
+			// This triggers the heavy function we wrote earlier
+			CreateEnvironmentTexture(LoadHDR(environmentPathBuffer));
+		}
 	}
 	if (currentShading == L"Phong" || currentShading == L"MirrorDemo" || currentShading == L"BDSF")
 	{
@@ -1408,5 +1415,4 @@ void D3D12HelloTriangle::CreateEnvironmentTexture(const HDRImage& img)
 	WaitForSingleObject(m_fenceEvent, INFINITE);
 
 	// success
-	std::cout << "CreateEnvironmentTexture: uploaded " << img.width << "x" << img.height << " env texture\n";
 }
