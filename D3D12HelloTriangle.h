@@ -121,7 +121,7 @@ public:
 	
 	XMFLOAT3 tempLight;
 	struct LightData {
-		XMFLOAT3 position; float intensity;
+		XMFLOAT3 position; float intensity = 100;
 		XMFLOAT3 color;    int type;
 	};
 	//HDR Image
@@ -153,6 +153,8 @@ public:
 	uint32_t m_cameraBufferSize = 0;
 	uint32_t m_lightsBufferSize = 0;
 	UINT m_envSrvIndex = UINT_MAX;
+
+	double D3D12HelloTriangle::degreesToRadians(double degrees);
 
 	// Pipeline objects.
 	CD3DX12_VIEWPORT m_viewport;

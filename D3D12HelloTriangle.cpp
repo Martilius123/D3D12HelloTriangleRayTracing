@@ -330,13 +330,21 @@ void D3D12HelloTriangle::OnUpdate()
 
 		const char* posLabel = (m_lightData.type == 1) ? "Light Direction" : "Light Position";
 
-		if (ImGui::DragFloat3(posLabel, &m_lightData.position.x, 0.1f))
-			lightChanged = true;
+		if (m_lightData.type == 1)
+		{
+			if(ImGui::DragFloat2("Light Angles", &m_lightData.position.x, 1.0f, -360.0f, 360.0f))
+				lightChanged = true;
+		}
+		else
+		{
+			if (ImGui::DragFloat3(posLabel, &m_lightData.position.x, 0.1f, -1000.0f, 1000.0f))
+				lightChanged = true;
+		}
 
 		if (ImGui::ColorEdit3("Light Color", &m_lightData.color.x))
 			lightChanged = true;
 
-		if (ImGui::DragFloat("Intensity", &m_lightData.intensity, 0.1f, 0.0f, 1000.0f))
+		if (ImGui::DragFloat("Intensity", &m_lightData.intensity, 10.0f, 0.0f, 10000.0f))
 			lightChanged = true;
 
 		if (lightChanged)
@@ -358,7 +366,7 @@ void D3D12HelloTriangle::OnUpdate()
 		if (ImGui::CollapsingHeader((std::to_string(i) + ": " + std::to_string(inst.id)).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
 
 			if (ImGui::DragFloat3("Position", &inst.position.x, 0.05f));
-			if (ImGui::DragFloat3("Rotation", &inst.rotation.x, 0.05f));
+			if (ImGui::DragFloat3("Rotation", &inst.rotation.x, 1.0f, -360.0f, 360.0f));
 			if (ImGui::DragFloat3("Scale", &inst.scale.x, 0.05f, 0, 100));
 
 			ImGui::Spacing();
@@ -809,7 +817,7 @@ void D3D12HelloTriangle::CreateAccelerationStructures() {
 	{
 		XMMATRIX scaleMatrix = XMMatrixScaling(Models[i].scale.x, Models[i].scale.y, Models[i].scale.z);
 		XMMATRIX rotationMatrix =
-			XMMatrixRotationRollPitchYaw(Models[i].rotation.x, Models[i].rotation.y, Models[i].rotation.z);
+			XMMatrixRotationRollPitchYaw(degreesToRadians(Models[i].rotation.x), degreesToRadians(Models[i].rotation.y), degreesToRadians(Models[i].rotation.z));
 		XMMATRIX translationMatrix = XMMatrixTranslation(Models[i].position.x, Models[i].position.y, Models[i].position.z);
 		XMMATRIX transform = scaleMatrix * rotationMatrix * translationMatrix;
 
@@ -1258,7 +1266,7 @@ void D3D12HelloTriangle::BuildTLAS() {
 	for (size_t i = 0; i < BLASes.size(); i++)
 	{
 		XMMATRIX scaleMatrix = XMMatrixScaling(Models[i].scale.x, Models[i].scale.y, Models[i].scale.z);
-		XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(Models[i].rotation.x, Models[i].rotation.y, Models[i].rotation.z);
+		XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(degreesToRadians(Models[i].rotation.x), degreesToRadians(Models[i].rotation.y), degreesToRadians(Models[i].rotation.z));
 		XMMATRIX translationMatrix = XMMatrixTranslation(Models[i].position.x, Models[i].position.y, Models[i].position.z);
 		XMMATRIX transform = scaleMatrix * rotationMatrix * translationMatrix;
 
@@ -1418,4 +1426,9 @@ void D3D12HelloTriangle::CreateEnvironmentTexture(const HDRImage& img)
 	WaitForSingleObject(m_fenceEvent, INFINITE);
 
 	// success
+}
+
+double D3D12HelloTriangle::degreesToRadians(double degrees) {
+	// Conversion formula: radians = degrees * PI / 180
+	return degrees * 3.141592 / 180.0;
 }

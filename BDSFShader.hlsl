@@ -79,10 +79,31 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
 
     //first, we will start with calculating the light contribution
     {
-        float3 shadowRay = lightPos - hitPos;
-        float3 lightDirection = normalize(shadowRay);
-        float lightDistance = length(shadowRay);
-        float attenuation = 1.0f / (lightDistance * lightDistance);  // Inverse square attenuation
+        float3 shadowRay;
+        float3 lightDirection;
+        float lightDistance;
+        float attenuation;
+        if(lightType==0)
+        {
+            //point light
+            shadowRay = lightPos - hitPos;
+            lightDirection = normalize(shadowRay);
+            lightDistance = length(shadowRay);
+            attenuation = 100.0f / (lightDistance * lightDistance);  // Inverse square attenuation
+        }
+        else
+        if(lightType==1)
+        {
+            //directional light
+            float pitch = lightPos.x * 3.14159265f / 180.0f;
+            float yaw = lightPos.y * 3.14159265f / 180.0f;
+            float x = cos(pitch) * sin(yaw);
+            float y = sin(pitch);
+            float z = cos(pitch) * cos(yaw);
+            lightDirection = normalize(float3(x,y,z));
+            lightDistance = 100000.0f; //infinite
+            attenuation = 1.0f; //no attenuation
+        }
         float diffuseFactor = max(dot(hitNormal, lightDirection), 0.0f);
         HitInfo shadowPayload;
         shadowPayload.colorAndDistance = float4(0, 0, 0, 0);
