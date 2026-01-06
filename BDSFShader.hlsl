@@ -105,11 +105,11 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
     if (payload.hopCount <= -1)
     {
         //End of recursion, Phong shading
-        float3 ambient = 0.1f * baseColor; // 10% of material color
-        float3 finalColor = ambient + baseColor * lightColor * diff + spec * lightColor * 0.2;
-        finalColor = saturate(finalColor);
-        finalColor = ambient * 4.0f;
-        payload.colorAndDistance += float4(finalColor, RayTCurrent());
+        //float3 ambient = 0.1f * baseColor; // 10% of material color
+        //float3 finalColor = ambient + baseColor * lightColor * diff + spec * lightColor * 0.2;
+        //finalColor = saturate(finalColor);
+        //finalColor = ambient * 4.0f;
+        //payload.colorAndDistance += float4(finalColor, RayTCurrent());
     }
     else
     {
@@ -141,12 +141,13 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
         {
 			// Perfect mirror reflection
             ray.Direction = reflected;
+            payload.colorAndDistance = float4(0, 0, 0, 0);
             TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
-            //payload.colorAndDistance = 0.5f * payload.colorAndDistance; // darken a bit on each reflection
 		}
         else
         {
 			float4 averageColor = float4(0, 0, 0, 0);
+            int hopCountBackup = payload.hopCount;
 			for (int i = 0; i < payload.sampleCount; i++)
             {
                 //change the random seed
@@ -166,14 +167,15 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
                 ray.Direction = scatteredDir;
                 TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
 				averageColor += payload.colorAndDistance;
+                payload.hopCount = hopCountBackup;
             }
-            payload.colorAndDistance += averageColor / float(payload.sampleCount);
+            payload.colorAndDistance = averageColor / float(payload.sampleCount);
         }
-        payload.colorAndDistance.x *= baseColor.x;
-        payload.colorAndDistance.y *= baseColor.y;
-        payload.colorAndDistance.z *= baseColor.z;
-        payload.colorAndDistance.w = RayTCurrent();
     }
+    payload.colorAndDistance.x *= baseColor.x;
+    payload.colorAndDistance.y *= baseColor.y;
+    payload.colorAndDistance.z *= baseColor.z;
+    payload.colorAndDistance.w = RayTCurrent();
 }
 
 [shader("closesthit")] 

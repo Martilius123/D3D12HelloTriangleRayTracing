@@ -50,7 +50,7 @@ void D3D12HelloTriangle::OnInit() {
 	LoadAssets(); // Models
 
 	HDRImage environment =
-		LoadHDR("HDR/river.hdr"); // loading an HDR image for environment lighting
+		LoadHDR("HDR/studio.hdr"); // loading an HDR image for environment lighting
 
 	CreateEnvironmentTexture(environment);
 
@@ -298,6 +298,12 @@ void D3D12HelloTriangle::OnUpdate()
 		if (item_current == 3) SetShadingMode(L"MirrorDemo");
 		if (item_current == 4) SetShadingMode(L"BDSF");
 	}
+	if (currentShading == L"BDSF")
+	{
+		ImGui::Separator();
+		ImGui::Text("BDSF Parameters");
+		ImGui::DragInt("Sample Count", (int*) & m_sampleCount, 1);
+	}
 	if (currentShading == L"Phong" || currentShading == L"MirrorDemo" || currentShading == L"BDSF")
 	{
 		ImGui::Separator();
@@ -396,7 +402,7 @@ void D3D12HelloTriangle::OnUpdate()
 							inst2.roughness = -1.0f;
 						}
 						else {
-							inst2.roughness = 0.5f;
+							inst2.roughness = 0.4f;
 						}
 					}
 					if (!useTextureRoughness) {
