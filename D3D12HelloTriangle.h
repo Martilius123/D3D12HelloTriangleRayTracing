@@ -49,6 +49,8 @@ private:
 
 	UINT m_frameIndexCPU = 0;
 	UINT m_sampleCount = 4;
+	UINT m_ISOIndex = 400;
+	bool m_highlightOverexposed = false;
 
 	struct SceneCB
 	{
@@ -58,7 +60,9 @@ private:
 		XMMATRIX InvProj;
 		UINT FrameIndex;
 		UINT SampleCount;
-		UINT Padding[2]; // align to 16 bytes
+		UINT ISOIndex;
+		bool HighlightOverexposed;
+		bool padding[3];
 	};
 
 	struct Vertex

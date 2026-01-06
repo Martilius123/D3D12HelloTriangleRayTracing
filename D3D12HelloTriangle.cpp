@@ -275,12 +275,15 @@ void D3D12HelloTriangle::OnUpdate()
 		// This triggers the heavy function we wrote earlier
 		AddModel(modelPathBuffer);
 	}
+	
+	ImGui::Separator();
+	ImGui::Text("Camera Parameters");
+
+	ImGui::DragInt("ISO", (int*) & m_ISOIndex, 100, 100, 1600);
+	ImGui::Checkbox("Highlight Overexposed", &m_highlightOverexposed);
 
 	ImGui::Separator();
 
-	//if (ImGui::Button("Switch Raster/Raytrace")) {
-	//	m_raster = !m_raster;
-	//}
 
 	// Example: Dropdown for shaders
 	const char* items[] = { "Flat", "Normal", "Phong", "MirrorDemo", "BDSF"};
@@ -303,7 +306,7 @@ void D3D12HelloTriangle::OnUpdate()
 	{
 		ImGui::Separator();
 		ImGui::Text("BDSF Parameters");
-		ImGui::DragInt("Sample Count", (int*) & m_sampleCount, 1);
+		ImGui::DragInt("Sample Count", (int*) & m_sampleCount, 1, 1, 20);
 		ImGui::InputText("HDR Path", environmentPathBuffer, _countof(environmentPathBuffer));
 
 		if (ImGui::Button("Change Environment")) {

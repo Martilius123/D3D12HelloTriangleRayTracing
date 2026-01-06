@@ -102,16 +102,7 @@ void ClosestHit_BDSF(inout HitInfo payload, Attributes attrib)
     }
 
 
-    if (payload.hopCount <= -1)
-    {
-        //End of recursion, Phong shading
-        //float3 ambient = 0.1f * baseColor; // 10% of material color
-        //float3 finalColor = ambient + baseColor * lightColor * diff + spec * lightColor * 0.2;
-        //finalColor = saturate(finalColor);
-        //finalColor = ambient * 4.0f;
-        //payload.colorAndDistance += float4(finalColor, RayTCurrent());
-    }
-    else
+    if (payload.hopCount > -1)
     {
         payload.hopCount--;
         float3 incoming = WorldRayDirection();

@@ -18,7 +18,9 @@ cbuffer CameraParams : register(b0)
     float4x4 projectionI;
     uint FrameIndex;
     uint SampleCount;
-    uint pad0[2];
+    uint ISOIndex;
+    bool HighlightOverexposed;
+    bool padding[3];
 }
 
 [shader("raygeneration")] 
@@ -101,6 +103,18 @@ void RayGen() {
       // Payload associated to the ray, which will be used to communicate between the hit/miss
       // shaders and the raygen
       payload);
+
+    //Applying ISO correction
+    payload.colorAndDistance.rgb *= ISOIndex/400.0f;
+    payload.colorAndDistance.rgb = LinearToSRGB(payload.colorAndDistance.rgb);
+    if(HighlightOverexposed&&payload.colorAndDistance.r>1.0f)
+    {
+        if((launchIndex.x+launchIndex.y)%20<10)
+            payload.colorAndDistance.rgb=float3(1.0f,0.95f,0.0f);
+        else
+            payload.colorAndDistance.rgb=float3(0.0f,0.0f,0.0f);
+        payload.colorAndDistance.w = 0.0f;
+    }
     gOutput[launchIndex] = float4(payload.colorAndDistance.rgb, 1.f);
 
     //for depth visualization:

@@ -91,3 +91,11 @@ struct ModelInstanceGPU
     float roughness;
     float padding;
 };
+
+float3 LinearToSRGB(float3 c)
+{
+    float3 a = 1.055f * pow(c, 1.0f / 2.4f) - 0.055f;
+    float3 b = 12.92f * c;
+    float3 cond = step(float3(0.0031308f,0.0031308f,0.0031308f), c); // 1 if c>=thr
+    return lerp(b, a, cond);
+}

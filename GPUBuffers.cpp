@@ -153,6 +153,8 @@ void D3D12HelloTriangle::UpdateCameraBuffer()
 	// Frame index
 	sceneCB.FrameIndex = m_frameIndexCPU++;
 	sceneCB.SampleCount = m_sampleCount;
+	sceneCB.ISOIndex = m_ISOIndex;
+	sceneCB.HighlightOverexposed = m_highlightOverexposed;
 
 	// --- Upload constant buffer ---
 	uint8_t* pData;
