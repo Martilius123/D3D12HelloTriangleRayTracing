@@ -998,7 +998,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	// then requires a trace depth of 1. Note that this recursion depth should be
 	// kept to a minimum for best performance. Path tracing algorithms can be
 	// easily flattened into a simple loop in the ray generation.
-	pipeline.SetMaxRecursionDepth(4);
+	pipeline.SetMaxRecursionDepth(6);
 	// Compile the pipeline for execution on the GPU
 	m_rtStateObject = pipeline.Generate();
 

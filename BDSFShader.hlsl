@@ -103,7 +103,7 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
 
     if (payload.hopCount > -1)
     {
-        payload.hopCount--;
+    payload.hopCount--;
         float3 incoming = WorldRayDirection();
         float3 reflected = reflect(incoming, hitNormal);
         reflected = normalize(reflected);

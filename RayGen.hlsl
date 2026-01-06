@@ -28,7 +28,7 @@ void RayGen() {
     // Initialize the ray payload
     HitInfo payload;
     payload.colorAndDistance = float4(0, 0, 0, 0);
-    payload.hopCount = 1; //maximum ammount of reflections that we allow
+    payload.hopCount = 3; //maximum ammount of reflections that we allow
     payload.sampleCount = SampleCount;
 
     // Get the location within the dispatched 2D grid of work items
