@@ -85,11 +85,13 @@ struct STriVertex
 struct ModelInstanceGPU
 {
     float3 albedo;
-    float pad1;
     int id;
     float emmision;
     float roughness;
-    float padding;
+    int isMetallic;
+    int isGlass;
+    float IOR;
+    float pad[3];
 };
 
 float3 LinearToSRGB(float3 c)

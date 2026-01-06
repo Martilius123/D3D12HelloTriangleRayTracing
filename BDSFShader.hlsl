@@ -16,11 +16,20 @@ RaytracingAccelerationStructure SceneBVH : register(t3);
 [shader("closesthit")] 
 void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib) 
 {
+    uint id = InstanceID(); // Now returns 0, 1, 2... based on the C++ loop index
+    ModelInstanceGPU inst = gInstanceBuffer[id]; // Correctly fetches the material
+
     //Shadow Ray Logic
     if(payload.hopCount==-10)//-10marks a shadow ray
     {
-        float3 hitColor = float3(1.0f,0,1.0f);
-        payload.colorAndDistance = float4(hitColor, RayTCurrent());
+        if(inst.isGlass)
+        {
+            payload.colorAndDistance = float4(0,0,0,-1);
+        }
+        else
+        {
+            payload.colorAndDistance = float4(0,0,0,RayTCurrent());
+        }
         return;
     }
 
@@ -31,8 +40,6 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
     payload.randomSeed = HashSeed(payload.randomSeed);
 
     uint vertId = 3 * PrimitiveIndex();
-    uint id = InstanceID(); // Now returns 0, 1, 2... based on the C++ loop index
-    ModelInstanceGPU inst = gInstanceBuffer[id]; // Correctly fetches the material
     
     float3 p0 = BTriVertex[indices[vertId + 0]].vertex;
     float3 p1 = BTriVertex[indices[vertId + 1]].vertex;
@@ -75,10 +82,77 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
         return;
     }
     
-    float3 newOrigin = hitPos + hitNormal * 0.001f;
+    float3 newOrigin;
 
+    // Glass
+
+    if(inst.isGlass&&payload.hopCount>-1)
+    {
+        payload.hopCount--;  // Decrement the hop count
+
+        newOrigin = hitPos - hitNormal * 0.001f;  // Offset the origin slightly to avoid self-intersection
+
+        // Dot product between incoming ray and normal
+        float dotI = dot(incoming, hitNormal);
+        float sinTheta1 = sqrt(1.0 - dotI * dotI); // sin(theta1)
+    
+        float n1, n2;
+        // Determine whether we are entering or exiting the material
+        if (dotI > 0.0)
+        {
+            // Entering the material (ray goes from air to material)
+            n1 = 1.0;              // Refractive index of air
+            n2 = inst.IOR;         // Refractive index of the material
+        }
+        else
+        {
+            // Exiting the material (ray goes from material to air)
+            n1 = inst.IOR;         // Refractive index of the material
+            n2 = 1.0;              // Refractive index of air
+            hitNormal = -hitNormal; // Flip the normal for refraction
+        }
+
+        // Calculate sin(theta2) using Snell's law
+        float sinTheta2 = (n1 / n2) * sinTheta1;  // sin(theta2) based on Snell's Law
+
+        // Check if total internal reflection occurs (sinTheta2 > 1 means no refraction)
+        if (false&&sinTheta2 > 1.0)
+        {
+            // Total internal reflection, no refraction
+            payload.colorAndDistance = float4(1, 0, 1, 0);
+        }
+        else
+        {
+            // Calculate the cosine of theta2
+            float cosTheta2 = sqrt(1.0 - sinTheta2 * sinTheta2);
+        
+            // Calculate the refracted direction
+            float3 refracted = (n1 / n2) * dotI * hitNormal - sqrt(1.0 - (n1 / n2) * (n1 / n2) * (1.0 - dotI * dotI)) * incoming;
+            refracted = incoming;
+            // Normalize the refracted direction
+            refracted = normalize(refracted);
+
+            // Prepare the ray for tracing
+            RayDesc ray;
+            ray.Origin = newOrigin;
+            ray.TMin = 0;
+            ray.TMax = 100000;
+            ray.Direction = refracted;  // Set the refracted direction
+            payload.colorAndDistance = float4(0, 0, 0, 0);
+
+            // Trace the ray
+            TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload);
+        }
+
+        return;
+    }
+
+
+
+    // Solid surface
     //first, we will start with calculating the light contribution
     {
+        newOrigin = hitPos + hitNormal * 0.001f;
         float3 shadowRay;
         float3 lightDirection;
         float lightDistance;

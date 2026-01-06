@@ -429,6 +429,24 @@ void D3D12HelloTriangle::OnUpdate()
 						ImGui::Unindent();
 					}
 				}
+				ImGui::Spacing();
+				// GLASS
+				{
+					bool isGlass = inst2.isGlass;
+					if (ImGui::Checkbox("Make the object Glass", &isGlass)) {
+						if (isGlass) {
+							inst2.isGlass = true;
+						}
+						else {
+							inst2.isGlass = false;
+						}
+					}
+					if (isGlass) {
+						ImGui::Indent();
+						ImGui::DragFloat("IOR Value", &inst2.IOR, 0.01f, 0.0f, 2.0f);
+						ImGui::Unindent();
+					}
+				}
 				ImGui::TreePop();
 			}
 
