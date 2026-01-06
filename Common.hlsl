@@ -79,7 +79,7 @@ struct STriVertex
     float3 normal;
     float roughness;
     float3 emmision;
-    int id;
+    float pad1;
 };
 
 struct ModelInstanceGPU

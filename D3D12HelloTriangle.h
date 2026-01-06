@@ -72,7 +72,7 @@ private:
 		XMFLOAT3 normal;
 		float roughness;
 		XMFLOAT3 emmision;
-		int id;
+		float pad1;
 	};
 
 	struct ModelInstance

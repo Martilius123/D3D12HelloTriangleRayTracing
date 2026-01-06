@@ -215,8 +215,7 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 			v.position.z = mesh->mVertices[i].z;
 
 			v.color = meshColor;
-			v.id = modelId; // Assign mesh index as ID
-			v.roughness = 0.5f; // Default roughness
+			v.roughness = 0.4f; // Default roughness
 
 			if (mesh->HasNormals())
 			{

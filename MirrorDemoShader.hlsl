@@ -20,7 +20,7 @@ void ClosestHit_MirrorDemo(inout HitInfo payload, Attributes attrib)
     float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
     
     uint vertId = 3 * PrimitiveIndex();
-    ModelInstanceGPU inst = gInstanceBuffer[BTriVertex[indices[vertId + 0]].id];
+    ModelInstanceGPU inst = gInstanceBuffer[InstanceID()];
     float3 p0 = BTriVertex[indices[vertId + 0]].vertex;
     float3 p1 = BTriVertex[indices[vertId + 1]].vertex;
     float3 p2 = BTriVertex[indices[vertId + 2]].vertex;

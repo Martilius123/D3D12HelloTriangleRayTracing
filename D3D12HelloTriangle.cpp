@@ -280,7 +280,7 @@ void D3D12HelloTriangle::OnUpdate()
 	ImGui::Text("Camera Parameters");
 
 	ImGui::DragInt("ISO", (int*) & m_ISOIndex, 100, 100, 1600);
-	ImGui::Checkbox("Highlight Overexposed", &m_highlightOverexposed);
+	ImGui::Checkbox("Highlight Overexposed Areas", &m_highlightOverexposed);
 
 	ImGui::Separator();
 
