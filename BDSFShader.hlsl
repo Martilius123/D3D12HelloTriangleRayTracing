@@ -221,8 +221,11 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
         ray.TMin = 0;
         ray.TMax = 100000;
 
+        bool isMirror = false;
+        if (roughness < 0.01f)
+            isMirror = true;
         // Different behaviour for 0 roughness
-        if(roughness < 0.01f)
+        if(isMirror)
         {
 			// Perfect mirror reflection
             ray.Direction = reflected;
@@ -231,35 +234,32 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
 		}
         else
         {
-			float4 averageColor = float4(0, 0, 0, 0);
-            int hopCountBackup = payload.hopCount;
+            //payload.hopCount -= 1; // Rough surfaces get fewer bounces
+			//float4 averageColor = float4(0, 0, 0, 0);
+            //int hopCountBackup = payload.hopCount;
             int sampleCount = payload.sampleCount;
             //sample Count for subsequent rays
             payload.sampleCount = 2;
-			for (int i = 0; i < sampleCount; i++)
-            {
-                //change the random seed
-                payload.randomSeed = HashSeed(payload.randomSeed);
+			
                 
-                // Random samples for hemisphere sampling
-                float u1 = RandomFloat(payload.randomSeed);
-                float u2 = RandomFloat(payload.randomSeed);
+            // Random samples for hemisphere sampling
+            float u1 = RandomFloat(payload.randomSeed);
+            float u2 = RandomFloat(payload.randomSeed);
 
-                //Hemisphere sample in local space
-                float3 H_local = SampleCosineHemisphere(float2(u1, u2));
+            //Hemisphere sample in local space
+            float3 H_local = SampleCosineHemisphere(float2(u1, u2));
 
-                //Build orthonormal basis around the reflected direction
-                float3 T, B;
-                BuildOrthonormalBasis(reflected, T, B);
+            //Build orthonormal basis around the reflected direction
+            float3 T, B;
+            BuildOrthonormalBasis(reflected, T, B);
 
-                float3 scatteredDir = normalize(lerp(reflected, H_local.x * T + H_local.y * B + H_local.z * reflected, roughness * roughness));
-                ray.Direction = scatteredDir;
-                TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
-				averageColor += payload.colorAndDistance;
-                payload.hopCount = hopCountBackup;
-            }
-            payload.colorAndDistance = averageColor / float(sampleCount);
+            float3 scatteredDir = normalize(lerp(reflected, H_local.x * T + H_local.y * B + H_local.z * reflected, roughness * roughness));
+            ray.Direction = scatteredDir;
+            TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
+			//averageColor += payload.colorAndDistance;
+            //payload.hopCount = hopCountBackup;
         }
+        //payload.colorAndDistance = averageColor / float(sampleCount);
     }
     payload.colorAndDistance.x *= baseColor.x;
     payload.colorAndDistance.y *= baseColor.y;

@@ -99,6 +99,10 @@ void D3D12HelloTriangle::LoadAssets()
 
 		ModelsShaderData.resize(modelPaths.size());
 		Models[1].scale = { 50.0f,1.0f,50.0f };
+		Models[2].scale = { 50.0f,1.0f,50.0f };
+		Models[2].position = { 0.0f,50.0f,0.0f };
+		ModelsShaderData[1].roughness = 0.0f;
+		ModelsShaderData[2].roughness = 0.0f;
 		//Models[0].rotation = { XMConvertToRadians(45.0f), 0.0f, 0.0f };
 		//Models[1].rotation = { XMConvertToRadians(-45.0f), 0.0f, 0.0f };
 		//ModelsShaderData[0].albedo = { 1.0f,1.0f,0.5f };
