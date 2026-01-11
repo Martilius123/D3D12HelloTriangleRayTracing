@@ -91,18 +91,19 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
         payload.hopCount--;  // Decrement the hop count
 
         newOrigin = hitPos - hitNormal * 0.001f;  // Offset the origin slightly to avoid self-intersection
-
+        //incoming = incoming;
         // Dot product between incoming ray and normal
         float dotI = dot(incoming, hitNormal);
         float sinTheta1 = sqrt(1.0 - dotI * dotI); // sin(theta1)
     
         float n1, n2;
         // Determine whether we are entering or exiting the material
-        if (dotI > 0.0)
+        if (payload.isInGlass==0)
         {
             // Entering the material (ray goes from air to material)
             n1 = 1.0;              // Refractive index of air
             n2 = inst.IOR;         // Refractive index of the material
+            payload.isInGlass = 1;
         }
         else
         {
@@ -110,42 +111,48 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             n1 = inst.IOR;         // Refractive index of the material
             n2 = 1.0;              // Refractive index of air
             hitNormal = -hitNormal; // Flip the normal for refraction
+            payload.isInGlass = 0;
         }
-
-        // Calculate sin(theta2) using Snell's law
-        float sinTheta2 = (n1 / n2) * sinTheta1;  // sin(theta2) based on Snell's Law
+        
+        float eta = n1 / n2;
+        float cosI = -dot(hitNormal, incoming);
+        float sinT2 = eta * eta * (1.0 - cosI * cosI);
 
         // Check if total internal reflection occurs (sinTheta2 > 1 means no refraction)
-        if (false&&sinTheta2 > 1.0)
+        if (false&&sinT2 > 1.0)
         {
-            // Total internal reflection, no refraction
-            payload.colorAndDistance = float4(1, 0, 1, 0);
+            // Total reflection, no refraction
+            float3 reflected = reflect(incoming, hitNormal);
+
+            RayDesc ray;
+            ray.Origin = hitPos + reflected * 0.001f;
+            ray.Direction = reflected;
+            ray.TMin = 0.0;
+            ray.TMax = 100000.0;
+
+            TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload);
+            return;
         }
         else
         {
-            // Calculate the cosine of theta2
-            float cosTheta2 = sqrt(1.0 - sinTheta2 * sinTheta2);
-        
-            // Calculate the refracted direction
-            float3 refracted = (n1 / n2) * dotI * hitNormal - sqrt(1.0 - (n1 / n2) * (n1 / n2) * (1.0 - dotI * dotI)) * incoming;
-            refracted = incoming;
-            // Normalize the refracted direction
+            float cosT = sqrt(1.0 - sinT2);
+            float3 refracted = eta * incoming + (eta * cosI - cosT) * hitNormal;
             refracted = normalize(refracted);
 
-            // Prepare the ray for tracing
             RayDesc ray;
-            ray.Origin = newOrigin;
-            ray.TMin = 0;
-            ray.TMax = 100000;
-            ray.Direction = refracted;  // Set the refracted direction
-            payload.colorAndDistance = float4(0, 0, 0, 0);
+            ray.Origin = hitPos + refracted * 0.001f; // IMPORTANT
+            ray.Direction = refracted;
+            ray.TMin = 0.0;
+            ray.TMax = 100000.0;
 
-            // Trace the ray
+            payload.colorAndDistance = float4(0, 0, 0, 0);
             TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload);
+            return;
         }
 
         return;
     }
+    
 
 
 

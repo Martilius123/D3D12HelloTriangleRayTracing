@@ -938,13 +938,13 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	// set of DXIL libraries. We chose to separate the code in several libraries
 	// by semantic (ray generation, hit, miss) for clarity. Any code layout can be
 	// used.
-	m_rayGenLibrary = nv_helpers_dx12::CompileShaderLibrary(L"RayGen.hlsl");
-	m_missLibrary = nv_helpers_dx12::CompileShaderLibrary(L"Miss.hlsl");
-	m_flatShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"FlatShader.hlsl");
-	m_normalShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"NormalShader.hlsl");
-	m_phongShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"PhongShader.hlsl");
-	m_mirrorDemoShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"MirrorDemoShader.hlsl");
-	m_BDSFShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"BDSFShader.hlsl");
+	m_rayGenLibrary = nv_helpers_dx12::CompileShaderLibrary(L"shaders/RayGen.hlsl");
+	m_missLibrary = nv_helpers_dx12::CompileShaderLibrary(L"shaders/Miss.hlsl");
+	m_flatShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"shaders/FlatShader.hlsl");
+	m_normalShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"shaders/NormalShader.hlsl");
+	m_phongShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"shaders/PhongShader.hlsl");
+	m_mirrorDemoShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"shaders/MirrorDemoShader.hlsl");
+	m_BDSFShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"shaders/BDSFShader.hlsl");
 	// In a way similar to DLLs, each library is associated with a number of
 	// exported symbols. This
 	// has to be done explicitly in the lines below. Note that a single library

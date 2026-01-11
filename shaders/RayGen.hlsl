@@ -46,6 +46,7 @@ void RayGen()
         payload.sampleCount = 1;
         //SampleCount
         payload.randomSeed = InitSeed(launchIndex, FrameIndex + i);
+        payload.isInGlass = 0;
     
         // Define a ray, consisting of origin, direction, and the min-max distance values
     
