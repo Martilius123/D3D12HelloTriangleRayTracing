@@ -102,3 +102,19 @@ float3 LinearToSRGB(float3 c)
     float3 cond = step(float3(0.0031308f,0.0031308f,0.0031308f), c); // 1 if c>=thr
     return lerp(b, a, cond);
 }
+
+float3 RoughnessScatter(float3 reflected, float roughness, uint randomSeed)
+{
+    // Random samples for hemisphere sampling
+    float u1 = RandomFloat(randomSeed);
+    float u2 = RandomFloat(randomSeed);
+
+            //Hemisphere sample in local space
+    float3 H_local = SampleCosineHemisphere(float2(u1, u2));
+
+            //Build orthonormal basis around the reflected direction
+    float3 T, B;
+    BuildOrthonormalBasis(reflected, T, B);
+
+    return normalize(lerp(reflected, H_local.x * T + H_local.y * B + H_local.z * reflected, roughness * roughness));
+}

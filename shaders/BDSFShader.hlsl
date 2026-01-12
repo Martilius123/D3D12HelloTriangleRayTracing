@@ -82,6 +82,17 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
         return;
     }
     
+    //Roughness
+    float roughness = inst.roughness;
+    if (inst.roughness < 0)
+    {
+        //roughness interpolation
+        float3 r0 = BTriVertex[indices[vertId + 0]].roughness;
+        float3 r1 = BTriVertex[indices[vertId + 1]].roughness;
+        float3 r2 = BTriVertex[indices[vertId + 2]].roughness;
+        roughness = r0 * barycentrics.x + r1 * barycentrics.y + r2 * barycentrics.z;
+    }
+    
     float3 newOrigin;
 
     // Glass
@@ -144,7 +155,11 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             ray.Direction = refracted;
             ray.TMin = 0.0;
             ray.TMax = 100000.0;
-
+            if(roughness>0.01f)
+            {
+                ray.Direction = RoughnessScatter(refracted, roughness, payload.randomSeed);
+            }
+            
             payload.colorAndDistance = float4(0, 0, 0, 0);
             TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload);
             return;
@@ -209,17 +224,6 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
         float3 incoming = WorldRayDirection();
         float3 reflected = reflect(incoming, hitNormal);
         reflected = normalize(reflected);
-
-        //roughness
-        float roughness = inst.roughness;
-        if(inst.roughness<0)
-        {
-            //roughness interpolation
-            float3 r0 = BTriVertex[indices[vertId + 0]].roughness;
-            float3 r1 = BTriVertex[indices[vertId + 1]].roughness;
-            float3 r2 = BTriVertex[indices[vertId + 2]].roughness;
-            roughness = r0 * barycentrics.x + r1 * barycentrics.y + r2 * barycentrics.z;
-        }
 		
 
         //Starting the preparation of the new ray
@@ -248,20 +252,8 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             //sample Count for subsequent rays
             payload.sampleCount = 2;
 			
-                
-            // Random samples for hemisphere sampling
-            float u1 = RandomFloat(payload.randomSeed);
-            float u2 = RandomFloat(payload.randomSeed);
 
-            //Hemisphere sample in local space
-            float3 H_local = SampleCosineHemisphere(float2(u1, u2));
-
-            //Build orthonormal basis around the reflected direction
-            float3 T, B;
-            BuildOrthonormalBasis(reflected, T, B);
-
-            float3 scatteredDir = normalize(lerp(reflected, H_local.x * T + H_local.y * B + H_local.z * reflected, roughness * roughness));
-            ray.Direction = scatteredDir;
+            ray.Direction = RoughnessScatter(reflected, roughness, payload.randomSeed);
             TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
 			//averageColor += payload.colorAndDistance;
             //payload.hopCount = hopCountBackup;

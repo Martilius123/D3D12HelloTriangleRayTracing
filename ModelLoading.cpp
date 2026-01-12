@@ -92,7 +92,7 @@ void D3D12HelloTriangle::LoadAssets()
 			"Models/Cube.obj",
 			"Models/Cube.obj",
 			"Models/FinalBaseMesh.obj",
-			"Models/Square.obj"
+			//"Models/Square.obj"
 		};
 		//MODEL
 		Models.resize(modelPaths.size());
@@ -112,8 +112,8 @@ void D3D12HelloTriangle::LoadAssets()
 		//ModelsShaderData[3].albedo = { 0.9f,0.0f,0.1f };
 		Models[3].scale = { 2.0f,2.0f,2.0f };
 		Models[3].position = { 0.0f,0.0f,10.0f };
-		Models[4].scale = { 50.0f,50.0f,1.0f };
-		ModelsShaderData[4].isGlass = true;
+		//Models[4].scale = { 50.0f,50.0f,1.0f };
+		//ModelsShaderData[4].isGlass = true;
 		for (int i = 0; i < modelPaths.size(); i++)
 		{
 
