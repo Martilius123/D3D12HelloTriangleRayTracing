@@ -1,0 +1,10 @@
+# Square face .obj file
+
+# Vertices (x, y, z)
+v 0.0 0.0 0.0
+v 1.0 0.0 0.0
+v 1.0 1.0 0.0
+v 0.0 1.0 0.0
+
+# Face (defines the square)
+f 1 2 3 4
