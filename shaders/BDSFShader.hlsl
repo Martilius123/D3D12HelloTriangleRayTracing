@@ -140,9 +140,13 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             ray.Direction = reflected;
             ray.TMin = 0.0;
             ray.TMax = 100000.0;
-
+            if (roughness > 0.01f)
+            {
+                ray.Direction = RoughnessScatter(reflected, roughness, payload.randomSeed);
+                LimitRoughBounces(payload, roughness, true);
+            }
+            
             TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload);
-            return;
         }
         else
         {
@@ -151,20 +155,22 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             refracted = normalize(refracted);
 
             RayDesc ray;
-            ray.Origin = hitPos + refracted * 0.001f; // IMPORTANT
+            ray.Origin = hitPos + refracted * 0.001f;
             ray.Direction = refracted;
             ray.TMin = 0.0;
             ray.TMax = 100000.0;
             if(roughness>0.01f)
             {
                 ray.Direction = RoughnessScatter(refracted, roughness, payload.randomSeed);
+                LimitRoughBounces(payload, roughness, true);
             }
             
             payload.colorAndDistance = float4(0, 0, 0, 0);
             TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload);
-            return;
         }
-
+        payload.colorAndDistance.x *= baseColor.x;
+        payload.colorAndDistance.y *= baseColor.y;
+        payload.colorAndDistance.z *= baseColor.z;
         return;
     }
     
@@ -245,7 +251,7 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
 		}
         else
         {
-            //payload.hopCount -= 1; // Rough surfaces get fewer bounces
+            LimitRoughBounces(payload, roughness);
 			//float4 averageColor = float4(0, 0, 0, 0);
             //int hopCountBackup = payload.hopCount;
             int sampleCount = payload.sampleCount;

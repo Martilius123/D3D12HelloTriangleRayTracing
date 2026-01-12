@@ -42,7 +42,7 @@ void RayGen()
     for (uint i = 0; i < SampleCount; i++)
     {
         payload.colorAndDistance = float4(0, 0, 0, 0);
-        payload.hopCount = 15; //maximum ammount of reflections that we allow
+        payload.hopCount = 25; //maximum ammount of reflections that we allow
         payload.sampleCount = 1;
         //SampleCount
         payload.randomSeed = InitSeed(launchIndex, FrameIndex + i);

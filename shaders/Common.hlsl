@@ -7,11 +7,11 @@ static const float PI = 3.14159265f;
 // D3D12_RAYTRACING_SHADER_CONFIG pipeline subobjet.
 struct HitInfo
 {
-  float4 colorAndDistance;
-  int hopCount;
-  uint randomSeed; // used for stochastic effects like rough reflections
-  uint sampleCount;
-  uint isInGlass;
+    float4 colorAndDistance;
+    int hopCount;
+    uint randomSeed; // used for stochastic effects like rough reflections
+    uint sampleCount;
+    uint isInGlass;
 };
 
 // Attributes output by the raytracing when hitting a surface,
@@ -117,4 +117,26 @@ float3 RoughnessScatter(float3 reflected, float roughness, uint randomSeed)
     BuildOrthonormalBasis(reflected, T, B);
 
     return normalize(lerp(reflected, H_local.x * T + H_local.y * B + H_local.z * reflected, roughness * roughness));
+}
+
+void LimitRoughBounces(inout HitInfo payload, float roughness, bool triggeredByGlass=false)
+{
+    if (roughness >= 0.1)
+    {
+        if(triggeredByGlass)
+        {
+            if (payload.isInGlass == 1)
+            {
+                return; // Do not limit bounces while inside glass
+            }
+            else
+            {
+                payload.hopCount = min(payload.hopCount, 3);
+            }
+        }
+        else
+        {
+            payload.hopCount = min(payload.hopCount, 2); // Limit the remaining hops after rough bounce to 2
+        }
+    }
 }
