@@ -110,12 +110,13 @@ void RayGen()
     if (outDiffuse.w < 0) outDiffuse = float4(beauty.rgb, payload.colorAndDistance.w);
     if (outSpec.w < 0)    outSpec = float4(0, 0, 0, payload.colorAndDistance.w);
 
-    gDiffuseRadianceHitDist[launchIndex] = outDiffuse;
-    gSpecRadianceHitDist[launchIndex] = outSpec;
+    float depthValue = min(payload.colorAndDistance.w, 1000.0f);
+    gDiffuseRadianceHitDist[launchIndex] = outDiffuse = float4(pixelColor, depthValue);
+    gSpecRadianceHitDist[launchIndex] = outSpec = float4(pixelColor, depthValue);
     gNormalRoughness[launchIndex] = outNR;
 
     // ViewZ: na start wrzuæ hit distance (dopóki nie masz linear depth)
     // UWAGA: u Ciebie payload.colorAndDistance.w bywa u¿ywane jako roughness w hit shaderze
     // wiêc NAJLEPIEJ ustaw w closesthit: payload.DiffuseRadianceAndDistance.w = RayTCurrent()
-    gViewZ[launchIndex] = float4(outDiffuse.w, 0, 0, 0);
+    gViewZ[launchIndex] = float4(-depthValue, 0, 0, 0);
 }

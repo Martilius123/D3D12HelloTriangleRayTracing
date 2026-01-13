@@ -771,28 +771,42 @@ void D3D12HelloTriangle::PopulateCommandList()
 	ID3D12DescriptorHeap* rtHeaps[] = { m_srvUavHeap.Get(), m_samplerHeap.Get() };
 	m_commandList->SetDescriptorHeaps(_countof(rtHeaps), rtHeaps);
 
-	// Upewnij siê ¿e output/AOV s¹ w UAV (pierwsza klatka + bezpieczeñstwo)
-	// Output u Ciebie bywa COPY_SOURCE po CreateRaytracingOutputBuffer() – wiêc go prze³¹czamy.
+	// ------------------------------------------------------------
+	// 1) Upewnij siê, ¿e zasoby, do których DXR bêdzie pisaæ, s¹ UAV
+	// ------------------------------------------------------------
 	{
 		std::vector<CD3DX12_RESOURCE_BARRIER> barriers;
 
 		auto toUav = [&](ID3D12Resource* r, D3D12_RESOURCE_STATES from)
 			{
 				if (!r) return;
-				barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(r, from, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+				barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+					r, from, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 			};
 
-		// outputResource: tworzone jako COPY_SOURCE
+		// outputResource bywa w COPY_SOURCE po poprzedniej klatce
+		// (albo po CreateRaytracingOutputBuffer)
 		toUav(m_outputResource.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE);
 
-		// AOV: ju¿ tworzone jako UAV, wiêc NIE trzeba, ale jeœli chcesz super bezpiecznie:
-		// (tu zak³adamy ¿e s¹ UAV, wiêc bez barrierów)
+		// AOV-y po poprzednim NRD s¹ SRV -> prze³¹cz na UAV przed DXR
+		// (jeœli w pierwszej klatce s¹ ju¿ UAV, to to przejœcie te¿ zadzia³a jeœli "from" bêdzie inne,
+		// ale lepiej trzymaæ spójny "from" -> zobacz notkê ni¿ej)
+		if (m_aovDiffuse)         toUav(m_aovDiffuse.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		if (m_aovSpecular)        toUav(m_aovSpecular.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		if (m_aovNormalRoughness) toUav(m_aovNormalRoughness.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		if (m_aovViewZ)           toUav(m_aovViewZ.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+
+		// NRD output te¿ bêdzie UAV (compute write)
+		if (m_denoisedOutput)
+			toUav(m_denoisedOutput.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE);
 
 		if (!barriers.empty())
 			m_commandList->ResourceBarrier((UINT)barriers.size(), barriers.data());
 	}
 
-	// Dispatch rays
+	// ---------------------------
+	// 2) Dispatch rays
+	// ---------------------------
 	D3D12_DISPATCH_RAYS_DESC desc = {};
 	const uint32_t rayGenSize = m_sbtHelper.GetRayGenSectionSize();
 	desc.RayGenerationShaderRecord.StartAddress = m_sbtStorage->GetGPUVirtualAddress();
@@ -815,11 +829,41 @@ void D3D12HelloTriangle::PopulateCommandList()
 	m_commandList->SetPipelineState1(m_rtStateObject.Get());
 	m_commandList->DispatchRays(&desc);
 
+	// *** KLUCZOWE *** - zapewnia, ¿e wszystkie zapisy UAV z DXR s¹ widoczne dla NRD
+	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(nullptr));
+
 	// ---------------- NRD DENOISE ----------------
 	ID3D12Resource* src = m_outputResource.Get();
+	//src = m_aovNormalRoughness.Get();
 
 	if (m_enableDenoise)
 	{
+		// 3) AOV-y musz¹ byæ SRV (NRD czyta), wiêc UAV -> SRV
+		{
+			std::vector<CD3DX12_RESOURCE_BARRIER> b;
+
+			auto toSrv = [&](ID3D12Resource* r)
+				{
+					if (!r) return;
+					b.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+						r,
+						D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+						D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+				};
+
+			toSrv(m_aovDiffuse.Get());
+			toSrv(m_aovSpecular.Get());
+			toSrv(m_aovNormalRoughness.Get());
+			toSrv(m_aovViewZ.Get());
+			/*toSrv(m_outputResource.Get());
+			toSrv(m_outputResource.Get());
+			toSrv(m_outputResource.Get());
+			toSrv(m_outputResource.Get());*/
+
+			if (!b.empty())
+				m_commandList->ResourceBarrier((UINT)b.size(), b.data());
+		}
+
 		// NRD potrzebuje swojego heapu + poprawnych descriptorów
 		PrepareNRDDescriptorPoolIfNeeded();
 		if (!m_nrdRootSignature || m_nrdPipelines.empty())
@@ -828,11 +872,37 @@ void D3D12HelloTriangle::PopulateCommandList()
 		UpdateNRDCommonSettingsPerFrame();
 		ExecuteNRDDispatches();
 
-		// Zak³adamy ¿e NRD zapisuje wynik do m_denoisedOutput (UAV)
+		// NRD output (m_denoisedOutput) jest UAV -> zaraz bêdziemy kopiowaæ
 		src = m_denoisedOutput.Get();
+
+		// jeœli NRD pisa³ UAV, dodaj barrier UAV
+		m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(nullptr));
+
+		// 4) Przywróæ AOV-y na UAV na nastêpn¹ klatkê DXR (SRV -> UAV)
+		{
+			std::vector<CD3DX12_RESOURCE_BARRIER> b;
+
+			auto srvToUav = [&](ID3D12Resource* r)
+				{
+					if (!r) return;
+					b.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+						r,
+						D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+						D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+				};
+
+			srvToUav(m_aovDiffuse.Get());
+			srvToUav(m_aovSpecular.Get());
+			srvToUav(m_aovNormalRoughness.Get());
+			srvToUav(m_aovViewZ.Get());
+
+			if (!b.empty())
+				m_commandList->ResourceBarrier((UINT)b.size(), b.data());
+		}
 	}
 
 	// --- Copy src -> backbuffer (TYLKO RAZ) ---
+	// src jest UAV (output albo denoisedOutput), wiêc UAV -> COPY_SOURCE
 	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 		src, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE));
 
@@ -852,9 +922,6 @@ void D3D12HelloTriangle::PopulateCommandList()
 	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 		src, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 
-	// Jeœli src to outputResource, to on wróci³ do UAV i git.
-	// Jeœli src to denoisedOutput, te¿ wróci³ do UAV.
-
 	// --- Instance buffer update (jak mia³eœ) ---
 	{
 		m_commandList->CopyResource(m_instancesBuffer.Get(), m_instancesUpload.Get());
@@ -870,7 +937,7 @@ void D3D12HelloTriangle::PopulateCommandList()
 	ID3D12DescriptorHeap* imguiHeaps[] = { m_imguiHeap.Get() };
 	m_commandList->SetDescriptorHeaps(1, imguiHeaps);
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_commandList.Get());
-
+	
 	// Backbuffer: RENDER_TARGET -> PRESENT
 	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 		m_renderTargets[m_frameIndex].Get(),
@@ -878,7 +945,9 @@ void D3D12HelloTriangle::PopulateCommandList()
 		D3D12_RESOURCE_STATE_PRESENT));
 
 	ThrowIfFailed(m_commandList->Close());
+
 }
+
 
 
 

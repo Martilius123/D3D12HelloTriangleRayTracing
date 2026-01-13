@@ -94,10 +94,10 @@ public:
 
 
 
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_aovNormalRoughness; // u1
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_aovViewZ;           // u2
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_aovDiffHitDist;     // u3
-	Microsoft::WRL::ComPtr<ID3D12Resource> m_aovSpecHitDist;     // u4
+	ComPtr<ID3D12Resource> m_aovNormalRoughness; // u1
+	ComPtr<ID3D12Resource> m_aovViewZ;           // u2
+	ComPtr<ID3D12Resource> m_aovDiffHitDist;     // u3
+	ComPtr<ID3D12Resource> m_aovSpecHitDist;     // u4
 
 	void D3D12HelloTriangle::CreateAOVResources();
 
