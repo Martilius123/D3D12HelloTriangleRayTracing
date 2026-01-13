@@ -375,11 +375,21 @@ void D3D12HelloTriangle::OnUpdate()
 		if(m_enableAdaptiveSampling)
 			AdjustSampleCount();
 
-		ImGui::InputText("HDR Path", environmentPathBuffer, _countof(environmentPathBuffer));
+		ImGui::Separator();
 
-		if (ImGui::Button("Change Environment")) {
-			// This triggers the heavy function we wrote earlier
-			CreateEnvironmentTexture(LoadHDR(environmentPathBuffer));
+		ImGui::Checkbox("Use An Environment Texture", (bool*)&m_enableEnvironmentTexture);
+		if (m_enableEnvironmentTexture)
+		{
+			ImGui::InputText("HDR Path", environmentPathBuffer, _countof(environmentPathBuffer));
+
+			if (ImGui::Button("Change Environment")) {
+				// This triggers the heavy function we wrote earlier
+				CreateEnvironmentTexture(LoadHDR(environmentPathBuffer));
+			}
+		}
+		else
+		{
+			ImGui::ColorEdit3("Environment Color", &m_environmentColor.x);
 		}
 	}
 	if (currentShading == L"Phong" || currentShading == L"MirrorDemo" || currentShading == L"BDSF")
@@ -447,7 +457,7 @@ void D3D12HelloTriangle::OnUpdate()
 						inst2.albedo.y == -1.0f &&
 						inst2.albedo.z == -1.0f);
 
-					if (ImGui::Checkbox("Use Vertex Data", &useVertexData)) {
+					if (ImGui::Checkbox("Use Texture Color", &useVertexData)) {
 						if (useVertexData) {
 							inst2.albedo = DirectX::XMFLOAT3(-1.0f, -1.0f, -1.0f);
 						}

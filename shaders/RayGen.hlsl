@@ -20,7 +20,10 @@ cbuffer CameraParams : register(b0)
     uint SampleCount;
     uint ISOIndex;
     bool HighlightOverexposed;
-    bool padding[3];
+    //bool padding[3];
+    bool UseEnvLight;
+    //bool padding2[3];
+    float3 envLightColor;
 }
 
 [shader("raygeneration")] 
@@ -45,14 +48,22 @@ void RayGen()
         payload.hopCount = 25; //maximum ammount of reflections that we allow
         payload.sampleCount = 1;
         //SampleCount
-        payload.randomSeed = InitSeed(launchIndex, FrameIndex + i);
+        payload.randomSeed = InitSeed(launchIndex, FrameIndex + 1000 * i);
         payload.isInGlass = 0;
+        if (UseEnvLight)
+        {
+            payload.environmentColor = float3(-1.0f, -1.0f, -1.0f);
+        }
+        else
+        {
+            payload.environmentColor = envLightColor;
+        }
     
         // Define a ray, consisting of origin, direction, and the min-max distance values
     
         
         // Perspective
-        RayDesc ray;
+            RayDesc ray;
         ray.Origin = mul(viewI, float4(0, 0, 0, 10 /*distance*/));
         float4 target = mul(projectionI, float4(d.x, -d.y, 1, 1));
         ray.Direction = mul(viewI, float4(target.xyz, 0));
