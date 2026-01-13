@@ -15,6 +15,9 @@ struct HitInfo
     uint randomSeed; // used for stochastic effects like rough reflections
     uint sampleCount;
     uint isInGlass;
+    float4 normalAndRoughness;
+    float4 DiffuseRadianceAndDistance;
+    float4 SpecularRadianceAndDistance;
 };
 
 // Attributes output by the raytracing when hitting a surface,

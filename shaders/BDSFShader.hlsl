@@ -54,6 +54,7 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
     float3 hitPos = mul(ObjectToWorld3x4(), float4(hitPosObj, 1.0f)).xyz;
     float3 hitNormalObj = normalize(n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z);
     float3 hitNormal = normalize(mul(hitNormalObj, (float3x3)WorldToObject3x4()));
+    payload.normalAndRoughness.xyz = hitNormal;
 
     float3 lightDir = normalize(lightPos - hitPos);
     float diff = max(dot(hitNormal, lightDir), 0.0f);
@@ -94,6 +95,7 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
         float3 r2 = BTriVertex[indices[vertId + 2]].roughness;
         roughness = r0 * barycentrics.x + r1 * barycentrics.y + r2 * barycentrics.z;
     }
+    payload.colorAndDistance.w = roughness;
     
     float3 newOrigin;
 
