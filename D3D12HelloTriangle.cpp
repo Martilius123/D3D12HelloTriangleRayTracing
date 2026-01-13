@@ -310,7 +310,6 @@ void D3D12HelloTriangle::OnUpdate()
 		ImGui::Checkbox("Adaptive Sampling", (bool*) &m_enableAdaptiveSampling);
 		if(m_enableAdaptiveSampling)
 			AdjustSampleCount();
-		ImGui::Text("Current Framerate: %f",  1.0f/ImGui::GetIO().DeltaTime);
 
 		ImGui::InputText("HDR Path", environmentPathBuffer, _countof(environmentPathBuffer));
 
