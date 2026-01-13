@@ -19,7 +19,10 @@ cbuffer CameraParams : register(b0)
     uint SampleCount;
     uint ISOIndex;
     bool HighlightOverexposed;
-    bool padding[3];
+    //bool padding[3];
+    bool UseEnvLight;
+    //bool padding2[3];
+    float3 envLightColor;
 }
 
 [shader("raygeneration")]
@@ -46,15 +49,28 @@ void RayGen()
         payload.colorAndDistance = float4(0, 0, 0, 0);
         payload.hopCount = 25;
         payload.sampleCount = 1;
-        payload.randomSeed = InitSeed(launchIndex, FrameIndex + i);
+        payload.randomSeed = InitSeed(launchIndex, FrameIndex + 1000 * i);
         payload.isInGlass = 0;
 
+        
+        if (UseEnvLight)
+        {
+            payload.environmentColor = float3(-1.0f, -1.0f, -1.0f);
+        }
+        else
+        {
+            payload.environmentColor = envLightColor;
+        }
         payload.normalAndRoughness = float4(0, 0, 1, 0.5);
         payload.DiffuseRadianceAndDistance = float4(0, 0, 0, -1);
         payload.SpecularRadianceAndDistance = float4(0, 0, 0, -1);
-
+    
+        // Define a ray, consisting of origin, direction, and the min-max distance values
+    
+        
+        // Perspective
         RayDesc ray;
-        ray.Origin = mul(viewI, float4(0, 0, 0, 10));
+        ray.Origin = mul(viewI, float4(0, 0, 0, 10 /*distance*/));
         float4 target = mul(projectionI, float4(d.x, -d.y, 1, 1));
         ray.Direction = mul(viewI, float4(target.xyz, 0));
         ray.TMin = 0;

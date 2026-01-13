@@ -545,9 +545,21 @@ void D3D12HelloTriangle::OnUpdate()
 		if (m_enableAdaptiveSampling)
 			AdjustSampleCount();
 
-		ImGui::InputText("HDR Path", environmentPathBuffer, _countof(environmentPathBuffer));
-		if (ImGui::Button("Change Environment")) {
-			CreateEnvironmentTexture(LoadHDR(environmentPathBuffer));
+		ImGui::Separator();
+
+		ImGui::Checkbox("Use An Environment Texture", (bool*)&m_enableEnvironmentTexture);
+		if (m_enableEnvironmentTexture)
+		{
+			ImGui::InputText("HDR Path", environmentPathBuffer, _countof(environmentPathBuffer));
+
+			if (ImGui::Button("Change Environment")) {
+				// This triggers the heavy function we wrote earlier
+				CreateEnvironmentTexture(LoadHDR(environmentPathBuffer));
+			}
+		}
+		else
+		{
+			ImGui::ColorEdit3("Environment Color", &m_environmentColor.x);
 		}
 	}
 
@@ -607,9 +619,24 @@ void D3D12HelloTriangle::OnUpdate()
 			{
 				// COLOR
 				{
-					bool useVertexData = (inst2.albedo.x == -1.0f && inst2.albedo.y == -1.0f && inst2.albedo.z == -1.0f);
-					if (ImGui::Checkbox("Use Vertex Data", &useVertexData))
-						inst2.albedo = useVertexData ? DirectX::XMFLOAT3(-1, -1, -1) : DirectX::XMFLOAT3(1, 1, 1);
+//<<<<<<< HEAD
+//					bool useVertexData = (inst2.albedo.x == -1.0f && inst2.albedo.y == -1.0f && inst2.albedo.z == -1.0f);
+//					if (ImGui::Checkbox("Use Vertex Data", &useVertexData))
+//						inst2.albedo = useVertexData ? DirectX::XMFLOAT3(-1, -1, -1) : DirectX::XMFLOAT3(1, 1, 1);
+//=======
+					bool useVertexData = (inst2.albedo.x == -1.0f &&
+						inst2.albedo.y == -1.0f &&
+						inst2.albedo.z == -1.0f);
+
+					if (ImGui::Checkbox("Use Texture Color", &useVertexData)) {
+						if (useVertexData) {
+							inst2.albedo = DirectX::XMFLOAT3(-1.0f, -1.0f, -1.0f);
+						}
+						else {
+							inst2.albedo = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
+						}
+					}
+//>>>>>>> b4669dd4653344d6f34b8b5847b4f88e7d8d3103
 
 					if (!useVertexData) {
 						ImGui::Indent();

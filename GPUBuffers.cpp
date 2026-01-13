@@ -155,6 +155,8 @@ void D3D12HelloTriangle::UpdateCameraBuffer()
 	sceneCB.SampleCount = m_sampleCount;
 	sceneCB.ISOIndex = m_ISOIndex;
 	sceneCB.HighlightOverexposed = m_highlightOverexposed;
+	sceneCB.EnableEnvironmentTexture = m_enableEnvironmentTexture;
+	sceneCB.EnvironmentColor = m_environmentColor;
 
 	// --- Upload constant buffer ---
 	uint8_t* pData;

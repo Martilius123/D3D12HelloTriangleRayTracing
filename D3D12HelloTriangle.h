@@ -135,6 +135,8 @@ private:
 	int m_slowFrameCount = 0;
 	UINT m_ISOIndex = 400;
 	bool m_highlightOverexposed = false;
+	bool m_enableEnvironmentTexture = true;
+	XMFLOAT3 m_environmentColor = XMFLOAT3(0.0f, 0.0f, 0.0f);
 
 	struct SceneCB
 	{
@@ -147,6 +149,9 @@ private:
 		UINT ISOIndex;
 		bool HighlightOverexposed;
 		bool padding[3];
+		bool EnableEnvironmentTexture;
+		bool padding2[3];
+		XMFLOAT3 EnvironmentColor;
 	};
 
 	struct Vertex
