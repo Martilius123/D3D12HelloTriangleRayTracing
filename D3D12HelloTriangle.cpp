@@ -28,6 +28,10 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "libraries/stb_image/stb_image.h"
 
+#include "NRDIntegration.h"
+
+// NRD integration header already included via D3D12HelloTriangle.h
+
 //
 D3D12HelloTriangle::D3D12HelloTriangle(UINT width, UINT height, std::wstring name) :
 	DXSample(width, height, name),
@@ -92,6 +96,13 @@ void D3D12HelloTriangle::OnInit() {
 	// are invoked for each instance in the  AS
 	CreateShaderBindingTable();
 
+	// Initialize NRD instance
+	if (!m_nrd.Initialize(GetWidth(), GetHeight()))
+	{
+		// Initialization failed (NRD log printed by NRDIntegration). Not fatal for the app, but denoising unavailable.
+		OutputDebugStringA("NRD initialization failed or returned false.\n");
+	}
+
 	// --- IMGUI INITIALIZATION START ---
 
 	// 1. Create a specific Descriptor Heap for ImGui
@@ -148,7 +159,7 @@ void D3D12HelloTriangle::LoadPipeline()
 	UINT dxgiFactoryFlags = 0;
 
 #if defined(_DEBUG)
-	// Enable the debug layer (requires the Graphics Tools "optional feature").
+	// Enable the debug layer (requires the Graphics Tools "optional feature"). 
 	// NOTE: Enabling the debug layer after device creation will invalidate the active device.
 	{
 		ComPtr<ID3D12Debug> debugController;
@@ -255,6 +266,57 @@ void D3D12HelloTriangle::OnUpdate()
 	// #DXR Extra: Perspective Camera
 	UpdateCameraBuffer();
 
+	// --- Update NRD common settings (per-frame) ---
+	{
+		// Build CommonSettings similarly to what UpdateCameraBuffer constructs for SceneCB.
+		// Use current camera from CameraManip and same projection setup.
+		nrd::CommonSettings cs = {};
+		// View matrix (world -> view)
+		const glm::mat4& glmView = nv_helpers_dx12::CameraManip.getMatrix();
+		// Copy glm matrix memory into XMMATRIX (matches UpdateCameraBuffer usage)
+		XMMATRIX view;
+		memcpy(&view, glm::value_ptr(glmView), sizeof(XMMATRIX));
+
+		// Projection
+		float fovAngleY = 45.0f * XM_PI / 180.0f;
+		XMMATRIX proj = XMMatrixPerspectiveFovRH(
+			fovAngleY,
+			m_aspectRatio,
+			0.1f,
+			1000.0f
+		);
+
+		// Copy into CommonSettings (layout expected by NRD)
+		memcpy(cs.viewToClipMatrix, &proj, sizeof(cs.viewToClipMatrix));
+		memcpy(cs.viewToClipMatrixPrev, &proj, sizeof(cs.viewToClipMatrixPrev));
+		memcpy(cs.worldToViewMatrix, &view, sizeof(cs.worldToViewMatrix));
+		memcpy(cs.worldToViewMatrixPrev, &view, sizeof(cs.worldToViewMatrixPrev));
+
+		// Resource sizes
+		cs.resourceSize[0] = static_cast<uint16_t>(GetWidth());
+		cs.resourceSize[1] = static_cast<uint16_t>(GetHeight());
+		cs.resourceSizePrev[0] = cs.resourceSize[0];
+		cs.resourceSizePrev[1] = cs.resourceSize[1];
+		cs.rectSize[0] = cs.resourceSize[0];
+		cs.rectSize[1] = cs.resourceSize[1];
+		cs.rectSizePrev[0] = cs.rectSize[0];
+		cs.rectSizePrev[1] = cs.rectSize[1];
+
+		cs.viewZScale = 1.0f;
+		cs.denoisingRange = 1000.0f;
+		cs.accumulationMode = nrd::AccumulationMode::CONTINUE;
+		cs.isMotionVectorInWorldSpace = false;
+		cs.isHistoryConfidenceAvailable = false;
+		cs.frameIndex = m_frameIndexCPU; // UpdateCameraBuffer already increments m_frameIndexCPU.
+
+		// Send to NRD instance
+		if (!m_nrd.UpdateCommonSettings(cs))
+		{
+			// Update failed -> output debug info
+			OutputDebugStringA("NRD SetCommonSettings failed (UpdateCommonSettings returned false)\n");
+		}
+	}
+
 	// --- IMGUI UPDATE ---
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
@@ -262,6 +324,8 @@ void D3D12HelloTriangle::OnUpdate()
 
 	// Define your UI here
 	ImGui::Begin("Raytracing Settings");
+	//!!!!!! 
+	ImGui::Checkbox("Enable NRD Denoiser", &m_enableDenoise);
 
 	ImGui::Separator();
 	ImGui::TextColored(ImVec4(0, 1, 0, 1), "Scene Manager");
@@ -418,40 +482,40 @@ void D3D12HelloTriangle::OnUpdate()
 				ImGui::Spacing();
 				// ROUGHNESS
 				{
-					bool useTextureRoughness = (inst2.roughness == -1.0f);
-					if (ImGui::Checkbox("Use Texture Roughness", &useTextureRoughness)) {
-						if (useTextureRoughness) {
-							inst2.roughness = -1.0f;
-						}
-						else {
-							inst2.roughness = 0.4f;
-						}
-					}
-					if (!useTextureRoughness) {
-						ImGui::Indent();
-						ImGui::DragFloat("Roughness Value", &inst2.roughness, 0.01f, 0.0f, 1.0f);
-						ImGui::Unindent();
-					}
-				}
-				ImGui::Spacing();
-				// GLASS
-				{
-					bool isGlass = inst2.isGlass;
-					if (ImGui::Checkbox("Make the object Glass", &isGlass)) {
-						if (isGlass) {
-							inst2.isGlass = true;
-						}
-						else {
-							inst2.isGlass = false;
-						}
-					}
-					if (isGlass) {
-						ImGui::Indent();
-						ImGui::DragFloat("IOR Value", &inst2.IOR, 0.01f, 0.0f, 2.0f);
-						ImGui::Unindent();
-					}
-				}
-				ImGui::TreePop();
+				 bool useTextureRoughness = (inst2.roughness == -1.0f);
+				 if (ImGui::Checkbox("Use Texture Roughness", &useTextureRoughness)) {
+					 if (useTextureRoughness) {
+						 inst2.roughness = -1.0f;
+					 }
+					 else {
+						 inst2.roughness = 0.4f;
+					 }
+				 }
+				 if (!useTextureRoughness) {
+					 ImGui::Indent();
+					 ImGui::DragFloat("Roughness Value", &inst2.roughness, 0.01f, 0.0f, 1.0f);
+					 ImGui::Unindent();
+				 }
+			 }
+			 ImGui::Spacing();
+			 // GLASS
+			 {
+				 bool isGlass = inst2.isGlass;
+				 if (ImGui::Checkbox("Make the object Glass", &isGlass)) {
+					 if (isGlass) {
+						 inst2.isGlass = true;
+					 }
+					 else {
+						 inst2.isGlass = false;
+					 }
+				 }
+				 if (isGlass) {
+					 ImGui::Indent();
+					 ImGui::DragFloat("IOR Value", &inst2.IOR, 0.01f, 0.0f, 2.0f);
+					 ImGui::Unindent();
+				 }
+			 }
+			 ImGui::TreePop();
 			}
 
 			ImGui::Separator();
@@ -501,6 +565,9 @@ void D3D12HelloTriangle::OnDestroy()
 	ImGui::DestroyContext();
 	// ----------------------
 	CloseHandle(m_fenceEvent);
+
+	// Shutdown NRD
+	m_nrd.Shutdown();
 }
 
 void D3D12HelloTriangle::PopulateCommandList()
@@ -582,6 +649,26 @@ void D3D12HelloTriangle::PopulateCommandList()
 		m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
 		// Dispatch the rays and write to the raytracing output
 		m_commandList->DispatchRays(&desc);
+
+		// Call NRD to query its dispatches for the created denoiser(s).
+		// NOTE: NRDIntegration currently only queries and prints dispatch descriptions.
+		// To perform denoising you MUST:
+		//  - translate each nrd::DispatchDesc into D3D12 descriptor bindings (SRV/UAV)
+		//  - upload/bind dispatch constants into a GPU-visible CBV
+		//  - select NRD pipeline permutation (DXIL/SPIRV) and issue a Compute Dispatch with grid sizes
+		// TODO: Implement full NRD -> D3D12 compute dispatch recording here.
+		/*if (!m_nrd.ApplyDenoise())
+		{
+			OutputDebugStringA("NRD ApplyDenoise returned false (see NRDIntegration logs).\n");
+		}*/
+
+
+		if (m_enableDenoise)
+		{
+			if (!m_nrd.ApplyDenoise())
+				OutputDebugStringA("NRD ApplyDenoise returned false (see NRDIntegration logs).\n");
+		}
+
 		// The raytracing output needs to be copied to the actual render target used
 		// for display. For this, we need to transition the raytracing output from a
 		// UAV to a copy source, and the render target buffer to a copy destination.
@@ -815,7 +902,7 @@ void D3D12HelloTriangle::CreateTopLevelAS(
 }
 
 //-----------------------------------------------------------------------------
-//
+// 
 // Combine the BLAS and TLAS builds to construct the entire acceleration
 // structure required to raytrace the scene
 //
