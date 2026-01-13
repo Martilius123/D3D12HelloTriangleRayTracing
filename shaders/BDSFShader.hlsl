@@ -54,6 +54,7 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
     float3 hitPos = mul(ObjectToWorld3x4(), float4(hitPosObj, 1.0f)).xyz;
     float3 hitNormalObj = normalize(n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z);
     float3 hitNormal = normalize(mul(hitNormalObj, (float3x3)WorldToObject3x4()));
+    payload.normalAndRoughness.xyz = hitNormal;
 
     float3 lightDir = normalize(lightPos - hitPos);
     float diff = max(dot(hitNormal, lightDir), 0.0f);
@@ -94,6 +95,7 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
         float3 r2 = BTriVertex[indices[vertId + 2]].roughness;
         roughness = r0 * barycentrics.x + r1 * barycentrics.y + r2 * barycentrics.z;
     }
+    payload.colorAndDistance.w = roughness;
     
     float3 newOrigin;
 
@@ -255,17 +257,24 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
         else
         {
             LimitRoughBounces(payload, roughness);
-			//float4 averageColor = float4(0, 0, 0, 0);
-            //int hopCountBackup = payload.hopCount;
-            int sampleCount = payload.sampleCount;
-            //sample Count for subsequent rays
-            payload.sampleCount = 2;
 			
 
-            ray.Direction = RoughnessScatter(reflected, roughness, payload.randomSeed);
+            float3 l, F;
+            do
+            {
+                l = ReflectForMetallic(hitNormal, incoming, baseColor, roughness, payload.randomSeed, F);   
+            } while (l.x == 0 && l.y == 0 && l.z == 0);
+            
+            ray.Direction = l;
+
+            //ray.Direction = RoughnessScatter(reflected, roughness, payload.randomSeed);
             TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
-			//averageColor += payload.colorAndDistance;
-            //payload.hopCount = hopCountBackup;
+			
+            float NdotV = saturate(dot(hitNormal, viewDir));
+            float NdotL = saturate(dot(hitNormal, l));
+
+            float G = G_Smith(NdotV, NdotL, roughness);
+            payload.colorAndDistance.xyz *= F * G;
         }
         //payload.colorAndDistance = averageColor / float(sampleCount);
     }

@@ -15,6 +15,9 @@ struct HitInfo
     uint randomSeed; // used for stochastic effects like rough reflections
     uint sampleCount;
     uint isInGlass;
+    float4 normalAndRoughness;
+    float4 DiffuseRadianceAndDistance;
+    float4 SpecularRadianceAndDistance;
 };
 
 // Attributes output by the raytracing when hitting a surface,
@@ -131,8 +134,11 @@ float3 FresnelSchlick(float cosTheta, float3 F0)
 }
 
 // GGX / Trowbridge-Reitz normal distribution function sampling
-float3 SampleGGX(float2 u, float roughness)
+float3 SampleGGX(float roughness, inout uint randomSeed)
 {
+    float2 u;
+    u.x = RandomFloat(randomSeed);
+    u.y = RandomFloat(randomSeed);
     float a = roughness * roughness;
     float phi = 2.0f * PI * u.x;
     float cosTheta = sqrt((1.0f - u.y) / (1.0f + (a * a - 1.0f) * u.y));
@@ -143,6 +149,35 @@ float3 SampleGGX(float2 u, float roughness)
         sinTheta * sin(phi),
         cosTheta
     );
+}
+
+float G_Smith(float NdotV, float NdotL, float roughness)
+{
+    float r = roughness + 1.0f;
+    float k = (r * r) / 8.0f;
+
+    float Gv = NdotV / (NdotV * (1.0f - k) + k);
+    float Gl = NdotL / (NdotL * (1.0f - k) + k);
+    return Gv * Gl;
+}
+
+float3 ReflectForMetallic(float3 hitNormal, float3 incoming, float3 F0, float roughness, inout uint randomSeed, out float3 F)
+{
+    float3 T, B;
+    BuildOrthonormalBasis(hitNormal, T, B);
+
+    float3 h_local = SampleGGX(roughness, randomSeed);
+    float3 h = normalize(
+        h_local.x * T +
+        h_local.y * B +
+        h_local.z * hitNormal
+    );
+    float3 l = reflect(incoming, h);
+    if (dot(l, hitNormal) <= 0)
+        return float3(0, 0, 0);
+    float VoH = saturate(dot(incoming, h));
+    F = FresnelSchlick(VoH, F0);
+    return l;
 }
 
 void LimitRoughBounces(inout HitInfo payload, float roughness, bool triggeredByGlass=false)
