@@ -242,39 +242,54 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
         ray.Origin = newOrigin;
         ray.TMin = 0;
         ray.TMax = 100000;
-
-        bool isMirror = false;
-        if (roughness < 0.01f)
-            isMirror = true;
+        
+        
+        if(inst.isMetallic)
+        {
+            //METALLIC SURFACE
+            
+            bool isMirror = false;
+            if (roughness < 0.01f)
+                isMirror = true;
         // Different behaviour for 0 roughness
-        if(isMirror)
-        {
+            if (isMirror)
+            {
 			// Perfect mirror reflection
-            ray.Direction = reflected;
-            payload.colorAndDistance = float4(0, 0, 0, 0);
-            TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
-		}
-        else
-        {
-            LimitRoughBounces(payload, roughness);
+                ray.Direction = reflected;
+                payload.colorAndDistance = float4(0, 0, 0, 0);
+                TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
+            }
+            else
+            {
+                LimitRoughBounces(payload, roughness);
 			
 
-            float3 l, F;
-            do
-            {
-                l = ReflectForMetallic(hitNormal, incoming, baseColor, roughness, payload.randomSeed, F);   
-            } while (l.x == 0 && l.y == 0 && l.z == 0);
+                float3 l, F;
+                do
+                {
+                    l = ReflectForMetallic(hitNormal, incoming, baseColor, roughness, payload.randomSeed, F);
+                } while (l.x == 0 && l.y == 0 && l.z == 0);
             
-            ray.Direction = l;
+                ray.Direction = l;
 
             //ray.Direction = RoughnessScatter(reflected, roughness, payload.randomSeed);
-            TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
+                TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
 			
-            float NdotV = saturate(dot(hitNormal, viewDir));
-            float NdotL = saturate(dot(hitNormal, l));
+                float NdotV = saturate(dot(hitNormal, viewDir));
+                float NdotL = saturate(dot(hitNormal, l));
 
-            float G = G_Smith(NdotV, NdotL, roughness);
-            payload.colorAndDistance.xyz *= F * G;
+                float G = G_Smith(NdotV, NdotL, roughness);
+                payload.colorAndDistance.xyz *= F * G;
+            }
+        }
+        else
+        {
+            //DIFFUSE SURFACE
+            LimitRoughBounces(payload, roughness);
+            float3 l = ReflectDiffuse(hitNormal, payload.randomSeed);
+            ray.Direction = l;
+            TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
+            
         }
         //payload.colorAndDistance = averageColor / float(sampleCount);
     }
