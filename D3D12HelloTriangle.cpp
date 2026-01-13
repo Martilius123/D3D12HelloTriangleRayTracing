@@ -67,7 +67,7 @@ void D3D12HelloTriangle::PrepareNRDDescriptorPoolIfNeeded()
 		}
 	}
 
-	// Minimalny bezpieczny rozmiar (¿eby nie zrobiæ heap=1)
+	// Minimalny bezpieczny rozmiar (zeby nie zrobic heap=1)
 	const uint32_t kMinPoolSize = 128;
 	uint32_t requiredPoolSize = std::max(kMinPoolSize, maxIndex + 1);
 
@@ -76,7 +76,9 @@ void D3D12HelloTriangle::PrepareNRDDescriptorPoolIfNeeded()
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
 	desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
-	desc.NumDescriptors = requiredPoolSize;
+
+	// We need space for both SRV and UAV entries. Allocate twice the per-type count.
+	desc.NumDescriptors = requiredPoolSize * 2; // <-- FIX: allocate SRV + UAV ranges
 	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
 
 	ThrowIfFailed(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_nrdPoolHeap)));
@@ -669,6 +671,11 @@ void D3D12HelloTriangle::OnUpdate()
 						ImGui::DragFloat("Roughness Value", &inst2.roughness, 0.01f, 0.0f, 1.0f);
 						ImGui::Unindent();
 					}
+				}
+
+				//METALLIC
+				{
+					ImGui::Checkbox("Metallic Material", (bool*)&inst2.isMetallic);
 				}
 
 				// GLASS

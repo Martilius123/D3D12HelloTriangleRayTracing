@@ -181,6 +181,23 @@ float3 ReflectForMetallic(float3 hitNormal, float3 incoming, float3 F0, float ro
     return l;
 }
 
+float3 ReflectDiffuse(float3 hitNormal, inout uint randomSeed)
+{
+    float3 n = hitNormal;
+    float2 u = float2(RandomFloat(randomSeed), RandomFloat(randomSeed));
+    float3 local = SampleCosineHemisphere(u);
+    
+    float3 T, B;
+    BuildOrthonormalBasis(n, T, B);
+    
+    float3 wi =
+    local.x * T +
+    local.y * B +
+    local.z * n;
+    
+    return wi;
+}
+
 void LimitRoughBounces(inout HitInfo payload, float roughness, bool triggeredByGlass=false)
 {
     if (roughness >= 0.1)

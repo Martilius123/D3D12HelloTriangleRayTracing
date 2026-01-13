@@ -14,34 +14,34 @@ StructuredBuffer<int> indices : register(t1);
 StructuredBuffer<ModelInstanceGPU> gInstanceBuffer : register(t2);
 RaytracingAccelerationStructure SceneBVH : register(t3);
 
-[shader("closesthit")] 
-void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib) 
+[shader("closesthit")]
+void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
 {
     uint id = InstanceID(); // Now returns 0, 1, 2... based on the C++ loop index
     ModelInstanceGPU inst = gInstanceBuffer[id]; // Correctly fetches the material
 
     //Shadow Ray Logic
-    if(payload.hopCount==-10)//-10marks a shadow ray
+    if (payload.hopCount == -10)//-10marks a shadow ray
     {
-        if(inst.isGlass)
+        if (inst.isGlass)
         {
-            payload.colorAndDistance = float4(0,0,0,-1);
+            payload.colorAndDistance = float4(0, 0, 0, -1);
         }
         else
         {
-            payload.colorAndDistance = float4(0,0,0,RayTCurrent());
+            payload.colorAndDistance = float4(0, 0, 0, RayTCurrent());
         }
         return;
     }
 
     //BDSF logic
     float3 barycentrics =
-    float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
-    
+        float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
+
     payload.randomSeed = HashSeed(payload.randomSeed);
 
     uint vertId = 3 * PrimitiveIndex();
-    
+
     float3 p0 = BTriVertex[indices[vertId + 0]].vertex;
     float3 p1 = BTriVertex[indices[vertId + 1]].vertex;
     float3 p2 = BTriVertex[indices[vertId + 2]].vertex;
@@ -49,36 +49,37 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
     float3 n0 = BTriVertex[indices[vertId + 0]].normal;
     float3 n1 = BTriVertex[indices[vertId + 1]].normal;
     float3 n2 = BTriVertex[indices[vertId + 2]].normal;
-    
+
     float3 hitPosObj = p0 * barycentrics.x + p1 * barycentrics.y + p2 * barycentrics.z;
     float3 hitPos = mul(ObjectToWorld3x4(), float4(hitPosObj, 1.0f)).xyz;
     float3 hitNormalObj = normalize(n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z);
     float3 hitNormal = normalize(mul(hitNormalObj, (float3x3)WorldToObject3x4()));
+    payload.normalAndRoughness.xyz = hitNormal;
 
     float3 lightDir = normalize(lightPos - hitPos);
     float diff = max(dot(hitNormal, lightDir), 0.0f);
 
     float3 incoming = WorldRayDirection();
     float3 viewDir = normalize(-incoming);
-    
+
 
 
     float3 reflectDir = reflect(-viewDir, hitNormal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32.0f); // shininess 32
-    float roughness = 1.0f;
 
     // albedo
     float3 baseColor = inst.albedo;
-    if(inst.albedo.x<0)
+    if (inst.albedo.x < 0)
     {
         baseColor = BTriVertex[indices[vertId + 0]].color * barycentrics.x +
             BTriVertex[indices[vertId + 1]].color * barycentrics.y +
             BTriVertex[indices[vertId + 2]].color * barycentrics.z;
     }
     payload.colorAndDistance.xyz = float3(0, 0, 0);
+    float roughness;
 
     // Emmision
-    if(inst.emmision>0)
+    if (inst.emmision > 0)
     {
         payload.colorAndDistance = float4(baseColor * inst.emmision, RayTCurrent());
         payload.colorAndDistance.w = RayTCurrent();
@@ -96,6 +97,7 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             float3 r2 = BTriVertex[indices[vertId + 2]].roughness;
             roughness = r0 * barycentrics.x + r1 * barycentrics.y + r2 * barycentrics.z;
         }
+        payload.colorAndDistance.w = roughness;
 
         float3 newOrigin;
 
@@ -176,10 +178,10 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             payload.colorAndDistance.y *= baseColor.y;
             payload.colorAndDistance.z *= baseColor.z;
             payload.colorAndDistance.w += RayTCurrent();
+            return;
         }
         else
         {
-
 
 
             // Solid surface
@@ -243,47 +245,61 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                 ray.TMin = 0;
                 ray.TMax = 100000;
 
-                bool isMirror = false;
-                if (roughness < 0.01f)
-                    isMirror = true;
-                // Different behaviour for 0 roughness
-                if (isMirror)
+
+                if (inst.isMetallic)
                 {
-                    // Perfect mirror reflection
-                    ray.Direction = reflected;
-                    payload.colorAndDistance = float4(0, 0, 0, 0);
-                    TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
+                    //METALLIC SURFACE
+
+                    bool isMirror = false;
+                    if (roughness < 0.01f)
+                        isMirror = true;
+                    // Different behaviour for 0 roughness
+                    if (isMirror)
+                    {
+                        // Perfect mirror reflection
+                        ray.Direction = reflected;
+                        payload.colorAndDistance = float4(0, 0, 0, 0);
+                        TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
+                    }
+                    else
+                    {
+                        LimitRoughBounces(payload, roughness);
+
+
+                        float3 l, F;
+                        do
+                        {
+                            l = ReflectForMetallic(hitNormal, incoming, baseColor, roughness, payload.randomSeed, F);
+                        } while (l.x == 0 && l.y == 0 && l.z == 0);
+
+                        ray.Direction = l;
+
+                        //ray.Direction = RoughnessScatter(reflected, roughness, payload.randomSeed);
+                        TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
+
+                        float NdotV = saturate(dot(hitNormal, viewDir));
+                        float NdotL = saturate(dot(hitNormal, l));
+
+                        float G = G_Smith(NdotV, NdotL, roughness);
+                        payload.colorAndDistance.xyz *= F * G;
+                    }
                 }
                 else
                 {
+                    //DIFFUSE SURFACE
                     LimitRoughBounces(payload, roughness);
-
-
-                    float3 l, F;
-                    do
-                    {
-                        l = ReflectForMetallic(hitNormal, incoming, baseColor, roughness, payload.randomSeed, F);
-                    } while (l.x == 0 && l.y == 0 && l.z == 0);
-
+                    float3 l = ReflectDiffuse(hitNormal, payload.randomSeed);
                     ray.Direction = l;
-
-                    //ray.Direction = RoughnessScatter(reflected, roughness, payload.randomSeed);
                     TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
 
-                    float NdotV = saturate(dot(hitNormal, viewDir));
-                    float NdotL = saturate(dot(hitNormal, l));
-
-                    float G = G_Smith(NdotV, NdotL, roughness);
-                    payload.colorAndDistance.xyz *= F * G;
                 }
                 //payload.colorAndDistance = averageColor / float(sampleCount);
             }
-            payload.colorAndDistance.x *= baseColor.x;
-            payload.colorAndDistance.y *= baseColor.y;
-            payload.colorAndDistance.z *= baseColor.z;
-            payload.colorAndDistance.w += RayTCurrent();
         }
+        payload.colorAndDistance.x *= baseColor.x;
+        payload.colorAndDistance.y *= baseColor.y;
+        payload.colorAndDistance.z *= baseColor.z;
     }
-    payload.normalAndRoughness.xyz = hitNormal;
-    payload.normalAndRoughness.w = roughness;
+    payload.colorAndDistance.w += RayTCurrent();
+    payload.normalAndRoughness = float4(hitNormal, roughness);
 }
