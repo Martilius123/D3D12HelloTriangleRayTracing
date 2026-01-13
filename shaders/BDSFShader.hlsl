@@ -1,5 +1,6 @@
 #include "Common.hlsl"
 
+
 cbuffer Lights : register(b1)
 {
     float3 lightPos;
@@ -79,6 +80,7 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
     if(inst.emmision>0)
     {
         payload.colorAndDistance = float4(baseColor * inst.emmision, RayTCurrent());
+        payload.colorAndDistance.w = RayTCurrent();
         return;
     }
     
@@ -171,6 +173,7 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
         payload.colorAndDistance.x *= baseColor.x;
         payload.colorAndDistance.y *= baseColor.y;
         payload.colorAndDistance.z *= baseColor.z;
+        payload.colorAndDistance.w += RayTCurrent();
         return;
     }
     
@@ -191,7 +194,7 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             shadowRay = lightPos - hitPos;
             lightDirection = normalize(shadowRay);
             lightDistance = length(shadowRay);
-            attenuation = 100.0f / (lightDistance * lightDistance);  // Inverse square attenuation
+            attenuation = LIGHT_INTENSITY / (lightDistance * lightDistance);  // Inverse square attenuation
         }
         else
         if(lightType==1)
@@ -269,5 +272,5 @@ void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
     payload.colorAndDistance.x *= baseColor.x;
     payload.colorAndDistance.y *= baseColor.y;
     payload.colorAndDistance.z *= baseColor.z;
-    payload.colorAndDistance.w = RayTCurrent();
+    payload.colorAndDistance.w += RayTCurrent();
 }

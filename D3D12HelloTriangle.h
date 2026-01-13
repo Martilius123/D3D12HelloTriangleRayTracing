@@ -49,6 +49,9 @@ private:
 
 	UINT m_frameIndexCPU = 0;
 	UINT m_sampleCount = 4;
+	bool m_enableAdaptiveSampling = false;
+	float m_targetFrameRate = 30.0f;
+	int m_slowFrameCount = 0;
 	UINT m_ISOIndex = 400;
 	bool m_highlightOverexposed = false;
 
@@ -189,6 +192,7 @@ public:
 	void CheckRaytracingSupport();
 	virtual void OnKeyUp(UINT8 key);
 	virtual void OnKeyDown(UINT8 key);
+	void AdjustSampleCount();
 	bool m_raster = false;
 	std::wstring currentShading = L"BDSF";
 	// #DXR

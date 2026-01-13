@@ -307,6 +307,11 @@ void D3D12HelloTriangle::OnUpdate()
 		ImGui::Separator();
 		ImGui::Text("BDSF Parameters");
 		ImGui::DragInt("Sample Count", (int*) & m_sampleCount, 1, 1, 20);
+		ImGui::Checkbox("Adaptive Sampling", (bool*) &m_enableAdaptiveSampling);
+		if(m_enableAdaptiveSampling)
+			AdjustSampleCount();
+		ImGui::Text("Current Framerate: %f",  1.0f/ImGui::GetIO().DeltaTime);
+
 		ImGui::InputText("HDR Path", environmentPathBuffer, _countof(environmentPathBuffer));
 
 		if (ImGui::Button("Change Environment")) {
@@ -1449,4 +1454,26 @@ void D3D12HelloTriangle::CreateEnvironmentTexture(const HDRImage& img)
 double D3D12HelloTriangle::degreesToRadians(double degrees) {
 	// Conversion formula: radians = degrees * PI / 180
 	return degrees * 3.141592 / 180.0;
+}
+
+void D3D12HelloTriangle::AdjustSampleCount()
+{
+	if (1.0f / ImGui::GetIO().DeltaTime < m_targetFrameRate)
+	{
+		m_slowFrameCount++;
+	}
+	else
+	{
+		m_slowFrameCount--;
+	}
+	if (m_slowFrameCount > 3 && m_sampleCount > 1)
+	{
+		m_sampleCount--;
+		m_slowFrameCount = 0;
+	}
+	if (m_slowFrameCount < -5)
+	{
+		m_sampleCount++;
+		m_slowFrameCount = 0;
+	}
 }

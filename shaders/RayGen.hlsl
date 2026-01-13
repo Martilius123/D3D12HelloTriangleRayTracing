@@ -115,6 +115,7 @@ void RayGen()
         pixelColor += payload.colorAndDistance.rgb;
     }
     pixelColor /= (float) SampleCount; //averaging the samples
+    //pixelColor.x = pixelColor.y = pixelColor.z = payload.colorAndDistance.w;  //depth previev
     payload.colorAndDistance.rgb = pixelColor;
     //Applying ISO correction
     payload.colorAndDistance.rgb *= ISOIndex/400.0f;

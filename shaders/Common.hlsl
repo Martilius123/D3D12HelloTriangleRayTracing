@@ -1,3 +1,6 @@
+#define LIGHT_INTENSITY 1000.0f
+
+
 static const float PI = 3.14159265f;
 
 // Hit information, aka ray payload
