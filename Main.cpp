@@ -12,7 +12,7 @@
 #include "stdafx.h"
 #include "D3D12HelloTriangle.h"
 #include <CommCtrl.h>
-#include <NRD.h>
+#include "NRD.h"
 
 #pragma comment(lib, "Comctl32.lib")
 
