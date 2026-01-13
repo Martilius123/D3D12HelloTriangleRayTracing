@@ -23,6 +23,7 @@
 #include "nv_helpers_dx12/ShaderBindingTableGenerator.h"
 #include <string>
 #include "DXSample.h"
+#include "NRDIntegration.h"
 
 using namespace DirectX;
 
@@ -43,9 +44,19 @@ public:
 	virtual void OnRender();
 	virtual void OnDestroy();
 
+
+
+
+	bool m_enableDenoise = true;
+
+
+
 private:
 	ComPtr<ID3D12DescriptorHeap> m_imguiHeap;
 	static const UINT FrameCount = 2;
+
+	// NRD integration instance
+	NRDIntegration m_nrd;
 
 	UINT m_frameIndexCPU = 0;
 	UINT m_sampleCount = 4;

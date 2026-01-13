@@ -99,7 +99,7 @@
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>$(ProjectDir)\glm;$(ProjectDir)\imgui;$(ProjectDir)\NRD\_NRD_SDK\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
-      <AdditionalModuleDependencies>NRD.lib;%(AdditionalDependencies)</AdditionalModuleDependencies>
+      <AdditionalModuleDependencies>(ProjectDir)\NRD\_NRD_SDK\Lib\Release\NRD.lib;%(AdditionalDependencies)</AdditionalModuleDependencies>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -122,7 +122,16 @@
       <EntryPointName />
     </FxCompile>
     <PostBuildEvent>
-      <Command>(robocopy "$(WDKBinRoot)\x64"  "$(TargetDir)\" dxcompiler.dll dxil.dll) ^&amp; IF %ERRORLEVEL% LSS 8 SET ERRORLEVEL = 0</Command>
+      <Command>REM copy DXC runtime files (if available)
+IF EXIST "%WDKBinRoot%\x64\dxcompiler.dll" (
+  robocopy "%WDKBinRoot%\x64" "$(TargetDir)" dxcompiler.dll dxil.dll
+  IF %ERRORLEVEL% LSS 8 ( SET ERRORLEVEL=0 )
+)
+
+REM copy NRD.dll into the output folder
+IF EXIST "C:\Users\patry\Documents\dzialaj\D3D12HelloTriangleRayTracing\NRD\_NRD_SDK\Lib\Release\NRD.dll" (
+  xcopy /Y /Q "C:\Users\patry\Documents\dzialaj\D3D12HelloTriangleRayTracing\NRD\_NRD_SDK\Lib\Release\NRD.dll" "$(TargetDir)"
+)</Command>
     </PostBuildEvent>
     <PostBuildEvent>
       <Message>Copy dxcompiler.dll and dxil.dll to target folder</Message>
@@ -132,6 +141,7 @@
     <ClInclude Include="DXRHelper.h" />
     <ClInclude Include="manipulator.h" />
     <ClInclude Include="NRD\Include\NRD.h" />
+    <ClInclude Include="NRD\NRDIntegration.h" />
     <ClInclude Include="nv_helpers_dx12\BottomLevelASGenerator.h" />
     <ClInclude Include="nv_helpers_dx12\RaytracingPipelineGenerator.h" />
     <ClInclude Include="nv_helpers_dx12\RootSignatureGenerator.h" />
@@ -174,6 +184,8 @@
     </ClCompile>
     <ClCompile Include="manipulator.cpp" />
     <ClCompile Include="ModelLoading.cpp" />
+    <ClCompile Include="NRDIntegration.cpp" />
+    <ClCompile Include="NRDIntegration.h" />
     <ClCompile Include="nv_helpers_dx12\BottomLevelASGenerator.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
