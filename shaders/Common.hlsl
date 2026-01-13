@@ -122,6 +122,29 @@ float3 RoughnessScatter(float3 reflected, float roughness, uint randomSeed)
     return normalize(lerp(reflected, H_local.x * T + H_local.y * B + H_local.z * reflected, roughness * roughness));
 }
 
+
+// For Metals
+// Schlick's approximation for Fresnel factor
+float3 FresnelSchlick(float cosTheta, float3 F0)
+{
+    return F0 + (1.0f - F0) * pow(1.0f - cosTheta, 5.0f);
+}
+
+// GGX / Trowbridge-Reitz normal distribution function sampling
+float3 SampleGGX(float2 u, float roughness)
+{
+    float a = roughness * roughness;
+    float phi = 2.0f * PI * u.x;
+    float cosTheta = sqrt((1.0f - u.y) / (1.0f + (a * a - 1.0f) * u.y));
+    float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
+
+    return float3(
+        sinTheta * cos(phi),
+        sinTheta * sin(phi),
+        cosTheta
+    );
+}
+
 void LimitRoughBounces(inout HitInfo payload, float roughness, bool triggeredByGlass=false)
 {
     if (roughness >= 0.1)
