@@ -47,10 +47,49 @@ public:
 
 
 
+public:
+
+
+
+
+	// ---------------- NRD runtime state ----------------
+	uint32_t m_nrdFrameIndex = 0;
+
+	// Previous frame matrices for NRD
+	DirectX::XMMATRIX m_prevWorldToView = DirectX::XMMatrixIdentity();
+	DirectX::XMMATRIX m_prevViewToClip = DirectX::XMMatrixIdentity();
+
+	// NRD descriptor pool (SRV+UAV in one shader-visible heap)
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_nrdSrvUavHeap;
+	uint32_t m_nrdSrvCount = 0;
+	uint32_t m_nrdUavCount = 0;
+	uint32_t m_nrdPoolSize = 0; // srv + uav
+	uint32_t m_nrdBaseRegister = 0;
+	uint32_t m_nrdRegisterSpace = 0;
+
+	// CB upload for NRD constants (you already have these, keep if present)
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_nrdConstUpload;
+	uint32_t m_nrdConstUploadSize = 0;
+
+	// NRD runtime objects for executing compute dispatches produced by NRD
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_nrdRootSignature;
+	std::vector<Microsoft::WRL::ComPtr<ID3D12PipelineState>> m_nrdPipelines;
+
+	// Upload CB for NRD per-dispatch constants
+//	Microsoft::WRL::ComPtr<ID3D12Resource> m_nrdConstUpload; // upload heap
+//	uint32_t m_nrdConstUploadSize = 0;
+
+	// Toggle denoiser
 	bool m_enableDenoise = true;
 
+	// Create PSOs/root signature from NRD instance description (call after m_nrd.Initialize)
+	void CreateNRDPipelines();
+
+	// Query NRD dispatches and record compute dispatches into current m_commandList
+	void ExecuteNRDDispatches();
 
 
+	//	uint32_t m_nrdFrameIndex = 0;
 private:
 	ComPtr<ID3D12DescriptorHeap> m_imguiHeap;
 	static const UINT FrameCount = 2;
@@ -266,6 +305,15 @@ ComPtr<ID3D12Resource> m_outputResource;
 ComPtr<ID3D12DescriptorHeap> m_srvUavHeap;
 // #DXR
 void CreateShaderBindingTable();
+
+void D3D12HelloTriangle::UpdateNRDCommonSettingsPerFrame();
+void D3D12HelloTriangle::PrepareNRDDescriptorPoolIfNeeded();
+void D3D12HelloTriangle::WriteNRDPoolDescriptor(
+	const nrd::ResourceDesc& rd,
+	ID3D12Resource* resource,
+	DXGI_FORMAT format,
+	bool isUav);
+
 nv_helpers_dx12::ShaderBindingTableGenerator m_sbtHelper;
 ComPtr<ID3D12Resource> m_sbtStorage;
 
@@ -292,5 +340,22 @@ public:
 	bool keyQDown = false;
 	bool keyEDown = false;
 
+	// NRD runtime objects for executing compute dispatches produced by NRD
+	//ComPtr<ID3D12RootSignature> m_nrdRootSignature;
+	//std::vector<ComPtr<ID3D12PipelineState>> m_nrdPipelines;
+
+	// Upload CB for NRD per-dispatch constants
+	//ComPtr<ID3D12Resource> m_nrdConstUpload; // upload heap
+	//uint32_t m_nrdConstUploadSize = 0;
+
+	// Toggle
+	//bool m_enableDenoise = true;
+
+	// Create PSOs/root signature from NRD instance description (call after m_nrd.Initialize)
+	//void CreateNRDPipelines();
+
+	// Query NRD dispatches and record compute dispatches into the current m_commandList
+	// This function uses m_srvUavHeap and m_samplerHeap as the descriptor heaps for NRD resources.
+	//void ExecuteNRDDispatches();
 };
 

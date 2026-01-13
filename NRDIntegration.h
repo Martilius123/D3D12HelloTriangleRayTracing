@@ -1,8 +1,8 @@
 #pragma once
 
 #include "NRD/Include/NRD.h"
+#include "NRD/Include/NRDDescs.h"
 #include <cstdint>
-
 
 class NRDIntegration
 {
@@ -10,29 +10,36 @@ public:
     NRDIntegration();
     ~NRDIntegration();
 
-    // Initialize NRD instance; returns true on success.
-    // width/height are the logical NRD resource sizes (full resolution).
+    // Create NRD instance (one denoiser: REBLUR_DIFFUSE_SPECULAR)
     bool Initialize(uint32_t width, uint32_t height);
-
-    // Shutdown / destroy NRD instance.
     void Shutdown();
 
-    // Update per-frame common settings (call every frame before ApplyDenoise).
-    // Copies the provided structure and calls NRD SetCommonSettings.
+    // Per-frame common settings (must be called once per frame when denoising)
     bool UpdateCommonSettings(const nrd::CommonSettings& cs);
 
-    // Query NRD for dispatches for the single created denoiser and log them.
-    // In a real integration you should translate returned DispatchDesc array
-    // into D3D12 root signature + Dispatch calls. This function only demonstrates
-    // how to obtain dispatch descriptions.
-    bool ApplyDenoise();
+    // Optional: set per-denoiser settings (REBLUR has own settings)
+    bool UpdateDenoiserSettings_REBLUR(const nrd::ReblurSettings& settings);
 
+    // Fetch dispatches for the denoiser
+    bool GetDispatches(const nrd::DispatchDesc*& outDispatches, uint32_t& outCount);
+
+    // Instance / identifier
     nrd::Instance* GetInstance() const { return m_instance; }
     nrd::Identifier GetIdentifier() const { return m_identifier; }
 
+    // Expose instance description (pipelines + descriptor pool info)
+    const nrd::InstanceDesc* GetInstanceDesc() const;
+
+    uint32_t GetWidth() const { return m_width; }
+    uint32_t GetHeight() const { return m_height; }
+
 private:
-    nrd::Instance* m_instance;
-    nrd::Identifier m_identifier;
-    uint32_t m_width;
-    uint32_t m_height;
+    nrd::Instance* m_instance = nullptr;
+    nrd::Identifier m_identifier = 0;
+    uint32_t m_width = 0;
+    uint32_t m_height = 0;
+
+    // cache of last denoiser settings (not required, but useful)
+    bool m_hasReblurSettings = false;
+    nrd::ReblurSettings m_reblurSettings = {};
 };

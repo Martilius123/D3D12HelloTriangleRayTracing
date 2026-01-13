@@ -32,6 +32,208 @@
 
 // NRD integration header already included via D3D12HelloTriangle.h
 
+// Add near other helper implementations (after CreateShaderBindingTable or at end of file)
+
+#include "NRDIntegration.h"
+#include <vector>
+
+// Align helper
+static inline uint32_t AlignUp(uint32_t v, uint32_t a) { return (v + a - 1) & ~(a - 1); }
+
+void D3D12HelloTriangle::PrepareNRDDescriptorPoolIfNeeded()
+{
+	if (!m_nrd.GetInstance())
+		return;
+
+	const nrd::InstanceDesc* instDesc = nrd::GetInstanceDesc(*m_nrd.GetInstance());
+	if (!instDesc)
+		return;
+
+	// Counts from NRD instance
+	uint32_t srvCount = instDesc->descriptorPoolDesc.perSetTexturesMaxNum;
+	uint32_t uavCount = instDesc->descriptorPoolDesc.perSetStorageTexturesMaxNum;
+
+	if (srvCount == 0) srvCount = 64;
+	if (uavCount == 0) uavCount = 64;
+
+	uint32_t poolSize = srvCount + uavCount;
+
+	// If heap exists and big enough -> ok
+	if (m_nrdSrvUavHeap && m_nrdPoolSize >= poolSize &&
+		m_nrdSrvCount == srvCount && m_nrdUavCount == uavCount &&
+		m_nrdBaseRegister == instDesc->resourcesBaseRegisterIndex &&
+		m_nrdRegisterSpace == instDesc->resourcesSpaceIndex)
+		return;
+
+	m_nrdSrvCount = srvCount;
+	m_nrdUavCount = uavCount;
+	m_nrdPoolSize = poolSize;
+	m_nrdBaseRegister = instDesc->resourcesBaseRegisterIndex;
+	m_nrdRegisterSpace = instDesc->resourcesSpaceIndex;
+
+	// Create shader-visible heap for NRD SRV/UAV pool
+	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
+	heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	heapDesc.NumDescriptors = m_nrdPoolSize;
+	heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
+	ThrowIfFailed(m_device->CreateDescriptorHeap(&heapDesc, IID_PPV_ARGS(&m_nrdSrvUavHeap)));
+
+	OutputDebugStringA("NRD: Created SRV/UAV descriptor pool heap\n");
+}
+
+// Writes one descriptor into NRD pool at indexInPool.
+// YOU call this when you know which D3D12 resource corresponds to that pool slot.
+void D3D12HelloTriangle::WriteNRDPoolDescriptor(
+	const nrd::ResourceDesc& rd,
+	ID3D12Resource* resource,
+	DXGI_FORMAT format,
+	bool isUav)
+{
+	if (!m_nrdSrvUavHeap || !resource)
+		return;
+
+	const UINT inc = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE cpu(m_nrdSrvUavHeap->GetCPUDescriptorHandleForHeapStart());
+	cpu.Offset((int)rd.indexInPool, inc);
+
+	if (isUav)
+	{
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uav = {};
+		uav.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+		uav.Format = format;
+		m_device->CreateUnorderedAccessView(resource, nullptr, &uav, cpu);
+	}
+	else
+	{
+		D3D12_SHADER_RESOURCE_VIEW_DESC srv = {};
+		srv.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srv.Format = format;
+		srv.Texture2D.MipLevels = 1;
+		srv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		m_device->CreateShaderResourceView(resource, &srv, cpu);
+	}
+}
+
+
+void D3D12HelloTriangle::ExecuteNRDDispatches()
+{
+	if (!m_nrd.GetInstance())
+		return;
+
+	const nrd::DispatchDesc* dispatches = nullptr;
+	uint32_t count = 0;
+	nrd::Identifier id = m_nrd.GetIdentifier();
+
+	nrd::Result res = nrd::GetComputeDispatches(*m_nrd.GetInstance(), &id, 1, dispatches, count);
+	if (res != nrd::Result::SUCCESS)
+	{
+		OutputDebugStringA("NRD: GetComputeDispatches failed\n");
+		return;
+	}
+
+	if (count == 0)
+	{
+		OutputDebugStringA("NRD: no dispatches returned (check CommonSettings + inputs)\n");
+		return;
+	}
+
+	// Ensure NRD root signature + pipelines exist
+	if (!m_nrdRootSignature || m_nrdPipelines.empty())
+		CreateNRDPipelines();
+
+	if (!m_nrdRootSignature)
+	{
+		OutputDebugStringA("NRD: root signature missing\n");
+		return;
+	}
+
+	// Ensure NRD descriptor pool heap exists
+	PrepareNRDDescriptorPoolIfNeeded();
+	if (!m_nrdSrvUavHeap)
+	{
+		OutputDebugStringA("NRD: descriptor pool heap missing\n");
+		return;
+	}
+
+	// IMPORTANT: You MUST populate the NRD pool with descriptors for the resources NRD expects.
+	// This is the missing part in your current project.
+	//
+	// At minimum, before running dispatches, you need to create SRV/UAV descriptors into
+	// m_nrdSrvUavHeap at indices equal to rd.indexInPool for every rd in dispatches[i].resources.
+	//
+	// Example hookup point: call your own mapping function here:
+	// FillNRDPoolDescriptorsForFrame(dispatches, count);
+
+	// Bind heaps (NRD pool heap + sampler heap if you use one; NRD often uses static samplers, but keep your sampler heap if needed)
+	ID3D12DescriptorHeap* heaps[] = { m_nrdSrvUavHeap.Get(), m_samplerHeap.Get() };
+	m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
+
+	D3D12_GPU_DESCRIPTOR_HANDLE nrdPoolGpu = m_nrdSrvUavHeap->GetGPUDescriptorHandleForHeapStart();
+
+	for (uint32_t i = 0; i < count; ++i)
+	{
+		const nrd::DispatchDesc& d = dispatches[i];
+
+		if (d.pipelineIndex >= m_nrdPipelines.size() || !m_nrdPipelines[d.pipelineIndex])
+		{
+			OutputDebugStringA("NRD: missing PSO for pipelineIndex, skipping\n");
+			continue;
+		}
+
+		// Root signature + PSO
+		m_commandList->SetComputeRootSignature(m_nrdRootSignature.Get());
+		m_commandList->SetPipelineState(m_nrdPipelines[d.pipelineIndex].Get());
+
+		// Upload constants (if any)
+		if (d.constantBufferData && d.constantBufferDataSize > 0)
+		{
+			uint32_t needed = AlignUp((uint32_t)d.constantBufferDataSize, 256);
+			if (!m_nrdConstUpload || needed > m_nrdConstUploadSize)
+			{
+				m_nrdConstUploadSize = (needed > 256) ? needed : 256;
+
+				CD3DX12_HEAP_PROPERTIES heapUpload(D3D12_HEAP_TYPE_UPLOAD);
+				CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(m_nrdConstUploadSize);
+
+				ThrowIfFailed(m_device->CreateCommittedResource(
+					&heapUpload, D3D12_HEAP_FLAG_NONE, &bufDesc,
+					D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+					IID_PPV_ARGS(&m_nrdConstUpload)
+				));
+			}
+
+			uint8_t* mapped = nullptr;
+			D3D12_RANGE readRange = { 0, 0 };
+			ThrowIfFailed(m_nrdConstUpload->Map(0, &readRange, reinterpret_cast<void**>(&mapped)));
+			memcpy(mapped, d.constantBufferData, d.constantBufferDataSize);
+			m_nrdConstUpload->Unmap(0, nullptr);
+
+			// root param 1 = CBV
+			m_commandList->SetComputeRootConstantBufferView(1, m_nrdConstUpload->GetGPUVirtualAddress());
+		}
+
+		// root param 0 = NRD descriptor pool table (SRV+UAV)
+		m_commandList->SetComputeRootDescriptorTable(0, nrdPoolGpu);
+
+		// Dispatch
+		m_commandList->Dispatch(d.gridWidth, d.gridHeight, 1);
+
+		// UAV barrier helps when next dispatch reads what previous wrote
+		D3D12_RESOURCE_BARRIER uavBarrier = {};
+		uavBarrier.Type = D3D12_RESOURCE_BARRIER_TYPE_UAV;
+		uavBarrier.UAV.pResource = nullptr; // global UAV barrier
+		m_commandList->ResourceBarrier(1, &uavBarrier);
+	}
+}
+
+
+// (3) In PopulateCommandList(), before calling ExecuteNRDDispatches(), call UpdateCommonSettings each frame.
+// Replace your current denoiser call block with this:
+
+
+
 //
 D3D12HelloTriangle::D3D12HelloTriangle(UINT width, UINT height, std::wstring name) :
 	DXSample(width, height, name),
@@ -99,8 +301,12 @@ void D3D12HelloTriangle::OnInit() {
 	// Initialize NRD instance
 	if (!m_nrd.Initialize(GetWidth(), GetHeight()))
 	{
-		// Initialization failed (NRD log printed by NRDIntegration). Not fatal for the app, but denoising unavailable.
 		OutputDebugStringA("NRD initialization failed or returned false.\n");
+	}
+	else
+	{
+		// Create NRD pipelines once we have a valid instance and DXIL embedded inside the NRD InstanceDesc
+		CreateNRDPipelines();
 	}
 
 	// --- IMGUI INITIALIZATION START ---
@@ -263,96 +469,40 @@ void D3D12HelloTriangle::LoadPipeline()
 // Update frame-based values.
 void D3D12HelloTriangle::OnUpdate()
 {
-	// #DXR Extra: Perspective Camera
+	// Your camera buffer update (DXR side)
 	UpdateCameraBuffer();
 
-	// --- Update NRD common settings (per-frame) ---
-	{
-		// Build CommonSettings similarly to what UpdateCameraBuffer constructs for SceneCB.
-		// Use current camera from CameraManip and same projection setup.
-		nrd::CommonSettings cs = {};
-		// View matrix (world -> view)
-		const glm::mat4& glmView = nv_helpers_dx12::CameraManip.getMatrix();
-		// Copy glm matrix memory into XMMATRIX (matches UpdateCameraBuffer usage)
-		XMMATRIX view;
-		memcpy(&view, glm::value_ptr(glmView), sizeof(XMMATRIX));
-
-		// Projection
-		float fovAngleY = 45.0f * XM_PI / 180.0f;
-		XMMATRIX proj = XMMatrixPerspectiveFovRH(
-			fovAngleY,
-			m_aspectRatio,
-			0.1f,
-			1000.0f
-		);
-
-		// Copy into CommonSettings (layout expected by NRD)
-		memcpy(cs.viewToClipMatrix, &proj, sizeof(cs.viewToClipMatrix));
-		memcpy(cs.viewToClipMatrixPrev, &proj, sizeof(cs.viewToClipMatrixPrev));
-		memcpy(cs.worldToViewMatrix, &view, sizeof(cs.worldToViewMatrix));
-		memcpy(cs.worldToViewMatrixPrev, &view, sizeof(cs.worldToViewMatrixPrev));
-
-		// Resource sizes
-		cs.resourceSize[0] = static_cast<uint16_t>(GetWidth());
-		cs.resourceSize[1] = static_cast<uint16_t>(GetHeight());
-		cs.resourceSizePrev[0] = cs.resourceSize[0];
-		cs.resourceSizePrev[1] = cs.resourceSize[1];
-		cs.rectSize[0] = cs.resourceSize[0];
-		cs.rectSize[1] = cs.resourceSize[1];
-		cs.rectSizePrev[0] = cs.rectSize[0];
-		cs.rectSizePrev[1] = cs.rectSize[1];
-
-		cs.viewZScale = 1.0f;
-		cs.denoisingRange = 1000.0f;
-		cs.accumulationMode = nrd::AccumulationMode::CONTINUE;
-		cs.isMotionVectorInWorldSpace = false;
-		cs.isHistoryConfidenceAvailable = false;
-		cs.frameIndex = m_frameIndexCPU; // UpdateCameraBuffer already increments m_frameIndexCPU.
-
-		// Send to NRD instance
-		if (!m_nrd.UpdateCommonSettings(cs))
-		{
-			// Update failed -> output debug info
-			OutputDebugStringA("NRD SetCommonSettings failed (UpdateCommonSettings returned false)\n");
-		}
-	}
-
-	// --- IMGUI UPDATE ---
+	// ImGui frame begin
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
 
-	// Define your UI here
+	// --- UI ---
 	ImGui::Begin("Raytracing Settings");
-	//!!!!!! 
 	ImGui::Checkbox("Enable NRD Denoiser", &m_enableDenoise);
 
 	ImGui::Separator();
 	ImGui::TextColored(ImVec4(0, 1, 0, 1), "Scene Manager");
 
-	// Static buffer to hold the path text (persists between frames)
 	static char modelPathBuffer[128] = "Models/Cube.obj";
 	static char environmentPathBuffer[128] = "HDR/studio.hdr";
 	ImGui::InputText("Model Path", modelPathBuffer, _countof(modelPathBuffer));
 
 	if (ImGui::Button("Add Model")) {
-		// This triggers the heavy function we wrote earlier
 		AddModel(modelPathBuffer);
 	}
-	
+
 	ImGui::Separator();
 	ImGui::Text("Camera Parameters");
 
-	ImGui::DragInt("ISO", (int*) & m_ISOIndex, 100, 100, 1600);
+	ImGui::DragInt("ISO", (int*)&m_ISOIndex, 100, 100, 1600);
 	ImGui::Checkbox("Highlight Overexposed Areas", &m_highlightOverexposed);
 
 	ImGui::Separator();
 
-
-	// Example: Dropdown for shaders
-	const char* items[] = { "Flat", "Normal", "Phong", "MirrorDemo", "BDSF"};
+	const char* items[] = { "Flat", "Normal", "Phong", "MirrorDemo", "BDSF" };
 	static int item_current = 0;
-	// Sync current selection with your std::wstring currentShading
+
 	if (currentShading == L"Flat") item_current = 0;
 	else if (currentShading == L"Normal") item_current = 1;
 	else if (currentShading == L"Phong") item_current = 2;
@@ -366,22 +516,22 @@ void D3D12HelloTriangle::OnUpdate()
 		if (item_current == 3) SetShadingMode(L"MirrorDemo");
 		if (item_current == 4) SetShadingMode(L"BDSF");
 	}
+
 	if (currentShading == L"BDSF")
 	{
 		ImGui::Separator();
 		ImGui::Text("BDSF Parameters");
-		ImGui::DragInt("Sample Count", (int*) & m_sampleCount, 1, 1, 20);
-		ImGui::Checkbox("Adaptive Sampling", (bool*) &m_enableAdaptiveSampling);
-		if(m_enableAdaptiveSampling)
+		ImGui::DragInt("Sample Count", (int*)&m_sampleCount, 1, 1, 20);
+		ImGui::Checkbox("Adaptive Sampling", (bool*)&m_enableAdaptiveSampling);
+		if (m_enableAdaptiveSampling)
 			AdjustSampleCount();
 
 		ImGui::InputText("HDR Path", environmentPathBuffer, _countof(environmentPathBuffer));
-
 		if (ImGui::Button("Change Environment")) {
-			// This triggers the heavy function we wrote earlier
 			CreateEnvironmentTexture(LoadHDR(environmentPathBuffer));
 		}
 	}
+
 	if (currentShading == L"Phong" || currentShading == L"MirrorDemo" || currentShading == L"BDSF")
 	{
 		ImGui::Separator();
@@ -390,17 +540,14 @@ void D3D12HelloTriangle::OnUpdate()
 		bool lightChanged = false;
 
 		const char* lightTypes[] = { "Point Light", "Directional Light" };
-
 		if (ImGui::Combo("Light Type", &m_lightData.type, lightTypes, IM_ARRAYSIZE(lightTypes)))
-		{
 			lightChanged = true;
-		}
 
 		const char* posLabel = (m_lightData.type == 1) ? "Light Direction" : "Light Position";
 
 		if (m_lightData.type == 1)
 		{
-			if(ImGui::DragFloat2("Light Angles", &m_lightData.position.x, 1.0f, -360.0f, 360.0f))
+			if (ImGui::DragFloat2("Light Angles", &m_lightData.position.x, 1.0f, -360.0f, 360.0f))
 				lightChanged = true;
 		}
 		else
@@ -416,45 +563,34 @@ void D3D12HelloTriangle::OnUpdate()
 			lightChanged = true;
 
 		if (lightChanged)
-		{
 			UpdateLightsBuffer();
-		}
 	}
+
 	ImGui::Separator();
 
-	int indexToRemove = -1; 
-
-	for (int i = 0; i < Models.size(); i++) {
+	int indexToRemove = -1;
+	for (int i = 0; i < (int)Models.size(); i++)
+	{
 		auto& inst = Models[i];
 		auto& inst2 = ModelsShaderData[i];
 
 		ImGui::PushID(i);
 
-
-		if (ImGui::CollapsingHeader((std::to_string(i) + ": " + std::to_string(inst.id)).c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-
-			if (ImGui::DragFloat3("Position", &inst.position.x, 0.05f));
-			if (ImGui::DragFloat3("Rotation", &inst.rotation.x, 1.0f, -360.0f, 360.0f));
-			if (ImGui::DragFloat3("Scale", &inst.scale.x, 0.05f, 0, 100));
+		if (ImGui::CollapsingHeader((std::to_string(i) + ": " + std::to_string(inst.id)).c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+		{
+			ImGui::DragFloat3("Position", &inst.position.x, 0.05f);
+			ImGui::DragFloat3("Rotation", &inst.rotation.x, 1.0f, -360.0f, 360.0f);
+			ImGui::DragFloat3("Scale", &inst.scale.x, 0.05f, 0, 100);
 
 			ImGui::Spacing();
 
-			// --- NEW: Nested Header for GPU Instance Data ---
-			if (ImGui::TreeNode("Material / Instance Settings")) {
+			if (ImGui::TreeNode("Material / Instance Settings"))
+			{
 				// COLOR
 				{
-					bool useVertexData = (inst2.albedo.x == -1.0f &&
-						inst2.albedo.y == -1.0f &&
-						inst2.albedo.z == -1.0f);
-
-					if (ImGui::Checkbox("Use Vertex Data", &useVertexData)) {
-						if (useVertexData) {
-							inst2.albedo = DirectX::XMFLOAT3(-1.0f, -1.0f, -1.0f);
-						}
-						else {
-							inst2.albedo = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
-						}
-					}
+					bool useVertexData = (inst2.albedo.x == -1.0f && inst2.albedo.y == -1.0f && inst2.albedo.z == -1.0f);
+					if (ImGui::Checkbox("Use Vertex Data", &useVertexData))
+						inst2.albedo = useVertexData ? DirectX::XMFLOAT3(-1, -1, -1) : DirectX::XMFLOAT3(1, 1, 1);
 
 					if (!useVertexData) {
 						ImGui::Indent();
@@ -462,81 +598,72 @@ void D3D12HelloTriangle::OnUpdate()
 						ImGui::Unindent();
 					}
 				}
+
 				// EMISSION
 				{
 					bool useTextureEmission = (inst2.emission == -1.0f);
-					if (ImGui::Checkbox("Use Texture Emission", &useTextureEmission)) {
-						if (useTextureEmission) {
-							inst2.emission = -1.0f;
-						}
-						else {
-							inst2.emission = 1.0f;
-						}
-					}
+					if (ImGui::Checkbox("Use Texture Emission", &useTextureEmission))
+						inst2.emission = useTextureEmission ? -1.0f : 1.0f;
+
 					if (!useTextureEmission) {
 						ImGui::Indent();
 						ImGui::DragFloat("Emission Value", &inst2.emission, 0.01f, 0.0f, 10.0f);
 						ImGui::Unindent();
 					}
 				}
-				ImGui::Spacing();
+
 				// ROUGHNESS
 				{
-				 bool useTextureRoughness = (inst2.roughness == -1.0f);
-				 if (ImGui::Checkbox("Use Texture Roughness", &useTextureRoughness)) {
-					 if (useTextureRoughness) {
-						 inst2.roughness = -1.0f;
-					 }
-					 else {
-						 inst2.roughness = 0.4f;
-					 }
-				 }
-				 if (!useTextureRoughness) {
-					 ImGui::Indent();
-					 ImGui::DragFloat("Roughness Value", &inst2.roughness, 0.01f, 0.0f, 1.0f);
-					 ImGui::Unindent();
-				 }
-			 }
-			 ImGui::Spacing();
-			 // GLASS
-			 {
-				 bool isGlass = inst2.isGlass;
-				 if (ImGui::Checkbox("Make the object Glass", &isGlass)) {
-					 if (isGlass) {
-						 inst2.isGlass = true;
-					 }
-					 else {
-						 inst2.isGlass = false;
-					 }
-				 }
-				 if (isGlass) {
-					 ImGui::Indent();
-					 ImGui::DragFloat("IOR Value", &inst2.IOR, 0.01f, 0.0f, 2.0f);
-					 ImGui::Unindent();
-				 }
-			 }
-			 ImGui::TreePop();
+					bool useTextureRoughness = (inst2.roughness == -1.0f);
+					if (ImGui::Checkbox("Use Texture Roughness", &useTextureRoughness))
+						inst2.roughness = useTextureRoughness ? -1.0f : 0.4f;
+
+					if (!useTextureRoughness) {
+						ImGui::Indent();
+						ImGui::DragFloat("Roughness Value", &inst2.roughness, 0.01f, 0.0f, 1.0f);
+						ImGui::Unindent();
+					}
+				}
+
+				// GLASS
+				{
+					bool isGlass = inst2.isGlass;
+					if (ImGui::Checkbox("Make the object Glass", &isGlass))
+						inst2.isGlass = isGlass;
+
+					if (isGlass) {
+						ImGui::Indent();
+						ImGui::DragFloat("IOR Value", &inst2.IOR, 0.01f, 0.0f, 2.0f);
+						ImGui::Unindent();
+					}
+				}
+
+				ImGui::TreePop();
 			}
 
 			ImGui::Separator();
 
 			ImGui::PushStyleColor(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.0f, 0.6f, 0.6f));
 			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.0f, 0.7f, 0.7f));
-			if (ImGui::Button("Remove Object")) {
+			if (ImGui::Button("Remove Object"))
 				indexToRemove = i;
-			}
 			ImGui::PopStyleColor(2);
 		}
 
 		ImGui::PopID();
 	}
 
-	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
+		1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+
 	ImGui::End();
+
 	if (indexToRemove != -1)
 		RemoveModel(indexToRemove);
+
 	UpdateModelDataBuffer();
 }
+
 
 // Render the scene.
 void D3D12HelloTriangle::OnRender()
@@ -572,162 +699,138 @@ void D3D12HelloTriangle::OnDestroy()
 
 void D3D12HelloTriangle::PopulateCommandList()
 {
-	// Command list allocators can only be reset when the associated 
-	// command lists have finished execution on the GPU; apps should use 
-	// fences to determine GPU execution progress.
 	ThrowIfFailed(m_commandAllocator->Reset());
-
-	// However, when ExecuteCommandList() is called on a particular command 
-	// list, that command list can then be reset at any time and must be before 
-	// re-recording.
 	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
 
-	// Set necessary state.
 	m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
 	m_commandList->RSSetViewports(1, &m_viewport);
 	m_commandList->RSSetScissorRects(1, &m_scissorRect);
 
-	// Indicate that the back buffer will be used as a render target.
-	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+	// Backbuffer: PRESENT -> RENDER_TARGET
+	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		m_renderTargets[m_frameIndex].Get(),
+		D3D12_RESOURCE_STATE_PRESENT,
+		D3D12_RESOURCE_STATE_RENDER_TARGET));
 
-	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(
+		m_rtvHeap->GetCPUDescriptorHandleForHeapStart(),
+		m_frameIndex,
+		m_rtvDescriptorSize);
+
 	m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+
 	{
-
 		BuildTLAS();
-		// Get the start of the heap
 
-		ID3D12DescriptorHeap* heaps[] = { m_srvUavHeap.Get(), m_samplerHeap.Get() };
+		// Main heaps for raytracing
+		ID3D12DescriptorHeap* rtHeaps[] = { m_srvUavHeap.Get(), m_samplerHeap.Get() };
+		m_commandList->SetDescriptorHeaps(_countof(rtHeaps), rtHeaps);
 
-		m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
-		// 
-		// 
-		// On the last frame, the raytracing output was used as a copy source, to
-		// copy its contents into the render target. Now we need to transition it to
-		// a UAV so that the shaders can write in it.
-		CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_outputResource.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-		m_commandList->ResourceBarrier(1, &transition);
-		// Setup the raytracing task
+		// Output: COPY_SOURCE -> UAV (so DXR can write)
+		{
+			CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_outputResource.Get(),
+				D3D12_RESOURCE_STATE_COPY_SOURCE,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+			m_commandList->ResourceBarrier(1, &transition);
+		}
+
+		// Dispatch rays
 		D3D12_DISPATCH_RAYS_DESC desc = {};
-		// The layout of the SBT is as follows: ray generation shader, miss
-		// shaders, hit groups. As described in the CreateShaderBindingTable method,
-		// all SBT entries of a given type have the same size to allow a fixed stride.
-
-		// The ray generation shaders are always at the beginning of the SBT. 
-		uint32_t rayGenerationSectionSizeInBytes = m_sbtHelper.GetRayGenSectionSize();
+		uint32_t rayGenSize = m_sbtHelper.GetRayGenSectionSize();
 		desc.RayGenerationShaderRecord.StartAddress = m_sbtStorage->GetGPUVirtualAddress();
-		desc.RayGenerationShaderRecord.SizeInBytes = rayGenerationSectionSizeInBytes;
-		// The miss shaders are in the second SBT section, right after the ray
-		// generation shader. We have one miss shader for the camera rays and one
-		// for the shadow rays, so this section has a size of 2*m_sbtEntrySize. We
-		// also indicate the stride between the two miss shaders, which is the size
-		// of a SBT entry
-		uint32_t missSectionSizeInBytes = m_sbtHelper.GetMissSectionSize();
-		desc.MissShaderTable.StartAddress =
-			m_sbtStorage->GetGPUVirtualAddress() + rayGenerationSectionSizeInBytes;
-		desc.MissShaderTable.SizeInBytes = missSectionSizeInBytes;
+		desc.RayGenerationShaderRecord.SizeInBytes = rayGenSize;
+
+		uint32_t missSize = m_sbtHelper.GetMissSectionSize();
+		desc.MissShaderTable.StartAddress = m_sbtStorage->GetGPUVirtualAddress() + rayGenSize;
+		desc.MissShaderTable.SizeInBytes = missSize;
 		desc.MissShaderTable.StrideInBytes = m_sbtHelper.GetMissEntrySize();
-		// The hit groups section start after the miss shaders. In this sample we
-		// have one 1 hit group for the triangle
-		uint32_t hitGroupsSectionSize = m_sbtHelper.GetHitGroupSectionSize();
-		desc.HitGroupTable.StartAddress = m_sbtStorage->GetGPUVirtualAddress() +
-			rayGenerationSectionSizeInBytes +
-			missSectionSizeInBytes;
-		desc.HitGroupTable.SizeInBytes = hitGroupsSectionSize;
+
+		uint32_t hitSize = m_sbtHelper.GetHitGroupSectionSize();
+		desc.HitGroupTable.StartAddress = m_sbtStorage->GetGPUVirtualAddress() + rayGenSize + missSize;
+		desc.HitGroupTable.SizeInBytes = hitSize;
 		desc.HitGroupTable.StrideInBytes = m_sbtHelper.GetHitGroupEntrySize();
-		// Dimensions of the image to render, identical to a kernel launch dimension
+
 		desc.Width = GetWidth();
 		desc.Height = GetHeight();
 		desc.Depth = 1;
-		// Bind the raytracing pipeline
-		m_commandList->SetPipelineState1(m_rtStateObject.Get());
 
-		
-		//ID3D12DescriptorHeap heaps = {m_srvUavHeap.Get(), m_samplerHeap.Get()};
-		m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
-		// Dispatch the rays and write to the raytracing output
+		m_commandList->SetPipelineState1(m_rtStateObject.Get());
+		m_commandList->SetDescriptorHeaps(_countof(rtHeaps), rtHeaps);
 		m_commandList->DispatchRays(&desc);
 
-		// Call NRD to query its dispatches for the created denoiser(s).
-		// NOTE: NRDIntegration currently only queries and prints dispatch descriptions.
-		// To perform denoising you MUST:
-		//  - translate each nrd::DispatchDesc into D3D12 descriptor bindings (SRV/UAV)
-		//  - upload/bind dispatch constants into a GPU-visible CBV
-		//  - select NRD pipeline permutation (DXIL/SPIRV) and issue a Compute Dispatch with grid sizes
-		// TODO: Implement full NRD -> D3D12 compute dispatch recording here.
-		/*if (!m_nrd.ApplyDenoise())
-		{
-			OutputDebugStringA("NRD ApplyDenoise returned false (see NRDIntegration logs).\n");
-		}*/
-
-
+		// ---------------- NRD DENOISE ----------------
 		if (m_enableDenoise)
 		{
-			if (!m_nrd.ApplyDenoise())
-				OutputDebugStringA("NRD ApplyDenoise returned false (see NRDIntegration logs).\n");
+			// Update per-frame NRD settings (ONE place)
+			UpdateNRDCommonSettingsPerFrame();
+
+			// Execute compute dispatches
+			ExecuteNRDDispatches();
+
+			// NOTE:
+			// If NRD output is NOT m_outputResource, you must copy/alias:
+			// m_outputResource <- nrdOutTexture
+			// Otherwise you'll still present raw DXR.
 		}
 
-		// The raytracing output needs to be copied to the actual render target used
-		// for display. For this, we need to transition the raytracing output from a
-		// UAV to a copy source, and the render target buffer to a copy destination.
-		// We can then do the actual copy, before transitioning the render target
-		// buffer into a render target, that will be then used to display the image
-		transition = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_outputResource.Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_COPY_SOURCE);
-		m_commandList->ResourceBarrier(1, &transition);
-		transition = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET,
-			D3D12_RESOURCE_STATE_COPY_DEST);
-		m_commandList->ResourceBarrier(1, &transition);
+		// Output: UAV -> COPY_SOURCE
+		{
+			CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_outputResource.Get(),
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+				D3D12_RESOURCE_STATE_COPY_SOURCE);
+			m_commandList->ResourceBarrier(1, &transition);
+		}
 
+		// Backbuffer: RENDER_TARGET -> COPY_DEST
+		{
+			CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_renderTargets[m_frameIndex].Get(),
+				D3D12_RESOURCE_STATE_RENDER_TARGET,
+				D3D12_RESOURCE_STATE_COPY_DEST);
+			m_commandList->ResourceBarrier(1, &transition);
+		}
 
-		m_commandList->CopyResource(m_renderTargets[m_frameIndex].Get(),
-			m_outputResource.Get());
+		// Copy output to backbuffer
+		m_commandList->CopyResource(m_renderTargets[m_frameIndex].Get(), m_outputResource.Get());
 
+		// Backbuffer: COPY_DEST -> RENDER_TARGET
+		{
+			CD3DX12_RESOURCE_BARRIER transition = CD3DX12_RESOURCE_BARRIER::Transition(
+				m_renderTargets[m_frameIndex].Get(),
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				D3D12_RESOURCE_STATE_RENDER_TARGET);
+			m_commandList->ResourceBarrier(1, &transition);
+		}
 
-		//for (int i = 0; i < Models.size(); i++)
+		// Instance buffer update (as you had)
 		{
 			m_commandList->CopyResource(m_instancesBuffer.Get(), m_instancesUpload.Get());
-
-
 			CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
 				m_instancesBuffer.Get(),
 				D3D12_RESOURCE_STATE_COPY_DEST,
-				D3D12_RESOURCE_STATE_GENERIC_READ
-			);
+				D3D12_RESOURCE_STATE_GENERIC_READ);
 			m_commandList->ResourceBarrier(1, &barrier);
 		}
-
-
-		///
-
-
-
-		transition = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_RENDER_TARGET);
-		m_commandList->ResourceBarrier(1, &transition);
 	}
-	// --- IMGUI RENDER START ---
-	// 1. Prepare ImGui Draw Data
+
+	// ---------- IMGUI RENDER ----------
 	ImGui::Render();
 
-	// 2. Set the Descriptor Heap specific to ImGui
-	// IMPORTANT: ImGui cannot use the Raytracing Heap. It needs its own.
-	ID3D12DescriptorHeap* ppHeaps[] = { m_imguiHeap.Get() };
-	m_commandList->SetDescriptorHeaps(1, ppHeaps);
-
-	// 3. Render ImGui to the command list
+	ID3D12DescriptorHeap* imguiHeaps[] = { m_imguiHeap.Get() };
+	m_commandList->SetDescriptorHeaps(1, imguiHeaps);
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_commandList.Get());
-	// --- IMGUI RENDER END ---
-	// Indicate that the back buffer will now be used to present.
-	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+
+	// Backbuffer: RENDER_TARGET -> PRESENT
+	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+		m_renderTargets[m_frameIndex].Get(),
+		D3D12_RESOURCE_STATE_RENDER_TARGET,
+		D3D12_RESOURCE_STATE_PRESENT));
 
 	ThrowIfFailed(m_commandList->Close());
 }
+
 
 void D3D12HelloTriangle::WaitForPreviousFrame()
 {
@@ -1563,3 +1666,186 @@ void D3D12HelloTriangle::AdjustSampleCount()
 		m_slowFrameCount = 0;
 	}
 }
+
+void D3D12HelloTriangle::UpdateNRDCommonSettingsPerFrame()
+{
+	if (!m_nrd.GetInstance())
+		return;
+
+	nrd::CommonSettings cs = {};
+
+	// Frame index MUST increase every frame when denoising
+	cs.frameIndex = m_nrdFrameIndex++;
+	cs.accumulationMode = nrd::AccumulationMode::CONTINUE;
+	cs.denoisingRange = 1000.0f;
+
+	// Sizes
+	cs.resourceSize[0] = static_cast<uint16_t>(GetWidth());
+	cs.resourceSize[1] = static_cast<uint16_t>(GetHeight());
+	cs.resourceSizePrev[0] = cs.resourceSize[0];
+	cs.resourceSizePrev[1] = cs.resourceSize[1];
+
+	cs.rectSize[0] = cs.resourceSize[0];
+	cs.rectSize[1] = cs.resourceSize[1];
+	cs.rectSizePrev[0] = cs.rectSize[0];
+	cs.rectSizePrev[1] = cs.rectSize[1];
+
+	// If you provide MV in world space -> true. Most pipelines provide view-space MV -> false.
+	cs.isMotionVectorInWorldSpace = false;
+	cs.isHistoryConfidenceAvailable = false;
+
+	// IMPORTANT: viewZScale must match how you interpret depth (NRD expects viewZ linearization settings)
+	cs.viewZScale = 1.0f;
+
+	// Current matrices from CameraManip
+	const glm::mat4& glmView = nv_helpers_dx12::CameraManip.getMatrix();
+	DirectX::XMMATRIX worldToView;
+	memcpy(&worldToView, glm::value_ptr(glmView), sizeof(DirectX::XMMATRIX));
+
+	float fovAngleY = 45.0f * DirectX::XM_PI / 180.0f;
+	DirectX::XMMATRIX viewToClip = DirectX::XMMatrixPerspectiveFovRH(
+		fovAngleY,
+		m_aspectRatio,
+		0.1f,
+		1000.0f
+	);
+
+	// Copy current
+	memcpy(cs.worldToViewMatrix, &worldToView, sizeof(cs.worldToViewMatrix));
+	memcpy(cs.viewToClipMatrix, &viewToClip, sizeof(cs.viewToClipMatrix));
+
+	// Copy prev (from stored values)
+	memcpy(cs.worldToViewMatrixPrev, &m_prevWorldToView, sizeof(cs.worldToViewMatrixPrev));
+	memcpy(cs.viewToClipMatrixPrev, &m_prevViewToClip, sizeof(cs.viewToClipMatrixPrev));
+
+	// Push to NRD
+	if (!m_nrd.UpdateCommonSettings(cs))
+	{
+		OutputDebugStringA("NRD: UpdateCommonSettings failed\n");
+	}
+
+	// Update prev for next frame
+	m_prevWorldToView = worldToView;
+	m_prevViewToClip = viewToClip;
+}
+
+
+void D3D12HelloTriangle::CreateNRDPipelines()
+{
+	if (!m_nrd.GetInstance())
+		return;
+
+	const nrd::InstanceDesc* instDesc = nrd::GetInstanceDesc(*m_nrd.GetInstance());
+	if (!instDesc)
+	{
+		OutputDebugStringA("CreateNRDPipelines: GetInstanceDesc returned null\n");
+		return;
+	}
+
+	// Make sure we have an NRD pool heap created (SRV/UAV)
+	PrepareNRDDescriptorPoolIfNeeded();
+
+	uint32_t srvCount = m_nrdSrvCount;
+	uint32_t uavCount = m_nrdUavCount;
+
+	// Root signature: param0 = SRV+UAV descriptor table, param1 = per-dispatch CBV
+	std::vector<D3D12_DESCRIPTOR_RANGE> ranges;
+
+	D3D12_DESCRIPTOR_RANGE srvRange = {};
+	srvRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
+	srvRange.NumDescriptors = srvCount;
+	srvRange.BaseShaderRegister = instDesc->resourcesBaseRegisterIndex;
+	srvRange.RegisterSpace = instDesc->resourcesSpaceIndex;
+	srvRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	ranges.push_back(srvRange);
+
+	D3D12_DESCRIPTOR_RANGE uavRange = {};
+	uavRange.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_UAV;
+	uavRange.NumDescriptors = uavCount;
+	uavRange.BaseShaderRegister = instDesc->resourcesBaseRegisterIndex;
+	uavRange.RegisterSpace = instDesc->resourcesSpaceIndex;
+	uavRange.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
+	ranges.push_back(uavRange);
+
+	CD3DX12_ROOT_PARAMETER params[2];
+	params[0].InitAsDescriptorTable((UINT)ranges.size(), ranges.data(), D3D12_SHADER_VISIBILITY_ALL);
+
+	params[1].InitAsConstantBufferView(
+		instDesc->constantBufferRegisterIndex,
+		instDesc->constantBufferAndSamplersSpaceIndex,
+		D3D12_SHADER_VISIBILITY_ALL
+	);
+
+	CD3DX12_ROOT_SIGNATURE_DESC rsDesc(ARRAYSIZE(params), params, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_NONE);
+
+	Microsoft::WRL::ComPtr<ID3DBlob> sigBlob;
+	Microsoft::WRL::ComPtr<ID3DBlob> errBlob;
+	HRESULT hr = D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob);
+	if (FAILED(hr))
+	{
+		if (errBlob)
+			OutputDebugStringA((const char*)errBlob->GetBufferPointer());
+		ThrowIfFailed(hr);
+	}
+
+	ThrowIfFailed(m_device->CreateRootSignature(
+		0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
+		IID_PPV_ARGS(&m_nrdRootSignature)
+	));
+
+	// Create PSOs from NRD DXIL
+	m_nrdPipelines.clear();
+	m_nrdPipelines.resize(instDesc->pipelinesNum);
+
+	for (uint32_t i = 0; i < instDesc->pipelinesNum; ++i)
+	{
+		const nrd::PipelineDesc& pd = instDesc->pipelines[i];
+		if (!pd.computeShaderDXIL.bytecode || pd.computeShaderDXIL.size == 0)
+		{
+			m_nrdPipelines[i] = nullptr;
+			continue;
+		}
+
+		D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
+		psoDesc.pRootSignature = m_nrdRootSignature.Get();
+		psoDesc.CS.pShaderBytecode = pd.computeShaderDXIL.bytecode;
+		psoDesc.CS.BytecodeLength = pd.computeShaderDXIL.size;
+
+		Microsoft::WRL::ComPtr<ID3D12PipelineState> pso;
+		hr = m_device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&pso));
+		if (FAILED(hr))
+		{
+			OutputDebugStringA("NRD: CreateComputePipelineState failed for pipeline\n");
+			m_nrdPipelines[i] = nullptr;
+			continue;
+		}
+
+		m_nrdPipelines[i] = pso;
+	}
+
+	// Allocate/upload buffer for per-dispatch constants (aligned to 256)
+	uint32_t cbMax = instDesc->constantBufferMaxDataSize;
+	if (cbMax > 0)
+	{
+		uint32_t aligned = AlignUp(cbMax, 256);
+		if (!m_nrdConstUpload || aligned > m_nrdConstUploadSize)
+		{
+			m_nrdConstUploadSize = aligned;
+
+			CD3DX12_HEAP_PROPERTIES heapUpload(D3D12_HEAP_TYPE_UPLOAD);
+			CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(m_nrdConstUploadSize);
+
+			ThrowIfFailed(m_device->CreateCommittedResource(
+				&heapUpload, D3D12_HEAP_FLAG_NONE, &bufDesc,
+				D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+				IID_PPV_ARGS(&m_nrdConstUpload)
+			));
+		}
+	}
+
+	OutputDebugStringA("NRD: Pipelines + root signature created\n");
+}
+
+
+
+
