@@ -90,6 +90,37 @@ public:
 
 
 	//	uint32_t m_nrdFrameIndex = 0;
+
+
+
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_aovNormalRoughness; // u1
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_aovViewZ;           // u2
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_aovDiffHitDist;     // u3
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_aovSpecHitDist;     // u4
+
+	void D3D12HelloTriangle::CreateAOVResources();
+
+	ComPtr<ID3D12Resource> m_aovDiffuse;
+	ComPtr<ID3D12Resource> m_aovSpecular;
+	//ComPtr<ID3D12Resource> m_aovNormalRoughness;
+	//ComPtr<ID3D12Resource> m_aovViewZ;
+	ComPtr<ID3D12Resource> m_denoisedOutput; // wynik NRD (UAV)
+
+	ID3D12Resource* D3D12HelloTriangle::GetResourceForNrdType(nrd::ResourceType t);
+
+	void D3D12HelloTriangle::WriteNrdUav(uint32_t index, ID3D12Resource* res);
+	void D3D12HelloTriangle::WriteNrdSrv(uint32_t index, ID3D12Resource* res);
+
+
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_nrdPoolHeap;
+	//uint32_t m_nrdPoolSize = 0;       // total descriptors in pool = srvCount + uavCount
+//	uint32_t m_nrdSrvCount = 0;
+	//uint32_t m_nrdUavCount = 0;
+	UINT m_nrdHeapInc = 0;
+	//UINT m_nrdHeapInc = 0;
+
+
 private:
 	ComPtr<ID3D12DescriptorHeap> m_imguiHeap;
 	static const UINT FrameCount = 2;
