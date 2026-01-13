@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/_deps/shadermake-build/CMakeFiles/ShaderMake"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/CMakeFiles/6bd58dbc9e950f08190df12428e9618f/ShaderMake.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/CMakeFiles/86ae839ca7cc1feaa2442a1196da2f84/ShaderMake-complete.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/CMakeFiles/8a89cc673885ea6e3adb070027ab24e1/ShaderMake-build.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/CMakeFiles/8a89cc673885ea6e3adb070027ab24e1/ShaderMake-configure.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/CMakeFiles/8a89cc673885ea6e3adb070027ab24e1/ShaderMake-download.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/CMakeFiles/8a89cc673885ea6e3adb070027ab24e1/ShaderMake-install.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/CMakeFiles/8a89cc673885ea6e3adb070027ab24e1/ShaderMake-mkdir.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/CMakeFiles/8a89cc673885ea6e3adb070027ab24e1/ShaderMake-patch.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/CMakeFiles/8a89cc673885ea6e3adb070027ab24e1/ShaderMake-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"ShaderMake"
+		],
+		"name" : "ShaderMake"
+	}
+}

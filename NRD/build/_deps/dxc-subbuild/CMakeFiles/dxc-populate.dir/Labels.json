@@ -1,0 +1,46 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/_deps/dxc-subbuild/CMakeFiles/dxc-populate"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/_deps/dxc-subbuild/CMakeFiles/90b82f6800e0410ee767fde1f810f051/dxc-populate.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/_deps/dxc-subbuild/CMakeFiles/f800bb0de77e4069639b8512cfcaade0/dxc-populate-complete.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/_deps/dxc-subbuild/CMakeFiles/c7b31bab94f8ce7814a654942db93f69/dxc-populate-build.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/_deps/dxc-subbuild/CMakeFiles/c7b31bab94f8ce7814a654942db93f69/dxc-populate-configure.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/_deps/dxc-subbuild/CMakeFiles/c7b31bab94f8ce7814a654942db93f69/dxc-populate-download.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/_deps/dxc-subbuild/CMakeFiles/c7b31bab94f8ce7814a654942db93f69/dxc-populate-install.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/_deps/dxc-subbuild/CMakeFiles/c7b31bab94f8ce7814a654942db93f69/dxc-populate-mkdir.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/_deps/dxc-subbuild/CMakeFiles/c7b31bab94f8ce7814a654942db93f69/dxc-populate-patch.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/_deps/dxc-subbuild/CMakeFiles/c7b31bab94f8ce7814a654942db93f69/dxc-populate-test.rule"
+		},
+		{
+			"file" : "C:/Users/patry/Documents/NRD/build/_deps/dxc-subbuild/CMakeFiles/c7b31bab94f8ce7814a654942db93f69/dxc-populate-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"dxc-populate"
+		],
+		"name" : "dxc-populate"
+	}
+}

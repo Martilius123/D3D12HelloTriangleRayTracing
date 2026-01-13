@@ -1,0 +1,128 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\patry\Documents\NRD\Source\InstanceImpl.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\patry\Documents\NRD\Source\Reblur.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\patry\Documents\NRD\Source\Reference.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\patry\Documents\NRD\Source\Relax.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\patry\Documents\NRD\Source\Sigma.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\patry\Documents\NRD\Source\Timer.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\patry\Documents\NRD\Source\Wrapper.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\InstanceImpl.h">
+      <Filter>Source</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\StdAllocator.h">
+      <Filter>Source</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Timer.h">
+      <Filter>Source</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Reblur_Diffuse.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Reblur_DiffuseDirectionalOcclusion.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Reblur_DiffuseOcclusion.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Reblur_DiffuseSh.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Reblur_DiffuseSpecular.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Reblur_DiffuseSpecularOcclusion.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Reblur_DiffuseSpecularSh.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Reblur_Specular.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Reblur_SpecularOcclusion.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Reblur_SpecularSh.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Reference.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Relax_Diffuse.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Relax_DiffuseSh.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Relax_DiffuseSpecular.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Relax_DiffuseSpecularSh.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Relax_Specular.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Relax_SpecularSh.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Sigma_Shadow.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Source\Denoisers\Sigma_ShadowTranslucency.hpp">
+      <Filter>Denoisers</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Resources\Version.h">
+      <Filter>Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Include\NRD.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Include\NRDDescs.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\Include\NRDSettings.h">
+      <Filter>Include</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\patry\Documents\NRD\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="C:\Users\patry\Documents\NRD\Resources\NRD.rc">
+      <Filter>Resources</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Denoisers">
+      <UniqueIdentifier>{F5B86E72-6044-359D-AB00-5948E6AA797D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Include">
+      <UniqueIdentifier>{B08E8C24-8878-3653-BAD2-EFD7A575FE40}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Resources">
+      <UniqueIdentifier>{6D948C15-B937-3CA4-BF9C-3DB4DAE82E6B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source">
+      <UniqueIdentifier>{3302FBB6-B069-35B4-B5B8-ED1D1528C700}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

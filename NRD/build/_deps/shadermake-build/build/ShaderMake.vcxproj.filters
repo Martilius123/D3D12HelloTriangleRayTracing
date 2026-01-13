@@ -1,0 +1,33 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\patry\Documents\NRD\build\_deps\shadermake-src\ShaderMake\argparse.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\patry\Documents\NRD\build\_deps\shadermake-src\ShaderMake\ShaderBlob.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\patry\Documents\NRD\build\_deps\shadermake-src\ShaderMake\ShaderMake.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\build\_deps\shadermake-src\ShaderMake\argparse.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\patry\Documents\NRD\build\_deps\shadermake-src\ShaderMake\ShaderBlob.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\patry\Documents\NRD\build\_deps\shadermake-src\ShaderMake\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{811E2576-690F-34B6-BE31-893FD6F1727D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{F9C52108-023E-39C8-8099-789D074D4263}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

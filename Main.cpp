@@ -12,6 +12,8 @@
 #include "stdafx.h"
 #include "D3D12HelloTriangle.h"
 #include <CommCtrl.h>
+#include <NRD.h>
+
 #pragma comment(lib, "Comctl32.lib")
 
 _Use_decl_annotations_

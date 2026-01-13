@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\patry\Documents\NRD\build\CMakeFiles\8a89cc673885ea6e3adb070027ab24e1\ShaderMake-mkdir.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\patry\Documents\NRD\build\CMakeFiles\8a89cc673885ea6e3adb070027ab24e1\ShaderMake-download.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\patry\Documents\NRD\build\CMakeFiles\8a89cc673885ea6e3adb070027ab24e1\ShaderMake-update.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\patry\Documents\NRD\build\CMakeFiles\8a89cc673885ea6e3adb070027ab24e1\ShaderMake-patch.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\patry\Documents\NRD\build\CMakeFiles\8a89cc673885ea6e3adb070027ab24e1\ShaderMake-configure.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\patry\Documents\NRD\build\CMakeFiles\8a89cc673885ea6e3adb070027ab24e1\ShaderMake-build.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\patry\Documents\NRD\build\CMakeFiles\8a89cc673885ea6e3adb070027ab24e1\ShaderMake-install.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\patry\Documents\NRD\build\CMakeFiles\86ae839ca7cc1feaa2442a1196da2f84\ShaderMake-complete.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\patry\Documents\NRD\build\CMakeFiles\6bd58dbc9e950f08190df12428e9618f\ShaderMake.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\patry\Documents\NRD\build\_deps\shadermake-src\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\patry\Documents\NRD\build\_deps\shadermake-build\CMakeFiles\ShaderMake" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{A8BDC2D1-3754-3860-8D61-AC1E726B1EF4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

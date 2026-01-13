@@ -1,0 +1,3 @@
+C:/Users/patry/Documents/NRD/build/_deps/shadermake-build/build/CMakeFiles/ShaderMake.dir
+C:/Users/patry/Documents/NRD/build/_deps/shadermake-build/build/CMakeFiles/ALL_BUILD.dir
+C:/Users/patry/Documents/NRD/build/_deps/shadermake-build/build/CMakeFiles/ZERO_CHECK.dir
