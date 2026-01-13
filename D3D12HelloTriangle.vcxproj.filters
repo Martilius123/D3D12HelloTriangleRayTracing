@@ -58,6 +58,7 @@
     <ClInclude Include="NRD\Include\NRD.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="NRD\NRDIntegration.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -102,6 +103,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="GPUBuffers.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NRDIntegration.h">
+      <Filter>Header Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NRDIntegration.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

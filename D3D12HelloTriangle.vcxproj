@@ -132,6 +132,7 @@
     <ClInclude Include="DXRHelper.h" />
     <ClInclude Include="manipulator.h" />
     <ClInclude Include="NRD\Include\NRD.h" />
+    <ClInclude Include="NRD\NRDIntegration.h" />
     <ClInclude Include="nv_helpers_dx12\BottomLevelASGenerator.h" />
     <ClInclude Include="nv_helpers_dx12\RaytracingPipelineGenerator.h" />
     <ClInclude Include="nv_helpers_dx12\RootSignatureGenerator.h" />
@@ -174,6 +175,8 @@
     </ClCompile>
     <ClCompile Include="manipulator.cpp" />
     <ClCompile Include="ModelLoading.cpp" />
+    <ClCompile Include="NRDIntegration.cpp" />
+    <ClCompile Include="NRDIntegration.h" />
     <ClCompile Include="nv_helpers_dx12\BottomLevelASGenerator.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
