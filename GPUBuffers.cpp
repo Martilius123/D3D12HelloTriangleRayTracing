@@ -185,3 +185,45 @@ void D3D12HelloTriangle::UpdateCameraBuffer()
 	manip.setLookat(eye, eye + forward, up);
 
 }
+
+//Animating Model translations
+void D3D12HelloTriangle::UpdateModelTranslations()
+{
+	// --- Timing ---
+	DWORD now = GetTickCount();
+
+	for (int i = 0; i < ModelDescriptions.size(); i++ )
+	{
+		if (ModelDescriptions[i].animationFrames.size() < 2)
+			continue;
+		// Find current and next frame
+		float animationTime = fmodf(now / 1000.0f, ModelDescriptions[i].animationFrames.back().time);
+		AnimationFrame* currentFrame = nullptr;
+		AnimationFrame* nextFrame = nullptr;
+		int numberOfFrames = ModelDescriptions[i].animationFrames.size();
+		for (size_t j = 0; j < numberOfFrames; j++)
+		{
+			if (animationTime >= ModelDescriptions[i].animationFrames[j].time &&
+				animationTime < ModelDescriptions[i].animationFrames[j + 1].time)
+			{
+				currentFrame = &ModelDescriptions[i].animationFrames[j];
+				nextFrame = &ModelDescriptions[i].animationFrames[(j + 1)%numberOfFrames];
+				break;
+			}
+		}
+		if (!currentFrame || !nextFrame)
+			continue;
+		// Interpolate
+		float frameDelta = nextFrame->time - currentFrame->time;
+		float factor = (animationTime - currentFrame->time) / frameDelta;
+		ModelDescriptions[i].position.x = currentFrame->position.x + factor * (nextFrame->position.x - currentFrame->position.x);
+		ModelDescriptions[i].position.y = currentFrame->position.y + factor * (nextFrame->position.y - currentFrame->position.y);
+		ModelDescriptions[i].position.z = currentFrame->position.z + factor * (nextFrame->position.z - currentFrame->position.z);
+		ModelDescriptions[i].rotation.x = currentFrame->rotation.x + factor * (nextFrame->rotation.x - currentFrame->rotation.x);
+		ModelDescriptions[i].rotation.y = currentFrame->rotation.y + factor * (nextFrame->rotation.y - currentFrame->rotation.y);
+		ModelDescriptions[i].rotation.z = currentFrame->rotation.z + factor * (nextFrame->rotation.z - currentFrame->rotation.z);
+		ModelDescriptions[i].scale.x = currentFrame->scale.x + factor * (nextFrame->scale.x - currentFrame->scale.x);
+		ModelDescriptions[i].scale.y = currentFrame->scale.y + factor * (nextFrame->scale.y - currentFrame->scale.y);
+		ModelDescriptions[i].scale.z = currentFrame->scale.z + factor * (nextFrame->scale.z - currentFrame->scale.z);
+	}
+}

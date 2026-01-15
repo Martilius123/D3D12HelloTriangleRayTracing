@@ -166,6 +166,14 @@ private:
 		float pad1;
 	};
 
+	struct AnimationFrame
+	{
+		float time;
+		DirectX::XMFLOAT3 position;
+		DirectX::XMFLOAT3 rotation;
+		DirectX::XMFLOAT3 scale;
+	};
+
 	struct ModelDesc
 	{
 		int id;
@@ -179,6 +187,7 @@ private:
 		int isMetallic = false;
 		int isGlass = false;
 		float IOR = 1.5f;
+		std::vector<AnimationFrame> animationFrames;
 	};
 
 	struct ModelInstance
@@ -239,6 +248,7 @@ public:
 	// #DXR Extra: Perspective Camera
 	void CreateCameraBuffer();
 	void UpdateCameraBuffer();
+	void UpdateModelTranslations(); // animating models
 	void CreateLightsBuffer();
 	void UpdateLightsBuffer();
 

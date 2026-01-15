@@ -424,6 +424,46 @@ std::vector<D3D12HelloTriangle::ModelDesc> D3D12HelloTriangle::LoadScene(const s
 			desc.IOR = m["IOR"];
 		}
 
+		if (m.contains("animationFrames") &&
+			m["animationFrames"].contains("frames"))
+		{
+			DirectX::XMFLOAT3 prevPosition = desc.position;
+			DirectX::XMFLOAT3 prevRotation = desc.rotation;
+			DirectX::XMFLOAT3 prevScale = desc.scale;
+			for (auto& af : m["animationFrames"]["frames"])
+			{
+				D3D12HelloTriangle::AnimationFrame frame;
+				if (af.contains("time"))
+				{
+					frame.time = af["time"];
+				}
+				else
+					frame.time = 1.0f;
+				if (af.contains("position"))
+				{
+					auto p = af["position"];
+					prevPosition = frame.position = { p[0], p[1], p[2] };
+				}
+				else
+					frame.position = prevPosition;
+				if (af.contains("rotation"))
+				{
+					auto p = af["rotation"];
+					prevRotation = frame.rotation = { p[0], p[1], p[2] };
+				}
+				else
+					frame.rotation = prevRotation;
+				if (af.contains("scale"))
+				{
+					auto p = af["scale"];
+					prevScale = frame.scale = { p[0], p[1], p[2] };
+				}
+				else
+					frame.scale = prevScale;
+				desc.animationFrames.push_back(frame);
+			}
+		}
+
 		result.push_back(desc);
 	}
 

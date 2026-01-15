@@ -747,6 +747,7 @@ void D3D12HelloTriangle::OnUpdate()
 	if (indexToRemove != -1)
 		RemoveModel(indexToRemove);
 
+	UpdateModelTranslations();
 	UpdateModelDataBuffer();
 }
 

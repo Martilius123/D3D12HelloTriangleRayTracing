@@ -29,35 +29,64 @@
                 50.0
             ]
         },
-        {
-            "IOR": 1.5,
-            "albedo": [
-                -1.0,
-                -1.0,
-                -1.0
-            ],
-            "emission": -1.0,
-            "id": 1,
-            "isGlass": 0,
-            "isMetallic": 0,
-            "path": "Models/FinalBaseMesh.obj",
-            "position": [
-                0.0,
-                5.0,
-                0.0
-            ],
-            "rotation": [
-                0.0,
-                90.0,
-                0.0
-            ],
-            "roughness": -1.0,
-            "scale": [
-                1.0,
-                1.0,
-                1.0
-            ]
-        },
+      {
+        "IOR": 1.5,
+        "albedo": [
+          -1.0,
+          -1.0,
+          -1.0
+        ],
+        "emission": -1.0,
+        "id": 1,
+        "isGlass": 0,
+        "isMetallic": 0,
+        "path": "Models/FinalBaseMesh.obj",
+        "position": [
+          0.0,
+          5.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          90.0,
+          0.0
+        ],
+        "roughness": -1.0,
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "animationFrames": {
+          "frames": [
+            {
+              "time": 0,
+              "position": [ -20, 0, 20 ],
+              "rotation": [ 0, 0, 0 ]
+            },
+            {
+              "time": 5,
+              "position": [ -20, 0, -20 ],
+              "rotation": [ 0, 0, 0 ]
+            },
+            {
+              "time": 10,
+              "position": [ -20, 0, -20 ],
+              "rotation": [ 0, 180, 0 ]
+            },
+            {
+              "time": 15,
+              "position": [ -20, 0, 20 ],
+              "rotation": [ 0, 180, 0 ]
+            },
+            {
+              "time": 20,
+              "position": [ -20, 0, 20 ],
+              "rotation": [ 0, 0, 0 ]
+            }
+          ]
+        }
+      },
         {
             "IOR": 1.5,
             "albedo": [
