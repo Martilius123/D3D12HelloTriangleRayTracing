@@ -17,11 +17,10 @@ cbuffer CameraParams : register(b0)
     float4x4 projectionI;
     uint FrameIndex;
     uint SampleCount;
+    uint MaxRecursionDepth;
     uint ISOIndex;
     bool HighlightOverexposed;
-    //bool padding[3];
     bool UseEnvLight;
-    //bool padding2[3];
     float3 envLightColor;
 }
 
@@ -47,7 +46,7 @@ void RayGen()
     for (uint i = 0; i < SampleCount; i++)
     {
         payload.colorAndDistance = float4(0, 0, 0, 0);
-        payload.hopCount = 25;
+        payload.hopCount = min(27, MaxRecursionDepth);
         payload.sampleCount = 1;
         payload.randomSeed = InitSeed(launchIndex, FrameIndex + 1000 * i);
         payload.isInGlass = 0;

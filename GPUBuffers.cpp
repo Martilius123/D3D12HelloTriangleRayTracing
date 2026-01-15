@@ -153,6 +153,7 @@ void D3D12HelloTriangle::UpdateCameraBuffer()
 	// Frame index
 	sceneCB.FrameIndex = m_frameIndexCPU++;
 	sceneCB.SampleCount = m_sampleCount;
+	sceneCB.MaxRecursionDepth = m_maximumRecursionDepth;
 	sceneCB.ISOIndex = m_ISOIndex;
 	sceneCB.HighlightOverexposed = m_highlightOverexposed;
 	sceneCB.EnableEnvironmentTexture = m_enableEnvironmentTexture;

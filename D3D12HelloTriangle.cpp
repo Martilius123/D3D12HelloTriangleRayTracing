@@ -546,6 +546,7 @@ void D3D12HelloTriangle::OnUpdate()
 		ImGui::Checkbox("Adaptive Sampling", (bool*)&m_enableAdaptiveSampling);
 		if (m_enableAdaptiveSampling)
 			AdjustSampleCount();
+		ImGui::DragInt("Maximum Recursion Depth", (int*)&m_maximumRecursionDepth, 1, 1, 25);
 
 		ImGui::Separator();
 
@@ -1347,7 +1348,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	// then requires a trace depth of 1. Note that this recursion depth should be
 	// kept to a minimum for best performance. Path tracing algorithms can be
 	// easily flattened into a simple loop in the ray generation.
-	pipeline.SetMaxRecursionDepth(31);
+	pipeline.SetMaxRecursionDepth(31); //31 is the maximum value
 	// Compile the pipeline for execution on the GPU
 	m_rtStateObject = pipeline.Generate();
 

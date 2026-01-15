@@ -80,7 +80,7 @@ public:
 //	uint32_t m_nrdConstUploadSize = 0;
 
 	// Toggle denoiser
-	bool m_enableDenoise = true;
+	bool m_enableDenoise = false;
 
 	// Create PSOs/root signature from NRD instance description (call after m_nrd.Initialize)
 	void CreateNRDPipelines();
@@ -130,6 +130,7 @@ private:
 
 	UINT m_frameIndexCPU = 0;
 	UINT m_sampleCount = 4;
+	UINT m_maximumRecursionDepth = 25;
 	bool m_enableAdaptiveSampling = false;
 	float m_targetFrameRate = 30.0f;
 	int m_slowFrameCount = 0;
@@ -146,6 +147,7 @@ private:
 		XMMATRIX InvProj;
 		UINT FrameIndex;
 		UINT SampleCount;
+		UINT MaxRecursionDepth;
 		UINT ISOIndex;
 		bool HighlightOverexposed;
 		bool padding[3];
