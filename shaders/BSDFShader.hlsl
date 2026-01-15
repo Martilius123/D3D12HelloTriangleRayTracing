@@ -15,7 +15,7 @@ StructuredBuffer<ModelInstanceGPU> gInstanceBuffer : register(t2);
 RaytracingAccelerationStructure SceneBVH : register(t3);
 
 [shader("closesthit")]
-void ClosestHit_BDSF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
+void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
 {
     uint id = InstanceID(); // Now returns 0, 1, 2... based on the C++ loop index
     ModelInstanceGPU inst = gInstanceBuffer[id]; // Correctly fetches the material

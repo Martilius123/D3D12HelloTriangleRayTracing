@@ -521,27 +521,27 @@ void D3D12HelloTriangle::OnUpdate()
 
 	ImGui::Separator();
 
-	const char* items[] = { "Flat", "Normal", "Phong", "MirrorDemo", "BDSF" };
+	const char* items[] = { "Flat", "Normal", "Phong", "MirrorDemo", "BSDF" };
 	static int item_current = 0;
 
 	if (currentShading == L"Flat") item_current = 0;
 	else if (currentShading == L"Normal") item_current = 1;
 	else if (currentShading == L"Phong") item_current = 2;
 	else if (currentShading == L"MirrorDemo") item_current = 3;
-	else if (currentShading == L"BDSF") item_current = 4;
+	else if (currentShading == L"BSDF") item_current = 4;
 
 	if (ImGui::Combo("Shading Mode", &item_current, items, IM_ARRAYSIZE(items))) {
 		if (item_current == 0) SetShadingMode(L"Flat");
 		if (item_current == 1) SetShadingMode(L"Normal");
 		if (item_current == 2) SetShadingMode(L"Phong");
 		if (item_current == 3) SetShadingMode(L"MirrorDemo");
-		if (item_current == 4) SetShadingMode(L"BDSF");
+		if (item_current == 4) SetShadingMode(L"BSDF");
 	}
 
-	if (currentShading == L"BDSF")
+	if (currentShading == L"BSDF")
 	{
 		ImGui::Separator();
-		ImGui::Text("BDSF Parameters");
+		ImGui::Text("BSDF Parameters");
 		ImGui::DragInt("Sample Count", (int*)&m_sampleCount, 1, 1, 20);
 		ImGui::Checkbox("Adaptive Sampling", (bool*)&m_enableAdaptiveSampling);
 		if (m_enableAdaptiveSampling)
@@ -565,7 +565,7 @@ void D3D12HelloTriangle::OnUpdate()
 		}
 	}
 
-	if (currentShading == L"Phong" || currentShading == L"MirrorDemo" || currentShading == L"BDSF")
+	if (currentShading == L"Phong" || currentShading == L"MirrorDemo" || currentShading == L"BSDF")
 	{
 		ImGui::Separator();
 		ImGui::Text("Light Parameters");
@@ -1267,7 +1267,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	m_normalShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"shaders/NormalShader.hlsl");
 	m_phongShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"shaders/PhongShader.hlsl");
 	m_mirrorDemoShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"shaders/MirrorDemoShader.hlsl");
-	m_BDSFShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"shaders/BDSFShader.hlsl");
+	m_BSDFShaderLibrary = nv_helpers_dx12::CompileShaderLibrary(L"shaders/BSDFShader.hlsl");
 	// In a way similar to DLLs, each library is associated with a number of
 	// exported symbols. This
 	// has to be done explicitly in the lines below. Note that a single library
@@ -1279,7 +1279,7 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	pipeline.AddLibrary(m_normalShaderLibrary.Get(), { L"ClosestHit_Normal" });
 	pipeline.AddLibrary(m_phongShaderLibrary.Get(), { L"ClosestHit_Phong" });
 	pipeline.AddLibrary(m_mirrorDemoShaderLibrary.Get(), { L"ClosestHit_MirrorDemo" });
-	pipeline.AddLibrary(m_BDSFShaderLibrary.Get(), { L"ClosestHit_BDSF" });
+	pipeline.AddLibrary(m_BSDFShaderLibrary.Get(), { L"ClosestHit_BSDF" });
 	// To be used, each DX12 shader needs a root signature defining which
 	// parameters and buffers will be accessed.
 	m_rayGenSignature = CreateRayGenSignature();
@@ -1309,17 +1309,17 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 		std::wstring NormalHitGroup = L"HitGroup_Normal_" + std::to_wstring(i);
 		std::wstring PhongHitGroup = L"HitGroup_Phong_" + std::to_wstring(i);
 		std::wstring MirrorDemoHitGroup = L"HitGroup_MirrorDemo_" + std::to_wstring(i);
-		std::wstring BDSFHitGroup = L"HitGroup_BDSF_" + std::to_wstring(i);
+		std::wstring BSDFHitGroup = L"HitGroup_BSDF_" + std::to_wstring(i);
 		pipeline.AddHitGroup(FlatHitGroup, L"ClosestHit_Flat");
 		pipeline.AddHitGroup(NormalHitGroup, L"ClosestHit_Normal");
 		pipeline.AddHitGroup(PhongHitGroup, L"ClosestHit_Phong");
 		pipeline.AddHitGroup(MirrorDemoHitGroup, L"ClosestHit_MirrorDemo");
-		pipeline.AddHitGroup(BDSFHitGroup, L"ClosestHit_BDSF");
+		pipeline.AddHitGroup(BSDFHitGroup, L"ClosestHit_BSDF");
 		hitGroups.push_back(FlatHitGroup.c_str());
 		hitGroups.push_back(NormalHitGroup.c_str());
 		hitGroups.push_back(PhongHitGroup.c_str());
 		hitGroups.push_back(MirrorDemoHitGroup.c_str());
-		hitGroups.push_back(BDSFHitGroup.c_str());
+		hitGroups.push_back(BSDFHitGroup.c_str());
 	}
 	// The following section associates the root signature to each shader. Note
 	// that we can explicitly show that some shaders share the same root signature

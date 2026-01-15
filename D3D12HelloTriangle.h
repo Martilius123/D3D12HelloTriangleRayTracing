@@ -280,7 +280,7 @@ public:
 	virtual void OnKeyDown(UINT8 key);
 	void AdjustSampleCount();
 	bool m_raster = false;
-	std::wstring currentShading = L"BDSF";
+	std::wstring currentShading = L"BSDF";
 	// #DXR
 	struct AccelerationStructureBuffers
 	{
@@ -322,7 +322,7 @@ ComPtr<IDxcBlob> m_flatShaderLibrary;
 ComPtr<IDxcBlob> m_normalShaderLibrary;
 ComPtr<IDxcBlob> m_phongShaderLibrary;
 ComPtr<IDxcBlob> m_mirrorDemoShaderLibrary;
-ComPtr<IDxcBlob> m_BDSFShaderLibrary;
+ComPtr<IDxcBlob> m_BSDFShaderLibrary;
 
 // Root signatures for each shader stage
 ComPtr<ID3D12RootSignature> m_rayGenSignature;
