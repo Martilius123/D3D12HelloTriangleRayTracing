@@ -166,6 +166,21 @@ private:
 		float pad1;
 	};
 
+	struct ModelDesc
+	{
+		int id;
+		std::string path;
+		DirectX::XMFLOAT3 position = { 0, 0, 0 };
+		DirectX::XMFLOAT3 rotation = { 0, 0, 0 }; // pitch, yaw, roll
+		DirectX::XMFLOAT3 scale = { 1, 1, 1 };
+		DirectX::XMFLOAT3 albedo = { -1.0f, -1.0f, -1.0f };
+		int emission = -1;
+		float roughness = -1;
+		int isMetallic = false;
+		int isGlass = false;
+		float IOR = 1.5f;
+	};
+
 	struct ModelInstance
 	{
 		int id;
@@ -180,11 +195,6 @@ private:
 		ComPtr<ID3D12Resource> m_indexBuffer;
 		D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
 
-		DirectX::XMFLOAT3 position = { 0, 0, 0 };
-		DirectX::XMFLOAT3 rotation = { 0, 0, 0 }; // pitch, yaw, roll
-		DirectX::XMFLOAT3 scale = { 1, 1, 1 };
-
-		//DirectX::XMFLOAT4X4 worldMatrix; // computed per frame
 		DirectX::XMMATRIX worldMatrix;
 		
 	};
@@ -193,6 +203,7 @@ public:
 	ComPtr<ID3D12Resource> m_instancesBuffer;       // GPU buffer (ModelInstanceGPU)
 	ComPtr<ID3D12Resource> m_instancesUpload;       // Upload buffer
 
+	std::vector<ModelDesc> ModelDescriptions;
 	std::vector<ModelInstance> Models;
 
 	struct ModelInstanceGPU
@@ -275,6 +286,7 @@ public:
 
 	void LoadPipeline();
 	void LoadAssets();
+	void InitializeShaderData(int i);
 	void PopulateCommandList();
 	void WaitForPreviousFrame();
 	void CheckRaytracingSupport();
@@ -358,12 +370,14 @@ ComPtr<ID3D12Resource> m_sbtStorage;
 void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 	std::vector<Vertex>& outVertices,
 	std::vector<uint32_t>& outIndices);
+std::vector<ModelDesc> D3D12HelloTriangle::LoadScene(const std::string& filename);
+void D3D12HelloTriangle::SaveScene(const std::string& filename);
 
 // #DXR Extra: Perspective Camera++
 void OnButtonDown(UINT32 lParam);
 void OnMouseMove(UINT8 wParam, UINT32 lParam);
 //for changing shading mode
-void D3D12HelloTriangle::AddModel(const std::string& path);
+void D3D12HelloTriangle::AddModel(const std::string& path, bool realoading = false);
 void D3D12HelloTriangle::RemoveModel(int index);
 void D3D12HelloTriangle::BuildTLAS();
 bool BLASChanged=false;

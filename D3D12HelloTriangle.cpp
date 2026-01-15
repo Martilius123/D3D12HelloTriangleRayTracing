@@ -274,6 +274,7 @@ void D3D12HelloTriangle::OnInit() {
 	nv_helpers_dx12::CameraManip.setSpeed(1);
 
 	LoadPipeline();
+	LoadScene("Models/scene.json");
 	LoadAssets(); // Models
 
 	HDRImage environment =
@@ -485,6 +486,19 @@ void D3D12HelloTriangle::LoadPipeline()
 	}
 
 	ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)));
+
+	// --- FENCE INITIALIZATION ---
+	ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
+
+	// Initialize fence value used for signaling/waiting
+	m_fenceValue = 1;
+
+	// Create an auto-reset event for fence completion notifications
+	m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	if (m_fenceEvent == nullptr)
+	{
+		ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
+	}
 }
 
 // Update frame-based values.
@@ -511,6 +525,24 @@ void D3D12HelloTriangle::OnUpdate()
 
 	if (ImGui::Button("Add Model")) {
 		AddModel(modelPathBuffer);
+	}
+
+	if (ImGui::Button("Load Scene"))
+	{
+		for (int i = Models.size()-1; i >= 0 ; i--)
+		{
+			RemoveModel(i);
+		}
+		LoadScene("Models/scene.json");
+		for (int i = 0; i < ModelDescriptions.size(); i++)
+		{
+			AddModel(ModelDescriptions[i].path, true);
+			InitializeShaderData(i);
+		}
+	}
+	if (ImGui::Button("Save Scene"))
+	{
+		SaveScene("Models/scene.json");
 	}
 
 	ImGui::Separator();
@@ -605,7 +637,7 @@ void D3D12HelloTriangle::OnUpdate()
 	int indexToRemove = -1;
 	for (int i = 0; i < (int)Models.size(); i++)
 	{
-		auto& inst = Models[i];
+		auto& inst = ModelDescriptions[i];
 		auto& inst2 = ModelsShaderData[i];
 
 		ImGui::PushID(i);
@@ -1154,10 +1186,10 @@ void D3D12HelloTriangle::CreateAccelerationStructures() {
 
 	for (int i = 0; i < BLASes.size(); i++)
 	{
-		XMMATRIX scaleMatrix = XMMatrixScaling(Models[i].scale.x, Models[i].scale.y, Models[i].scale.z);
+		XMMATRIX scaleMatrix = XMMatrixScaling(ModelDescriptions[i].scale.x, ModelDescriptions[i].scale.y, ModelDescriptions[i].scale.z);
 		XMMATRIX rotationMatrix =
-			XMMatrixRotationRollPitchYaw(degreesToRadians(Models[i].rotation.x), degreesToRadians(Models[i].rotation.y), degreesToRadians(Models[i].rotation.z));
-		XMMATRIX translationMatrix = XMMatrixTranslation(Models[i].position.x, Models[i].position.y, Models[i].position.z);
+			XMMatrixRotationRollPitchYaw(degreesToRadians(ModelDescriptions[i].rotation.x), degreesToRadians(ModelDescriptions[i].rotation.y), degreesToRadians(ModelDescriptions[i].rotation.z));
+		XMMATRIX translationMatrix = XMMatrixTranslation(ModelDescriptions[i].position.x, ModelDescriptions[i].position.y, ModelDescriptions[i].position.z);
 		XMMATRIX transform = scaleMatrix * rotationMatrix * translationMatrix;
 
 		m_instances.push_back({
@@ -1616,9 +1648,9 @@ void D3D12HelloTriangle::BuildTLAS() {
 
 	for (size_t i = 0; i < BLASes.size(); i++)
 	{
-		XMMATRIX scaleMatrix = XMMatrixScaling(Models[i].scale.x, Models[i].scale.y, Models[i].scale.z);
-		XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(degreesToRadians(Models[i].rotation.x), degreesToRadians(Models[i].rotation.y), degreesToRadians(Models[i].rotation.z));
-		XMMATRIX translationMatrix = XMMatrixTranslation(Models[i].position.x, Models[i].position.y, Models[i].position.z);
+		XMMATRIX scaleMatrix = XMMatrixScaling(ModelDescriptions[i].scale.x, ModelDescriptions[i].scale.y, ModelDescriptions[i].scale.z);
+		XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(degreesToRadians(ModelDescriptions[i].rotation.x), degreesToRadians(ModelDescriptions[i].rotation.y), degreesToRadians(ModelDescriptions[i].rotation.z));
+		XMMATRIX translationMatrix = XMMatrixTranslation(ModelDescriptions[i].position.x, ModelDescriptions[i].position.y, ModelDescriptions[i].position.z);
 		XMMATRIX transform = scaleMatrix * rotationMatrix * translationMatrix;
 
 		m_instances.push_back({

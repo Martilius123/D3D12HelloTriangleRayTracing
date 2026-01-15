@@ -10,6 +10,10 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include "libraries/nlohmann/json.hpp"
+
+
+using json = nlohmann::json;
 
 // Load the sample assets.
 void D3D12HelloTriangle::LoadAssets()
@@ -87,40 +91,39 @@ void D3D12HelloTriangle::LoadAssets()
 
 	// Create the vertex buffer.
 	{
-		std::vector<std::string> modelPaths = {
-			"Models/Clamp.stl",
-			"Models/Cube.obj",
-			"Models/Cube.obj",
-			"Models/FinalBaseMesh.obj",
-			//"Models/Square.obj"
-		};
+		//std::vector<std::string> modelPaths = {
+		//	"Models/Clamp.stl",
+		//	"Models/Cube.obj",
+		//	"Models/Cube.obj",
+		//	"Models/FinalBaseMesh.obj",
+		//	//"Models/Square.obj"
+		//};
 		//MODEL
-		Models.resize(modelPaths.size());
+		Models.resize(ModelDescriptions.size());
 
-		ModelsShaderData.resize(modelPaths.size());
-		Models[1].scale = { 50.0f,1.0f,50.0f };
-		Models[2].scale = { 50.0f,1.0f,50.0f };
-		Models[2].position = { 0.0f,50.0f,0.0f };
-		ModelsShaderData[1].roughness = 0.0f;
-		ModelsShaderData[2].roughness = 0.0f;
+		ModelsShaderData.resize(ModelDescriptions.size());
+		//Models[1].scale = { 50.0f,1.0f,50.0f };
+		//Models[2].scale = { 50.0f,1.0f,50.0f };
+		//Models[2].position = { 0.0f,50.0f,0.0f };
+		//ModelsShaderData[1].roughness = 0.0f;
+		//ModelsShaderData[2].roughness = 0.0f;
 		//Models[0].rotation = { XMConvertToRadians(45.0f), 0.0f, 0.0f };
 		//Models[1].rotation = { XMConvertToRadians(-45.0f), 0.0f, 0.0f };
 		//ModelsShaderData[0].albedo = { 1.0f,1.0f,0.5f };
-		ModelsShaderData[0].albedo = { 0.0f,1.0f,0.5f };
+		//ModelsShaderData[0].albedo = { 0.0f,1.0f,0.5f };
 		//ModelsShaderData[1].albedo = { 1.0f,1.0f,0.5f };
 		//ModelsShaderData[2].albedo = { 0.7f,0.7f,0.0f };
 		//ModelsShaderData[3].albedo = { 0.9f,0.0f,0.1f };
-		Models[3].scale = { 2.0f,2.0f,2.0f };
-		Models[3].position = { 0.0f,0.0f,10.0f };
+		//Models[3].scale = { 2.0f,2.0f,2.0f };
+		//Models[3].position = { 0.0f,0.0f,10.0f };
 		//Models[4].scale = { 50.0f,50.0f,1.0f };
 		//ModelsShaderData[4].isGlass = true;
-		for (int i = 0; i < modelPaths.size(); i++)
+		for (int i = 0; i < ModelDescriptions.size(); i++)
 		{
 
-			LoadModel(modelPaths[i], Models[i].vertices, Models[i].indices);
+			LoadModel(ModelDescriptions[i].path, Models[i].vertices, Models[i].indices);
 
-
-			ModelsShaderData[i].id = Models[i].id = i;
+			InitializeShaderData(i);
 
 			const UINT vertexBufferSize = static_cast<UINT>(Models[i].vertices.size()) * sizeof(Vertex);
 
@@ -249,14 +252,16 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 	}
 }
 
-void D3D12HelloTriangle::AddModel(const std::string& path) {
+void D3D12HelloTriangle::AddModel(const std::string& path, bool reloading) {
 	WaitForPreviousFrame();
 
 	ThrowIfFailed(m_commandAllocator->Reset());
 	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
 
+	ModelDesc newDescription;
 	ModelInstance newModel = {};
-	newModel.id = static_cast<int>(Models.size());
+	newDescription.id = newModel.id = static_cast<int>(Models.size());
+	newDescription.path = path;
 	LoadModel(path, newModel.vertices, newModel.indices);
 	const UINT vertexBufferSize = static_cast<UINT>(newModel.vertices.size()) * sizeof(Vertex);
 	ThrowIfFailed(m_device->CreateCommittedResource(
@@ -289,6 +294,10 @@ void D3D12HelloTriangle::AddModel(const std::string& path) {
 	BLASes.push_back(newBLAS);
 	m_bottomLevelAS.clear();
 	for (auto& b : BLASes) m_bottomLevelAS.push_back(b.pResult);
+	
+	if (!reloading) {
+		ModelDescriptions.push_back(newDescription);
+	}
 	Models.push_back(newModel);
 
 	ModelInstanceGPU newModelInstance;
@@ -322,6 +331,12 @@ void D3D12HelloTriangle::RemoveModel(int index) {
 	}
 	UpdateModelDataBuffer();
 
+	ModelDescriptions.erase(ModelDescriptions.begin() + index);
+	for (int i = 0; i < ModelDescriptions.size(); i++)
+	{
+		ModelDescriptions[i].id = i;
+	}
+
 	Models.erase(Models.begin() + index);
 	for (int i = 0; i < Models.size(); i++)
 	{
@@ -343,4 +358,114 @@ void D3D12HelloTriangle::RemoveModel(int index) {
 	m_commandQueue->ExecuteCommandLists(1, ppCommandLists);
 
 	WaitForPreviousFrame();
+}
+
+//for loading a scene based on a json file
+std::vector<D3D12HelloTriangle::ModelDesc> D3D12HelloTriangle::LoadScene(const std::string& filename)
+{
+	std::ifstream file(filename);
+	json j;
+	file >> j;
+
+	std::vector<D3D12HelloTriangle::ModelDesc> result;
+
+	for (auto& m : j["models"])
+	{
+		D3D12HelloTriangle::ModelDesc desc;
+		desc.id = m["id"];
+		desc.path = m["path"];
+
+		if (m.contains("position"))
+		{
+			auto p = m["position"];
+			desc.position = { p[0], p[1], p[2] };
+		}
+
+		if (m.contains("rotation"))
+		{
+			auto r = m["rotation"];
+			desc.rotation = { r[0], r[1], r[2] };
+		}
+
+		if (m.contains("scale"))
+		{
+			auto s = m["scale"];
+			desc.scale = { s[0], s[1], s[2] };
+		}
+
+		if (m.contains("albedo"))
+		{
+			auto a = m["albedo"];
+			desc.albedo = { a[0], a[1], a[2] };
+		}
+
+		if (m.contains("emission"))
+		{
+			desc.emission = m["emission"];
+		}
+
+		if (m.contains("roughness"))
+		{
+			desc.roughness = m["roughness"];
+		}
+
+		if (m.contains("isMetallic"))
+		{
+			desc.isMetallic = m["isMetallic"];
+		}
+
+		if (m.contains("isGlass"))
+		{
+			desc.isGlass = m["isGlass"];
+		}
+
+		if (m.contains("IOR"))
+		{
+			desc.IOR = m["IOR"];
+		}
+
+		result.push_back(desc);
+	}
+
+	return ModelDescriptions = result;
+}
+
+void D3D12HelloTriangle::SaveScene(const std::string& filename)
+{
+	json j;
+	j["models"] = json::array();
+
+	for (int i = 0; i < ModelDescriptions.size(); i++)
+	{
+		auto m = ModelDescriptions[i];
+		auto m2 = ModelsShaderData[i];
+		json jm;
+		jm["id"] = m.id;
+		jm["path"] = m.path;
+		jm["position"] = { m.position.x, m.position.y, m.position.z };
+		jm["rotation"] = { m.rotation.x, m.rotation.y, m.rotation.z };
+		jm["scale"] = { m.scale.x, m.scale.y, m.scale.z };
+		jm["albedo"] = { m2.albedo.x, m2.albedo.y, m2.albedo.z };
+		jm["emission"] = m2.emission;
+		jm["roughness"] = m2.roughness;
+		jm["isMetallic"] = m2.isMetallic;
+		jm["isGlass"] = m2.isGlass;
+		jm["IOR"] = m2.IOR;
+
+		j["models"].push_back(jm);
+	}
+
+	std::ofstream file(filename);
+	file << j.dump(4);
+}
+
+void D3D12HelloTriangle::InitializeShaderData(int i)
+{
+	ModelsShaderData[i].id = Models[i].id = i;
+	ModelsShaderData[i].albedo = ModelDescriptions[i].albedo;
+	ModelsShaderData[i].emission = ModelDescriptions[i].emission;
+	ModelsShaderData[i].roughness = ModelDescriptions[i].roughness;
+	ModelsShaderData[i].isGlass = ModelDescriptions[i].isGlass;
+	ModelsShaderData[i].isMetallic = ModelDescriptions[i].isMetallic;
+	ModelsShaderData[i].IOR = ModelDescriptions[i].IOR;
 }

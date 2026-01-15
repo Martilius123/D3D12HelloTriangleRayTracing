@@ -1,0 +1,149 @@
+{
+    "models": [
+        {
+            "IOR": 1.5,
+            "albedo": [
+                -1.0,
+                -1.0,
+                -1.0
+            ],
+            "emission": -1.0,
+            "id": 0,
+            "isGlass": 0,
+            "isMetallic": 1,
+            "path": "Models/Cube.obj",
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                50.0,
+                1.0,
+                50.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                -1.0,
+                -1.0,
+                -1.0
+            ],
+            "emission": -1.0,
+            "id": 1,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/FinalBaseMesh.obj",
+            "position": [
+                0.0,
+                5.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                90.0,
+                0.0
+            ],
+            "roughness": -1.0,
+            "scale": [
+                1.0,
+                1.0,
+                1.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                -1.0,
+                -1.0,
+                -1.0
+            ],
+            "emission": -1.0,
+            "id": 2,
+            "isGlass": 0,
+            "isMetallic": 1,
+            "path": "Models/Cube.obj",
+            "position": [
+                0.0,
+                50.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                50.0,
+                1.0,
+                50.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                0.058823466300964355,
+                1.0,
+                0.0
+            ],
+            "emission": 1.0,
+            "id": 3,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/FinalBaseMesh.obj",
+            "position": [
+                0.0,
+                0.0,
+                20.0
+            ],
+            "rotation": [
+                0.0,
+                270.0,
+                0.0
+            ],
+            "roughness": -1.0,
+            "scale": [
+                2.0,
+                2.0,
+                2.0
+            ]
+        },
+        {
+            "IOR": 1.100000023841858,
+            "albedo": [
+                0.8999999761581421,
+                1.0,
+                1.0
+            ],
+            "emission": -1.0,
+            "id": 4,
+            "isGlass": 1,
+            "isMetallic": 0,
+            "path": "Models/Sphere.obj",
+            "position": [
+                -15.0,
+                5.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                10.0,
+                10.0,
+                10.0
+            ]
+        }
+    ]
+}
