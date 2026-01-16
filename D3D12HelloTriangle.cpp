@@ -529,15 +529,22 @@ void D3D12HelloTriangle::OnUpdate()
 
 	if (ImGui::Button("Load Scene"))
 	{
-		for (int i = Models.size()-1; i >= 0 ; i--)
+		try
 		{
-			RemoveModel(i);
+			for (int i = Models.size() - 1; i >= 0; i--)
+			{
+				RemoveModel(i);
+			}
+			LoadScene("Models/scene.json");
+			for (int i = 0; i < ModelDescriptions.size(); i++)
+			{
+				AddModel(ModelDescriptions[i].path, true);
+				InitializeShaderData(i);
+			}
 		}
-		LoadScene("Models/scene.json");
-		for (int i = 0; i < ModelDescriptions.size(); i++)
+		catch (const std::runtime_error& e)
 		{
-			AddModel(ModelDescriptions[i].path, true);
-			InitializeShaderData(i);
+			; // TODO : handle error
 		}
 	}
 	if (ImGui::Button("Save Scene"))
@@ -588,8 +595,14 @@ void D3D12HelloTriangle::OnUpdate()
 			ImGui::InputText("HDR Path", environmentPathBuffer, _countof(environmentPathBuffer));
 
 			if (ImGui::Button("Change Environment")) {
-				// This triggers the heavy function we wrote earlier
-				CreateEnvironmentTexture(LoadHDR(environmentPathBuffer));
+				try
+				{
+					CreateEnvironmentTexture(LoadHDR(environmentPathBuffer));
+				}
+				catch (const std::runtime_error& e)
+				{
+					; // TODO : handle error
+				}
 			}
 		}
 		else
