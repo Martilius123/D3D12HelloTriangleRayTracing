@@ -19,9 +19,10 @@ cbuffer CameraParams : register(b0)
     uint SampleCount;
     uint MaxRecursionDepth;
     uint ISOIndex;
+    float3 envLightColor;
     bool HighlightOverexposed;
     bool UseEnvLight;
-    float3 envLightColor;
+    float pad[2];
 }
 
 [shader("raygeneration")]

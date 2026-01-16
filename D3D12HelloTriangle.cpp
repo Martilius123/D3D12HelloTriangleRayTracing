@@ -595,6 +595,7 @@ void D3D12HelloTriangle::OnUpdate()
 		else
 		{
 			ImGui::ColorEdit3("Environment Color", &m_environmentColor.x);
+			ImGui::DragFloat("Environment Intensity", &m_environmentIntensity, 0.05f, 0.0f, 10.0f);
 		}
 	}
 

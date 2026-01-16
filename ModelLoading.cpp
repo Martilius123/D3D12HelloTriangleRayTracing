@@ -492,6 +492,20 @@ void D3D12HelloTriangle::SaveScene(const std::string& filename)
 		jm["isGlass"] = m2.isGlass;
 		jm["IOR"] = m2.IOR;
 
+		if (m.animationFrames.size() > 0)
+		{
+			jm["animationFrames"]["frames"] = json::array();
+			for (auto& af : m.animationFrames)
+			{
+				json jaf;
+				jaf["time"] = af.time;
+				jaf["position"] = { af.position.x, af.position.y, af.position.z };
+				jaf["rotation"] = { af.rotation.x, af.rotation.y, af.rotation.z };
+				jaf["scale"] = { af.scale.x, af.scale.y, af.scale.z };
+				jm["animationFrames"]["frames"].push_back(jaf);
+			}
+		}
+
 		j["models"].push_back(jm);
 	}
 
