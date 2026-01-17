@@ -178,7 +178,6 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             payload.colorAndDistance.y *= baseColor.y;
             payload.colorAndDistance.z *= baseColor.z;
             payload.colorAndDistance.w += RayTCurrent();
-            return;
         }
         else
         {
@@ -283,6 +282,7 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                         float G = G_Smith(NdotV, NdotL, roughness);
                         payload.colorAndDistance.xyz *= F * G;
                     }
+                    payload.SpecularRadianceAndDistance = payload.colorAndDistance;
                 }
                 else
                 {
@@ -291,7 +291,7 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                     float3 l = ReflectDiffuse(hitNormal, payload.randomSeed);
                     ray.Direction = l;
                     TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
-
+                    payload.DiffuseRadianceAndDistance = payload.colorAndDistance;
                 }
                 //payload.colorAndDistance = averageColor / float(sampleCount);
             }
@@ -300,6 +300,6 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
         payload.colorAndDistance.y *= baseColor.y;
         payload.colorAndDistance.z *= baseColor.z;
     }
-    payload.colorAndDistance.w += RayTCurrent();
+    payload.DiffuseRadianceAndDistance.w = payload.SpecularRadianceAndDistance.w = payload.colorAndDistance.w = RayTCurrent();
     payload.normalAndRoughness = float4(hitNormal, roughness);
 }
