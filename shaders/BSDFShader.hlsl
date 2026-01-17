@@ -268,7 +268,7 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                         float3 l, F;
                         do
                         {
-                            l = ReflectForMetallic(hitNormal, incoming, baseColor, roughness, payload.randomSeed, F);
+                            l = ReflectSpecularMicrofacet(hitNormal, incoming, baseColor, roughness, payload.randomSeed, F);
                         } while (l.x == 0 && l.y == 0 && l.z == 0);
 
                         ray.Direction = l;
@@ -288,10 +288,27 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                 {
                     //DIFFUSE SURFACE
                     LimitRoughBounces(payload, roughness);
+                    //diffuse component
                     float3 l = ReflectDiffuse(hitNormal, payload.randomSeed);
                     ray.Direction = l;
                     TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
                     payload.DiffuseRadianceAndDistance = payload.colorAndDistance;
+                    //specular component
+                    float3 F;
+                    do
+                    {
+                        l = ReflectSpecularMicrofacet(hitNormal, incoming, baseColor, roughness, payload.randomSeed, F);
+                    } while (l.x == 0 && l.y == 0 && l.z == 0);
+                    ray.Direction = l;
+                    TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
+                    F = float3(0.04f, 0.04f, 0.04f);
+                    payload.SpecularRadianceAndDistance = payload.colorAndDistance;
+                    float NdotV = saturate(dot(hitNormal, viewDir));
+                    float NdotL = saturate(dot(hitNormal, l));
+                    float G = G_Smith(NdotV, NdotL, roughness);
+                    payload.SpecularRadianceAndDistance.xyz *= F * G;
+                    payload.DiffuseRadianceAndDistance.xyz *= (1 - F);
+                    payload.colorAndDistance = payload.DiffuseRadianceAndDistance + payload.SpecularRadianceAndDistance;
                 }
                 //payload.colorAndDistance = averageColor / float(sampleCount);
             }

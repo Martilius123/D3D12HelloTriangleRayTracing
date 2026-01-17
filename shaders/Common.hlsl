@@ -162,7 +162,7 @@ float G_Smith(float NdotV, float NdotL, float roughness)
     return Gv * Gl;
 }
 
-float3 ReflectForMetallic(float3 hitNormal, float3 incoming, float3 F0, float roughness, inout uint randomSeed, out float3 F)
+float3 ReflectSpecularMicrofacet(float3 hitNormal, float3 incoming, float3 F0, float roughness, inout uint randomSeed, out float3 F)
 {
     float3 T, B;
     BuildOrthonormalBasis(hitNormal, T, B);
