@@ -5,7 +5,7 @@ RWTexture2D<float4> gOutput                 : register(u0); // beauty/raw
 RWTexture2D<float4> gDiffuseRadianceHitDist : register(u1); // diffuse + hitDist
 RWTexture2D<float4> gSpecRadianceHitDist    : register(u2); // spec + hitDist
 RWTexture2D<float4> gNormalRoughness        : register(u3); // normal + roughness
-RWTexture2D<float4> gViewZ                  : register(u4); // viewZ (na start: hitDist)
+RWTexture2D<float4> gViewZ                  : register(u4); // viewZ (for start: -hitDist)
 
 RaytracingAccelerationStructure SceneBVH : register(t0);
 
@@ -37,8 +37,7 @@ void RayGen()
     float aspectRatio = dims.x / dims.y;
 
     float3 pixelColor = float3(0, 0, 0);
-
-    // Dla AOV: akumulujemy tylko raz na start (minimalnie) – potem mo¿esz uœredniaæ te¿ AOV
+    
     float4 outDiffuse = float4(0, 0, 0, 0);
     float4 outSpec = float4(0, 0, 0, 0);
     float4 outNR = float4(0, 0, 1, 0.5); // normal+roughness fallback
@@ -79,15 +78,16 @@ void RayGen()
         TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload);
 
         pixelColor += payload.colorAndDistance.rgb;
-
-        // Minimalnie: bierzemy AOV z ostatniego sampla (mo¿esz te¿ uœredniaæ)
-        outDiffuse = payload.DiffuseRadianceAndDistance;
-        outSpec = payload.SpecularRadianceAndDistance;
+        
+        outDiffuse += payload.DiffuseRadianceAndDistance;
+        outSpec += payload.SpecularRadianceAndDistance;
         outNR = payload.normalAndRoughness;
-        outHitDist = payload.colorAndDistance.w; // u Ciebie w.w bywa roughness, wiêc UWAGA ni¿ej!
+        outHitDist = payload.colorAndDistance.w;
     }
 
     pixelColor /= max(1.0, (float)SampleCount);
+    outDiffuse /= max(1.0, (float) SampleCount);
+    outSpec /= max(1.0, (float) SampleCount);
 
     // ISO + SRGB
     pixelColor *= ISOIndex / 400.0f;
@@ -105,18 +105,10 @@ void RayGen()
 
     gOutput[launchIndex] = beauty;
 
-    // --- AOV OUTPUTS ---
-    // Jeœli nie masz jeszcze prawdziwego diffuse/spec: ustaw diffuse=beauty, spec=0 i NRD zacznie dzia³aæ
-    if (outDiffuse.w < 0) outDiffuse = float4(beauty.rgb, payload.colorAndDistance.w);
-    if (outSpec.w < 0)    outSpec = float4(0, 0, 0, payload.colorAndDistance.w);
-
     float depthValue = min(payload.colorAndDistance.w, 1000.0f);
-    gDiffuseRadianceHitDist[launchIndex] = outDiffuse = float4(pixelColor, depthValue);
-    gSpecRadianceHitDist[launchIndex] = outSpec = float4(pixelColor, depthValue);
+    gDiffuseRadianceHitDist[launchIndex] = outDiffuse;
+    gSpecRadianceHitDist[launchIndex] = outSpec;
     gNormalRoughness[launchIndex] = outNR;
-
-    // ViewZ: na start wrzuæ hit distance (dopóki nie masz linear depth)
-    // UWAGA: u Ciebie payload.colorAndDistance.w bywa u¿ywane jako roughness w hit shaderze
-    // wiêc NAJLEPIEJ ustaw w closesthit: payload.DiffuseRadianceAndDistance.w = RayTCurrent()
+    
     gViewZ[launchIndex] = float4(-depthValue, 0, 0, 0);
 }
