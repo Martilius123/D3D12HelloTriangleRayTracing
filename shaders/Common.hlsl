@@ -88,7 +88,7 @@ struct STriVertex
     float3 normal;
     float roughness;
     float3 emmision;
-    int materialIndex;
+    int pad;
 };
 
 struct MaterialGPU
@@ -114,7 +114,9 @@ struct ModelInstanceGPU
     int isMetallic;
     int isGlass;
     float IOR;
-    float pad[3];
+    
+    int materialId;
+    float pad[2];
 };
 
 float3 LinearToSRGB(float3 c)

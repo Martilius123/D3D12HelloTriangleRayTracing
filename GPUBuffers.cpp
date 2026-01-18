@@ -157,9 +157,9 @@ void D3D12HelloTriangle::UpdateMaterialDataBuffer() {
 
 	UINT bufferSize = sizeof(MaterialGPU) * MaterialsGPU.size();
 	void* mapped = nullptr;
-	m_instancesUpload->Map(0, nullptr, &mapped);
+	m_materialsUpload->Map(0, nullptr, &mapped);
 	memcpy(mapped, MaterialsGPU.data(), bufferSize);
-	m_instancesUpload->Unmap(0, nullptr);
+	m_materialsUpload->Unmap(0, nullptr);
 }
 
 

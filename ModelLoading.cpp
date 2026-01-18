@@ -7,9 +7,6 @@
 #include "d3dx12.h"
 #include <d3dcompiler.h>
 #include "Windowsx.h"
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
 #include "libraries/nlohmann/json.hpp"
 
 
@@ -91,37 +88,13 @@ void D3D12HelloTriangle::LoadAssets()
 
 	// Create the vertex buffer.
 	{
-		//std::vector<std::string> modelPaths = {
-		//	"Models/Clamp.stl",
-		//	"Models/Cube.obj",
-		//	"Models/Cube.obj",
-		//	"Models/FinalBaseMesh.obj",
-		//	//"Models/Square.obj"
-		//};
-		//MODEL
 		Models.resize(ModelDescriptions.size());
 
 		ModelsShaderData.resize(ModelDescriptions.size());
-		//Models[1].scale = { 50.0f,1.0f,50.0f };
-		//Models[2].scale = { 50.0f,1.0f,50.0f };
-		//Models[2].position = { 0.0f,50.0f,0.0f };
-		//ModelsShaderData[1].roughness = 0.0f;
-		//ModelsShaderData[2].roughness = 0.0f;
-		//Models[0].rotation = { XMConvertToRadians(45.0f), 0.0f, 0.0f };
-		//Models[1].rotation = { XMConvertToRadians(-45.0f), 0.0f, 0.0f };
-		//ModelsShaderData[0].albedo = { 1.0f,1.0f,0.5f };
-		//ModelsShaderData[0].albedo = { 0.0f,1.0f,0.5f };
-		//ModelsShaderData[1].albedo = { 1.0f,1.0f,0.5f };
-		//ModelsShaderData[2].albedo = { 0.7f,0.7f,0.0f };
-		//ModelsShaderData[3].albedo = { 0.9f,0.0f,0.1f };
-		//Models[3].scale = { 2.0f,2.0f,2.0f };
-		//Models[3].position = { 0.0f,0.0f,10.0f };
-		//Models[4].scale = { 50.0f,50.0f,1.0f };
-		//ModelsShaderData[4].isGlass = true;
 		for (int i = 0; i < ModelDescriptions.size(); i++)
 		{
 
-			LoadModel(ModelDescriptions[i].path, Models[i].vertices, Models[i].indices);
+			ModelsShaderData[i].materialIndex = LoadModel(ModelDescriptions[i].path, Models[i].vertices, Models[i].indices);
 
 			InitializeShaderData(i);
 
@@ -185,7 +158,7 @@ void D3D12HelloTriangle::LoadAssets()
 	}
 }
 
-void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
+int D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 	std::vector<Vertex>& outVertices,
 	std::vector<uint32_t>& outIndices)
 {
@@ -202,15 +175,19 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode)
 	{
-		return;
+		return 0;
 	}
-
+	int materialIndex;
 	for (UINT m = 0; m < scene->mNumMeshes; ++m)
 	{
 		aiMesh* mesh = scene->mMeshes[m];
 		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
 		aiColor4D diffuseColor(1.0f, 1.0f, 1.0f, 1.0f); // Default to white
 		material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColor);
+
+		// extract material and get or create material index
+		materialIndex = D3D12HelloTriangle::GetOrCreateMaterialIndex(D3D12HelloTriangle::ExtractMaterialKey(material, modelPath));
+		CreateMaterialDataBuffer();
 
 		// Convert from Assimp's color to DirectX's XMFLOAT4
 		DirectX::XMFLOAT4 meshColor = { diffuseColor.r, diffuseColor.g, diffuseColor.b, diffuseColor.a };
@@ -224,7 +201,7 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 			v.position.y = mesh->mVertices[i].y;
 			v.position.z = mesh->mVertices[i].z;
 
-			v.color = meshColor;
+			v.color = meshColor;//{ 1.0f,0.0f,1.0f,1.0f };//meshColor; // TODO ---
 			v.roughness = 0.4f; // Default roughness
 
 			if (mesh->HasNormals())
@@ -250,6 +227,7 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 			}
 		}
 	}
+	return materialIndex;
 }
 
 void D3D12HelloTriangle::AddModel(const std::string& path, bool reloading) {
@@ -262,7 +240,7 @@ void D3D12HelloTriangle::AddModel(const std::string& path, bool reloading) {
 	ModelInstance newModel = {};
 	newDescription.id = newModel.id = static_cast<int>(Models.size());
 	newDescription.path = path;
-	LoadModel(path, newModel.vertices, newModel.indices);
+	int materialIndex = LoadModel(path, newModel.vertices, newModel.indices);
 	const UINT vertexBufferSize = static_cast<UINT>(newModel.vertices.size()) * sizeof(Vertex);
 	ThrowIfFailed(m_device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
@@ -302,6 +280,7 @@ void D3D12HelloTriangle::AddModel(const std::string& path, bool reloading) {
 
 	ModelInstanceGPU newModelInstance;
 	newModelInstance.id = newModel.id;
+	newModelInstance.materialIndex = materialIndex;
 	ModelsShaderData.push_back(newModelInstance);
 	CreateModelDataBuffer();
 

@@ -62,6 +62,7 @@
       <AdditionalIncludeDirectories>$(ProjectDir)\glm;$(ProjectDir)\imgui;$(ProjectDir)\NRD\Include$(ProjectDir)\NRD\_NRD_SDK\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <CompileAsWinRT>false</CompileAsWinRT>
       <AdditionalModuleDependencies>NRD.lib;%(AdditionalDependencies)</AdditionalModuleDependencies>
+      <LanguageStandard>Default</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -184,6 +185,7 @@ IF EXIST "C:\Users\patry\Documents\dzialaj\D3D12HelloTriangleRayTracing\NRD\_NRD
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="manipulator.cpp" />
+    <ClCompile Include="Materials.cpp" />
     <ClCompile Include="ModelLoading.cpp" />
     <ClCompile Include="NRDIntegration.cpp" />
     <ClCompile Include="NRDIntegration.h" />

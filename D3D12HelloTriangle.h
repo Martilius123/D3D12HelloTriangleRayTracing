@@ -24,6 +24,11 @@
 #include <string>
 #include "DXSample.h"
 #include "NRDIntegration.h"
+#include <unordered_map>
+#include <assimp/Importer.hpp>
+#include <assimp/scene.h>
+#include <assimp/postprocess.h>
+#include <filesystem>
 
 using namespace DirectX;
 
@@ -58,6 +63,26 @@ public:
 	{
 	    std::hash<T> hasher;
 	    HashCombine(seed, hasher(v));
+	}
+	inline std::string GetDirectoryFromPath(const std::string& path)
+	{
+		size_t pos = path.find_last_of("/\\");
+		return (pos == std::string::npos) ? "" : path.substr(0, pos);
+	}
+	inline std::string JoinPath(const std::string& dir, const std::string& file)
+	{
+		if (dir.empty())
+			return file;
+
+		char last = dir.back();
+		if (last == '/' || last == '\\')
+			return dir + file;
+
+		return dir + "/" + file;
+	}
+	inline void NormalizePath(std::string& p)
+	{
+		std::replace(p.begin(), p.end(), '\\', '/');
 	}
 
 
@@ -175,7 +200,7 @@ private:
 		XMFLOAT3 normal;
 		float roughness;
 		XMFLOAT3 emmision;
-		int materialIndex;
+		int pad;
 	};
 
 	struct MaterialGPU
@@ -242,6 +267,8 @@ private:
 		}
 	};
 
+	std::unordered_map<MaterialKey, int, MaterialKeyHash> g_MaterialMap;
+
 	struct AnimationFrame
 	{
 		float time;
@@ -303,7 +330,9 @@ public:
 		int isMetallic = false;
 		int isGlass = false;
 		float IOR = 1.5f;
-		float pad[3];
+
+		int materialIndex;
+		float pad[2];
 	};
 
 	std::vector<ModelInstanceGPU> ModelsShaderData;
@@ -463,9 +492,11 @@ std::wstring D3D12HelloTriangle::OpenFilePicker();
 std::wstring D3D12HelloTriangle::SaveFilePicker();
 std::string D3D12HelloTriangle::WStringToUtf8(const std::wstring& wstr);
 
-void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
+int D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 	std::vector<Vertex>& outVertices,
-	std::vector<uint32_t>& outIndices);
+	std::vector<uint32_t>& outIndices); // loads the model and returns material index
+MaterialKey ExtractMaterialKey(aiMaterial* mat, const std::string& modelPath);
+int D3D12HelloTriangle::GetOrCreateMaterialIndex(const D3D12HelloTriangle::MaterialKey& key);
 std::vector<ModelDesc> D3D12HelloTriangle::LoadScene(const std::string& filename);
 void D3D12HelloTriangle::SaveScene(const std::string& filename);
 

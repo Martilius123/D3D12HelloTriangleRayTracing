@@ -11,7 +11,7 @@ cbuffer Lights : register(b1)
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
 StructuredBuffer<ModelInstanceGPU> gInstanceBuffer : register(t2);
-RaytracingAccelerationStructure SceneBVH : register(t3);
+RaytracingAccelerationStructure SceneBVH : register(t4);
 
 [shader("closesthit")] 
 void ClosestHit_MirrorDemo(inout HitInfo payload : SV_RayPayload, Attributes attrib) 

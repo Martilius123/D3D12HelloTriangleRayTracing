@@ -993,7 +993,7 @@ void D3D12HelloTriangle::PopulateCommandList()
 	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 		src, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
 
-	// --- Instance buffer update (jak mia³eœ) ---
+	// --- Instance buffer update ---
 	{
 		m_commandList->CopyResource(m_instancesBuffer.Get(), m_instancesUpload.Get());
 		CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -1002,6 +1002,16 @@ void D3D12HelloTriangle::PopulateCommandList()
 			D3D12_RESOURCE_STATE_GENERIC_READ);
 		m_commandList->ResourceBarrier(1, &barrier);
 	}
+	// --- Material buffer update ---
+	{
+		m_commandList->CopyResource(m_materialsBuffer.Get(), m_materialsUpload.Get());
+		CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_materialsBuffer.Get(),
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_GENERIC_READ);
+		m_commandList->ResourceBarrier(1, &barrier);
+	}
+
 
 	// ---------- IMGUI RENDER ----------
 	ImGui::Render();
@@ -1283,6 +1293,7 @@ ComPtr<ID3D12RootSignature> D3D12HelloTriangle::CreateHitSignature() {
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 1 /*b1*/); // light(s)
 	//rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_CBV, 2 /*b2*/);
 	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 3 /*t3*/);
+	rsc.AddRootParameter(D3D12_ROOT_PARAMETER_TYPE_SRV, 4);
 	return rsc.Generate(m_device.Get(), true);
 }
 
@@ -1461,7 +1472,7 @@ void D3D12HelloTriangle::CreateShaderResourceHeap()
 
 	const UINT baseCount = 7; // do Camera
 	const UINT extraInstanceSrvs = (UINT)Models.size(); // jeœli dalej chcesz to trzymaæ w heapie
-	const UINT descriptorCount = baseCount + extraInstanceSrvs + 1; // +1 jeœli chcesz env SRV na koñcu
+	const UINT descriptorCount = baseCount + 1 + extraInstanceSrvs + 1; // +1 jeœli chcesz env SRV na koñcu
 
 	m_srvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(
 		m_device.Get(), descriptorCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
@@ -1501,6 +1512,25 @@ void D3D12HelloTriangle::CreateShaderResourceHeap()
 	m_device->CreateConstantBufferView(&cbv, h);
 	h.Offset(1, inc);
 
+	// --- Material SRV (next slot) ---
+	if (m_materialsBuffer)
+	{
+		D3D12_SHADER_RESOURCE_VIEW_DESC matSrv = {};
+		matSrv.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		matSrv.Format = DXGI_FORMAT_UNKNOWN;
+		matSrv.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		matSrv.Buffer.FirstElement = 0;
+		matSrv.Buffer.NumElements = (UINT)MaterialsGPU.size();
+		matSrv.Buffer.StructureByteStride = sizeof(MaterialGPU);
+
+		m_device->CreateShaderResourceView(m_materialsBuffer.Get(), &matSrv, h);
+	}
+	else
+	{
+		// Advance the handle so descriptor indices remain stable.
+	}
+	h.Offset(1, inc);
+
 	// --- (Opcjonalnie) SRV instancji ---
 	for (size_t i = 0; i < Models.size(); ++i)
 	{
@@ -1517,7 +1547,7 @@ void D3D12HelloTriangle::CreateShaderResourceHeap()
 	}
 
 	// --- (Opcjonalnie) env SRV (jeœli chcesz nadal w heapie) ---
-	m_envSrvIndex = baseCount + (UINT)Models.size();
+	m_envSrvIndex = baseCount + 1 + (UINT)Models.size();
 	if (m_envTexture)
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC envSrv = {};
@@ -1611,6 +1641,8 @@ void D3D12HelloTriangle::CreateShaderBindingTable()
             (void*)m_lightsBuffer->GetGPUVirtualAddress();
         void* tlasBufferAddr =
             (void*)m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
+		void* materialsBufferAddr =
+			(void*)m_materialsBuffer->GetGPUVirtualAddress();
 
         m_sbtHelper.AddHitGroup(
             hitGroupName.c_str(),
@@ -1619,7 +1651,8 @@ void D3D12HelloTriangle::CreateShaderBindingTable()
                 indexBufferAddr,
                 instanceBufferAddr,
                 lightsBufferAddr,
-                tlasBufferAddr
+                tlasBufferAddr,
+				materialsBufferAddr
             }
         );
     }

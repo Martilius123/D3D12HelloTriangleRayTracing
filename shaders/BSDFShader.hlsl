@@ -12,7 +12,7 @@ cbuffer Lights : register(b1)
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
 StructuredBuffer<ModelInstanceGPU> gInstanceBuffer : register(t2);
-//StructuredBuffer<MaterialGPU> gMaterialsBuffer : register(t3);
+StructuredBuffer<MaterialGPU> gMaterialsBuffer : register(t4);
 RaytracingAccelerationStructure SceneBVH : register(t3);
 
 [shader("closesthit")]
@@ -20,6 +20,7 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
 {
     uint id = InstanceID(); // Now returns 0, 1, 2... based on the C++ loop index
     ModelInstanceGPU inst = gInstanceBuffer[id]; // Correctly fetches the material
+    MaterialGPU material = gMaterialsBuffer[inst.materialId]; //inst.materialId];
 
     float3 incoming = WorldRayDirection();
     float3 viewDir = normalize(-incoming);
@@ -84,13 +85,23 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
     float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32.0f); // shininess 32
 
     // albedo
-    float3 baseColor = inst.albedo;
+    float3 baseColor = material.albedoFactor;
     if (inst.albedo.x < 0)
     {
         baseColor = BTriVertex[indices[vertId + 0]].color * barycentrics.x +
             BTriVertex[indices[vertId + 1]].color * barycentrics.y +
             BTriVertex[indices[vertId + 2]].color * barycentrics.z;
     }
+    /*if (inst.materialId == 1)
+        baseColor = float3(1, 0, 0);
+    if (inst.materialId == 2)
+        baseColor = float3(0, 1, 0);
+    if (inst.materialId == 3)
+        baseColor = float3(0, 0, 1);
+    if (inst.materialId == 4)
+        baseColor = float3(1, 0, 1);
+    if (inst.materialId == 5)
+        baseColor = float3(1, 1, 0);*/
     payload.colorAndDistance.xyz = float3(0, 0, 0);
     float roughness;
 
