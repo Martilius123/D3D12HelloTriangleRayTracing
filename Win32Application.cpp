@@ -92,7 +92,7 @@ LRESULT CALLBACK Win32Application::WindowProc(HWND hWnd, UINT message, WPARAM wP
 		return 0;
 
 	case WM_KEYDOWN:
-		// 2. PREVENT TYPING IN GAME IF TYPING IN IMGUI
+		// 2. PREVENT TYPING IN THE PROGRAM IF TYPING IN IMGUI
 		if (ImGui::GetCurrentContext() != nullptr && ImGui::GetIO().WantCaptureKeyboard)
 			return 0;
 		if (pSample)

@@ -379,6 +379,11 @@ void D3D12HelloTriangle::WriteNRDPoolDescriptor(
 nv_helpers_dx12::ShaderBindingTableGenerator m_sbtHelper;
 ComPtr<ID3D12Resource> m_sbtStorage;
 
+//file pickers
+std::wstring D3D12HelloTriangle::OpenFilePicker();
+std::wstring D3D12HelloTriangle::SaveFilePicker();
+std::string D3D12HelloTriangle::WStringToUtf8(const std::wstring& wstr);
+
 void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 	std::vector<Vertex>& outVertices,
 	std::vector<uint32_t>& outIndices);

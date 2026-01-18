@@ -156,6 +156,7 @@ IF EXIST "C:\Users\patry\Documents\dzialaj\D3D12HelloTriangleRayTracing\NRD\_NRD
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="FileHandling.cpp" />
     <ClCompile Include="GPUBuffers.cpp" />
     <ClCompile Include="imgui\imgui.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>

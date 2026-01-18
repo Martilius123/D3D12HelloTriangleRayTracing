@@ -50,6 +50,7 @@ void RayGen()
         payload.sampleCount = 1;
         payload.randomSeed = InitSeed(launchIndex, FrameIndex + 1000 * i);
         payload.isInGlass = 0;
+        payload.isShadow = 0;
 
         
         if (UseEnvLight)

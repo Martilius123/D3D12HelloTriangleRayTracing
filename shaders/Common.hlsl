@@ -19,6 +19,7 @@ struct HitInfo
     float4 normalAndRoughness;
     float4 DiffuseRadianceAndDistance;
     float4 SpecularRadianceAndDistance;
+    uint isShadow;
 };
 
 // Attributes output by the raytracing when hitting a surface,
@@ -196,6 +197,19 @@ float3 ReflectDiffuse(float3 hitNormal, inout uint randomSeed)
     local.z * n;
     
     return wi;
+}
+
+float D_GGX(float NdotH, float roughness)
+{
+    // Clamp for numerical stability
+    NdotH = saturate(NdotH);
+
+    // Convert perceptual roughness to alpha
+    float a = roughness * roughness;
+    float a2 = a * a;
+
+    float denom = NdotH * NdotH * (a2 - 1.0f) + 1.0f;
+    return a2 / (PI * denom * denom);
 }
 
 void LimitRoughBounces(inout HitInfo payload, float roughness, bool triggeredByGlass=false)

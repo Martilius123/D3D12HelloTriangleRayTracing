@@ -20,12 +20,41 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
     uint id = InstanceID(); // Now returns 0, 1, 2... based on the C++ loop index
     ModelInstanceGPU inst = gInstanceBuffer[id]; // Correctly fetches the material
 
+    float3 incoming = WorldRayDirection();
+    float3 viewDir = normalize(-incoming);
+    
+    uint vertId = 3 * PrimitiveIndex();
+
+    float3 p0 = BTriVertex[indices[vertId + 0]].vertex;
+    float3 p1 = BTriVertex[indices[vertId + 1]].vertex;
+    float3 p2 = BTriVertex[indices[vertId + 2]].vertex;
+    
+    float3 barycentrics =
+        float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
+    
+    float3 hitPosObj = p0 * barycentrics.x + p1 * barycentrics.y + p2 * barycentrics.z;
+    float3 hitPos = mul(ObjectToWorld3x4(), float4(hitPosObj, 1.0f)).xyz;
+    
     //Shadow Ray Logic
-    if (payload.hopCount == -10)//-10marks a shadow ray
+    if (payload.isShadow)//-10marks a shadow ray
     {
         if (inst.isGlass)
         {
-            payload.colorAndDistance = float4(0, 0, 0, -1);
+            if (payload.hopCount < 1)
+            {
+                payload.colorAndDistance = float4(0, 0, 0, -1);
+            }
+            else
+            {
+                RayDesc ray;
+                ray.Origin = hitPos; // + viewDir * 0.001f;
+                ray.Direction = viewDir;
+                ray.TMin = 0.1;
+                ray.TMax = 100000.0;
+                ray.Direction = viewDir;
+                payload.hopCount--;
+                TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload);
+            }
         }
         else
         {
@@ -35,34 +64,20 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
     }
 
     //BDSF logic
-    float3 barycentrics =
-        float3(1.f - attrib.bary.x - attrib.bary.y, attrib.bary.x, attrib.bary.y);
 
     payload.randomSeed = HashSeed(payload.randomSeed);
-
-    uint vertId = 3 * PrimitiveIndex();
-
-    float3 p0 = BTriVertex[indices[vertId + 0]].vertex;
-    float3 p1 = BTriVertex[indices[vertId + 1]].vertex;
-    float3 p2 = BTriVertex[indices[vertId + 2]].vertex;
 
     float3 n0 = BTriVertex[indices[vertId + 0]].normal;
     float3 n1 = BTriVertex[indices[vertId + 1]].normal;
     float3 n2 = BTriVertex[indices[vertId + 2]].normal;
 
-    float3 hitPosObj = p0 * barycentrics.x + p1 * barycentrics.y + p2 * barycentrics.z;
-    float3 hitPos = mul(ObjectToWorld3x4(), float4(hitPosObj, 1.0f)).xyz;
     float3 hitNormalObj = normalize(n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z);
     float3 hitNormal = normalize(mul(hitNormalObj, (float3x3)WorldToObject3x4()));
     payload.normalAndRoughness.xyz = hitNormal;
 
     float3 lightDir = normalize(lightPos - hitPos);
     float diff = max(dot(hitNormal, lightDir), 0.0f);
-
-    float3 incoming = WorldRayDirection();
-    float3 viewDir = normalize(-incoming);
-
-
+    
 
     float3 reflectDir = reflect(-viewDir, hitNormal);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32.0f); // shininess 32
@@ -184,51 +199,8 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
 
 
             // Solid surface
-            //first, we will start with calculating the light contribution
-            {
-                newOrigin = hitPos + hitNormal * 0.001f;
-                float3 shadowRay;
-                float3 lightDirection;
-                float lightDistance;
-                float attenuation;
-                if (lightType == 0)
-                {
-                    //point light
-                    shadowRay = lightPos - hitPos;
-                    lightDirection = normalize(shadowRay);
-                    lightDistance = length(shadowRay);
-                    attenuation = LIGHT_INTENSITY / (lightDistance * lightDistance);  // Inverse square attenuation
-                }
-                else
-                    if (lightType == 1)
-                    {
-                        //directional light
-                        float pitch = lightPos.x * 3.14159265f / 180.0f;
-                        float yaw = lightPos.y * 3.14159265f / 180.0f;
-                        float x = cos(pitch) * sin(yaw);
-                        float y = sin(pitch);
-                        float z = cos(pitch) * cos(yaw);
-                        lightDirection = normalize(float3(x, y, z));
-                        lightDistance = 100000.0f; //infinite
-                        attenuation = 1.0f; //no attenuation
-                    }
-                float diffuseFactor = max(dot(hitNormal, lightDirection), 0.0f);
-                HitInfo shadowPayload;
-                shadowPayload.colorAndDistance = float4(0, 0, 0, 0);
-                shadowPayload.hopCount = -10;
-                RayDesc ray;
-                ray.Origin = newOrigin;
-                ray.TMin = 0;
-                ray.TMax = lightDistance;
-                ray.Direction = lightDirection;
-                TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, shadowPayload);
-                if (shadowPayload.colorAndDistance.w < 0.0f)
-                {
-                    //light not obstructed
-                    payload.colorAndDistance += float4(lightColor * lightIntensity * attenuation * diffuseFactor, 0);
-                }
-            }
-
+            newOrigin = hitPos + hitNormal * 0.001f;
+            
 
             if (payload.hopCount > -1)
             {
@@ -312,6 +284,78 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                     payload.colorAndDistance = payload.DiffuseRadianceAndDistance + payload.SpecularRadianceAndDistance;
                 }
                 //payload.colorAndDistance = averageColor / float(sampleCount);
+            }
+            
+            
+            //Now we will calculate the point light contribution
+            {
+                float3 shadowRay;
+                float3 lightDirection;
+                float lightDistance;
+                float attenuation;
+                if (lightType == 0)
+                {
+                    //point light
+                    shadowRay = lightPos - hitPos;
+                    lightDirection = normalize(shadowRay);
+                    lightDistance = length(shadowRay);
+                    attenuation = LIGHT_INTENSITY / (lightDistance * lightDistance); // Inverse square attenuation
+                }
+                else if (lightType == 1)
+                {
+                        //directional light
+                    float pitch = lightPos.x * 3.14159265f / 180.0f;
+                    float yaw = lightPos.y * 3.14159265f / 180.0f;
+                    float x = cos(pitch) * sin(yaw);
+                    float y = sin(pitch);
+                    float z = cos(pitch) * cos(yaw);
+                    lightDirection = normalize(float3(x, y, z));
+                    lightDistance = 100000.0f; //infinite
+                    attenuation = 1.0f; //no attenuation
+                }
+                float diffuseFactor = max(dot(hitNormal, lightDirection), 0.0f);
+                HitInfo shadowPayload;
+                shadowPayload.colorAndDistance = float4(0, 0, 0, 0);
+                shadowPayload.isShadow = 1;
+                RayDesc ray;
+                ray.Origin = newOrigin;
+                ray.TMin = 0;
+                ray.TMax = lightDistance;
+                ray.Direction = lightDirection;
+                TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, shadowPayload);
+                if (shadowPayload.colorAndDistance.w < 0.0f)
+                {
+                    float3 N = hitNormal;
+                    float3 V = normalize(viewDir);
+                    float3 L = normalize(lightDirection);
+                    float3 H = normalize(V + L);
+
+                    float NdotL = saturate(dot(N, L));
+                    float NdotV = saturate(dot(N, V));
+                    float NdotH = saturate(dot(N, H));
+                    float VdotH = saturate(dot(V, H));
+
+                    float3 F0 = lerp(float3(0.04, 0.04, 0.04), baseColor, inst.isMetallic);
+                    float3 F = FresnelSchlick(VdotH, F0);
+
+                    float D = D_GGX(NdotH, roughness);
+                    float G = G_Smith(NdotV, NdotL, roughness);
+
+                    float3 specular = (D * G * F) / max(4.0f * NdotV * NdotL, 0.001f);
+
+                    float3 kd = (1.0f - F) * (1.0f - inst.isMetallic);
+                    float3 diffuse = kd * baseColor / PI;
+
+                    float3 radiance =
+                        (diffuse + specular) *
+                        lightColor *
+                        lightIntensity *
+                        attenuation *
+                        NdotL;
+
+                    payload.colorAndDistance += float4(radiance, 0);
+                }
+
             }
         }
         payload.colorAndDistance.x *= baseColor.x;

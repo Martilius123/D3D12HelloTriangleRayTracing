@@ -524,7 +524,14 @@ void D3D12HelloTriangle::OnUpdate()
 	ImGui::InputText("Model Path", modelPathBuffer, _countof(modelPathBuffer));
 
 	if (ImGui::Button("Add Model")) {
-		AddModel(modelPathBuffer);
+		try
+		{
+			AddModel(modelPathBuffer);
+		}
+		catch (const std::runtime_error& e)
+		{
+			; // TODO : handle error
+		}
 	}
 
 	if (ImGui::Button("Load Scene"))
@@ -549,7 +556,14 @@ void D3D12HelloTriangle::OnUpdate()
 	}
 	if (ImGui::Button("Save Scene"))
 	{
-		SaveScene("Models/scene.json");
+		try
+		{
+			SaveScene("Models/scene.json");
+		}
+		catch (const std::runtime_error& e)
+		{
+			; // TODO : handle error
+		}
 	}
 
 	ImGui::Separator();
