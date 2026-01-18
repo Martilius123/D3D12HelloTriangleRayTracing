@@ -12,6 +12,7 @@ cbuffer Lights : register(b1)
 StructuredBuffer<STriVertex> BTriVertex : register(t0);
 StructuredBuffer<int> indices : register(t1);
 StructuredBuffer<ModelInstanceGPU> gInstanceBuffer : register(t2);
+//StructuredBuffer<MaterialGPU> gMaterialsBuffer : register(t3);
 RaytracingAccelerationStructure SceneBVH : register(t3);
 
 [shader("closesthit")]

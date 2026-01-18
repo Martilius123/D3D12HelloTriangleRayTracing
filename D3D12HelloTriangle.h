@@ -49,6 +49,16 @@ public:
 
 public:
 
+	static inline void HashCombine(std::size_t& seed, std::size_t value)
+	{
+	    seed ^= value + static_cast<std::size_t>(0x9e3779b97f4a7c15ULL) + (seed << 6) + (seed >> 2);
+	}
+	template<typename T>
+	static inline void HashCombine(std::size_t& seed, const T& v)
+	{
+	    std::hash<T> hasher;
+	    HashCombine(seed, hasher(v));
+	}
 
 
 
@@ -165,7 +175,71 @@ private:
 		XMFLOAT3 normal;
 		float roughness;
 		XMFLOAT3 emmision;
-		float pad1;
+		int materialIndex;
+	};
+
+	struct MaterialGPU
+	{
+		XMFLOAT3 albedoFactor;
+		float roughness;
+
+		int albedoTextureIndex;   // -1 = no texture
+		int roughnessTextureIndex;
+		int normalTextureIndex;
+
+		int isMetallic;
+		int isGlass;
+		float IOR;
+	};
+
+	std::vector<MaterialGPU> MaterialsGPU;
+
+	struct MaterialKey
+	{
+		XMFLOAT3 albedoFactor;
+		float roughness;
+
+		std::string albedoTexturePath;
+		std::string roughnessTexturePath;
+		std::string normalTexturePath;
+
+		bool isMetallic;
+		bool isGlass;
+		float IOR;
+
+		bool operator==(const MaterialKey& rhs) const
+		{
+			return
+				memcmp(&albedoFactor, &rhs.albedoFactor, sizeof(XMFLOAT3)) == 0 &&
+				roughness == rhs.roughness &&
+				albedoTexturePath == rhs.albedoTexturePath &&
+				roughnessTexturePath == rhs.roughnessTexturePath &&
+				normalTexturePath == rhs.normalTexturePath &&
+				isMetallic == rhs.isMetallic &&
+				isGlass == rhs.isGlass &&
+				IOR == rhs.IOR;
+		}
+	};
+
+	struct MaterialKeyHash
+	{
+		size_t operator()(const MaterialKey& k) const
+		{
+			size_t h = 0;
+			HashCombine(h, k.albedoFactor.x);
+			HashCombine(h, k.albedoFactor.y);
+			HashCombine(h, k.albedoFactor.z);
+			HashCombine(h, k.roughness);
+
+			HashCombine(h, std::hash<std::string>()(k.albedoTexturePath));
+			HashCombine(h, std::hash<std::string>()(k.roughnessTexturePath));
+			HashCombine(h, std::hash<std::string>()(k.normalTexturePath));
+
+			HashCombine(h, k.isMetallic);
+			HashCombine(h, k.isGlass);
+			HashCombine(h, k.IOR);
+			return h;
+		}
 	};
 
 	struct AnimationFrame
@@ -214,6 +288,9 @@ public:
 	ComPtr<ID3D12Resource> m_instancesBuffer;       // GPU buffer (ModelInstanceGPU)
 	ComPtr<ID3D12Resource> m_instancesUpload;       // Upload buffer
 
+	ComPtr<ID3D12Resource> m_materialsBuffer;       // GPU buffer (MaterialsGPU)
+	ComPtr<ID3D12Resource> m_materialsUpload;       // Upload buffer
+
 	std::vector<ModelDesc> ModelDescriptions;
 	std::vector<ModelInstance> Models;
 
@@ -247,7 +324,7 @@ public:
 	HDRImage LoadHDR(const std::string& path);
 	ComPtr<ID3D12Resource> m_envTexture;
 
-	// #DXR Extra: Perspective Camera
+	// buffer creation and updates
 	void CreateCameraBuffer();
 	void UpdateCameraBuffer();
 	void UpdateModelTranslations(); // animating models
@@ -256,6 +333,8 @@ public:
 
 	void CreateModelDataBuffer();
 	void UpdateModelDataBuffer();
+	void CreateMaterialDataBuffer();
+	void UpdateMaterialDataBuffer();
 	void CreateEnvironmentTexture(const HDRImage& img);
 
 	ComPtr< ID3D12Resource > m_cameraBuffer;

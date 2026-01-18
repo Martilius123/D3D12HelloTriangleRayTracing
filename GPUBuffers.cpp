@@ -112,6 +112,56 @@ void D3D12HelloTriangle::UpdateModelDataBuffer() {
 
 }
 
+//material buffers
+
+void D3D12HelloTriangle::CreateMaterialDataBuffer()
+{
+
+	//for (int i = 0; i < Models.size(); i++)
+	{
+
+		UINT bufferSize = sizeof(MaterialGPU) * MaterialsGPU.size();
+
+		CD3DX12_HEAP_PROPERTIES heapDefault(D3D12_HEAP_TYPE_DEFAULT);
+		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize);
+
+
+
+		ThrowIfFailed(m_device->CreateCommittedResource(
+			&heapDefault,
+			D3D12_HEAP_FLAG_NONE,
+			&bufferDesc,
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			nullptr,
+			IID_PPV_ARGS(&(m_materialsBuffer)))
+		);
+
+		// Upload heap
+		CD3DX12_HEAP_PROPERTIES heapUpload(D3D12_HEAP_TYPE_UPLOAD);
+
+		ThrowIfFailed(m_device->CreateCommittedResource(
+			&heapUpload,
+			D3D12_HEAP_FLAG_NONE,
+			&bufferDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&(m_materialsUpload)))
+		);
+
+		UpdateMaterialDataBuffer();
+	}
+
+}
+
+void D3D12HelloTriangle::UpdateMaterialDataBuffer() {
+
+	UINT bufferSize = sizeof(MaterialGPU) * MaterialsGPU.size();
+	void* mapped = nullptr;
+	m_instancesUpload->Map(0, nullptr, &mapped);
+	memcpy(mapped, MaterialsGPU.data(), bufferSize);
+	m_instancesUpload->Unmap(0, nullptr);
+}
+
 
 // #DXR Extra: Perspective Camera
 //--------------------------------------------------------------------------------

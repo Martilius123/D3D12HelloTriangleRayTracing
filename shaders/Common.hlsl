@@ -88,7 +88,21 @@ struct STriVertex
     float3 normal;
     float roughness;
     float3 emmision;
-    float pad1;
+    int materialIndex;
+};
+
+struct MaterialGPU
+{
+    float3 albedoFactor;
+    float roughness;
+    
+    int albedoTextureIndex; // -1 = no texture
+    int roughnessTextureIndex;
+    int normalTextureIndex;
+
+    int isMetallic;
+    int isGlass;
+    float IOR;
 };
 
 struct ModelInstanceGPU

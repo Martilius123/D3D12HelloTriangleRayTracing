@@ -311,6 +311,8 @@ void D3D12HelloTriangle::OnInit() {
 
 
 	CreateModelDataBuffer();
+	//MaterialsGPU.resize(5);
+	//CreateMaterialDataBuffer();  //looking for a place to call this function
 
 	// Create the buffer containing the raytracing result (always output in a
 	// UAV), and create the heap referencing the resources used by the raytracing,
