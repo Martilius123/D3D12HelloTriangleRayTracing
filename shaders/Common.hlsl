@@ -86,9 +86,10 @@ struct STriVertex
     float3 vertex;
     float4 color;
     float3 normal;
+    float2 uv;
     float roughness;
     float3 emmision;
-    int pad;
+    int materialId;
 };
 
 struct MaterialGPU

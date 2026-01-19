@@ -61,6 +61,7 @@ int D3D12HelloTriangle::GetOrCreateMaterialIndex(const D3D12HelloTriangle::Mater
     D3D12HelloTriangle::MaterialGPU gpuMat{};
     gpuMat.albedoFactor = key.albedoFactor;
     gpuMat.roughness = key.roughness;
+	gpuMat.albedoTextureIndex = GetOrCreateTextureIndex(key.albedoTexturePath);
     gpuMat.isMetallic = key.isMetallic;
     gpuMat.isGlass = key.isGlass;
     gpuMat.IOR = key.IOR;

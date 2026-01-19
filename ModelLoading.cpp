@@ -177,7 +177,7 @@ int D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 	{
 		return 0;
 	}
-	int materialIndex;
+	int materialIndex = 0;
 	for (UINT m = 0; m < scene->mNumMeshes; ++m)
 	{
 		aiMesh* mesh = scene->mMeshes[m];
@@ -214,6 +214,19 @@ int D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 			{
 				v.normal = { 0.0f, 1.0f, 0.0f };
 			}
+
+			if (mesh->HasTextureCoords(0))
+			{
+				v.uv.x = mesh->mTextureCoords[0][i].x;
+				v.uv.y = mesh->mTextureCoords[0][i].y;
+			}
+			else
+			{
+				v.uv.x = 0.0f;
+				v.uv.y = 0.0f;
+			}
+
+			v.materialIndex = materialIndex;
 
 			outVertices.push_back(v);
 		}

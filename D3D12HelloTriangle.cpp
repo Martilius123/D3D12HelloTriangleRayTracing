@@ -1576,6 +1576,18 @@ void D3D12HelloTriangle::CreateShaderResourceHeap()
 	samp.MinLOD = 0;
 	samp.MaxLOD = D3D12_FLOAT32_MAX;
 	m_device->CreateSampler(&samp, m_samplerHeap->GetCPUDescriptorHandleForHeapStart());
+
+	//for textures
+
+	// after device is created
+	m_srvDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	{
+		D3D12_DESCRIPTOR_HEAP_DESC desc = {};
+		desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+		desc.NumDescriptors = m_textureHeapSize;
+		desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+		ThrowIfFailed(m_device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&m_textureHeap)));
+	}
 }
 
 

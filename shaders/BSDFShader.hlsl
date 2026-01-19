@@ -20,13 +20,15 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
 {
     uint id = InstanceID(); // Now returns 0, 1, 2... based on the C++ loop index
     ModelInstanceGPU inst = gInstanceBuffer[id]; // Correctly fetches the material
-    MaterialGPU material = gMaterialsBuffer[inst.materialId]; //inst.materialId];
+    //MaterialGPU material = //gMaterialsBuffer[inst.materialId]; //inst.materialId];
 
     float3 incoming = WorldRayDirection();
     float3 viewDir = normalize(-incoming);
     
     uint vertId = 3 * PrimitiveIndex();
 
+    MaterialGPU material = gMaterialsBuffer[BTriVertex[indices[vertId]].materialId];
+    
     float3 p0 = BTriVertex[indices[vertId + 0]].vertex;
     float3 p1 = BTriVertex[indices[vertId + 1]].vertex;
     float3 p2 = BTriVertex[indices[vertId + 2]].vertex;
@@ -85,7 +87,7 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
     float spec = pow(max(dot(viewDir, reflectDir), 0.0f), 32.0f); // shininess 32
 
     // albedo
-    float3 baseColor = material.albedoFactor;
+    float3 baseColor = inst.albedo; //material.albedoFactor;
     if (inst.albedo.x < 0)
     {
         baseColor = BTriVertex[indices[vertId + 0]].color * barycentrics.x +

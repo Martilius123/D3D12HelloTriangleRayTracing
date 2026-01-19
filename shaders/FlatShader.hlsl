@@ -17,7 +17,9 @@ void ClosestHit_Flat(inout HitInfo payload : SV_RayPayload, Attributes attrib)
     
     //ModelInstanceGPU inst = gInstanceBuffer[BTriVertex[indices[vertId + 0]].id];
     
-    //payload.colorAndDistance = float4(inst.testColor, RayTCurrent());
+    /*hitColor = float3(BTriVertex[indices[vertId + 0]].uv * barycentrics.x +
+                    BTriVertex[indices[vertId + 1]].uv * barycentrics.y +
+                    BTriVertex[indices[vertId + 2]].uv * barycentrics.z, 0);*/
 
     payload.colorAndDistance = float4(hitColor, RayTCurrent());
 }

@@ -157,6 +157,14 @@ public:
 
 
 private:
+	//textures
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_textureHeap;
+	UINT m_textureHeapSize = 512; // texture heap size (number of descriptors)
+	UINT m_nextTextureDescriptor = 0;
+	UINT m_srvDescriptorSize = 0;
+
+
+
 	ComPtr<ID3D12DescriptorHeap> m_imguiHeap;
 	static const UINT FrameCount = 2;
 
@@ -198,10 +206,13 @@ private:
 		XMFLOAT3 position;
 		XMFLOAT4 color;
 		XMFLOAT3 normal;
+		XMFLOAT2 uv;
 		float roughness;
 		XMFLOAT3 emmision;
-		int pad;
+		int materialIndex;
 	};
+
+	//materials
 
 	struct MaterialGPU
 	{
@@ -268,6 +279,49 @@ private:
 	};
 
 	std::unordered_map<MaterialKey, int, MaterialKeyHash> g_MaterialMap;
+
+	//textures
+
+	struct TextureCPU
+	{
+		std::string path;
+		ComPtr<ID3D12Resource> resource;
+		D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle = {};
+		D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle = {};
+	};
+
+	std::unordered_map<std::string, int> g_TextureMap; // path -> index
+	std::vector<TextureCPU> g_Textures;
+
+	ComPtr<ID3D12Resource> CreateTexture2DFromRGBAFloat(
+		ID3D12Device* device,
+		ID3D12CommandQueue* commandQueue,
+		ID3D12Fence* fence,
+		HANDLE fenceEvent,
+		UINT64& fenceValue,
+		int width,
+		int height,
+		const float* rgbaPixels,
+		DXGI_FORMAT format);
+	int D3D12HelloTriangle::LoadTextureFromFile(
+		const std::string& path,
+		bool isSRGB,
+		ID3D12Device* device,
+		ID3D12CommandQueue* commandQueue,
+		ID3D12Fence* fence,
+		HANDLE fenceEvent,
+		UINT64& fenceValue);
+	int GetOrCreateTextureIndex(std::string path);
+
+	struct ImageData
+	{
+		int width = 0;
+		int height = 0;
+		int channels = 0;              // 3 or 4
+		std::vector<unsigned char> pixels; // RGBA8
+	};
+
+	ImageData LoadImage(const std::string& path);
 
 	struct AnimationFrame
 	{
