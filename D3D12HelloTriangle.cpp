@@ -38,6 +38,20 @@
 #include "NRDIntegration.h"
 #include <vector>
 
+
+static inline void Transition(
+	ID3D12GraphicsCommandList* cl,
+	ID3D12Resource* res,
+	D3D12_RESOURCE_STATES& cur,
+	D3D12_RESOURCE_STATES next)
+{
+	if (!cl || !res || cur == next) return;
+	auto b = CD3DX12_RESOURCE_BARRIER::Transition(res, cur, next);
+	cl->ResourceBarrier(1, &b);
+	cur = next;
+}
+
+
 // Align helper
 static inline uint32_t AlignUp(uint32_t v, uint32_t a) { return (v + a - 1) & ~(a - 1); }
 
@@ -125,53 +139,114 @@ void D3D12HelloTriangle::WriteNrdUav(uint32_t indexInPool, ID3D12Resource* res)
 }
 
 
-// Map NRD resource type -> your resource
+//// Map NRD resource type -> your resource
+//ID3D12Resource* D3D12HelloTriangle::GetResourceForNrdType(nrd::ResourceType t)
+//{
+//	// UWAGA: nazwy enumów mog¹ siê minimalnie ró¿niæ zale¿nie od wersji NRD.
+//	// Jeœli tu nie kompiluje -> podeœlij listê enumów z Twojego NRD/Include/NRD.h / NRDDescs.h
+//
+//	switch (t)
+//	{
+//		// Inputs
+//	case nrd::ResourceType::IN_DIFF_RADIANCE_HITDIST:
+//		return m_aovDiffuse.Get();
+//	case nrd::ResourceType::IN_SPEC_RADIANCE_HITDIST:
+//		return m_aovSpecular.Get();
+//	case nrd::ResourceType::IN_NORMAL_ROUGHNESS:
+//		return m_aovNormalRoughness.Get();
+//	case nrd::ResourceType::IN_VIEWZ:
+//		return m_aovViewZ.Get();
+//
+//		// Outputs (czêsto REBLUR ma OUT_DIFF/OUT_SPEC albo OUT_SIGNAL)
+//	case nrd::ResourceType::OUT_DIFF_RADIANCE_HITDIST:
+//		return m_aovDiffuse.Get(); // jeœli robisz ping-pong, daj osobny output
+//	case nrd::ResourceType::OUT_SPEC_RADIANCE_HITDIST:
+//		return m_aovSpecular.Get();
+//
+//		// Final (najproœciej: denoised beauty)
+//	case nrd::ResourceType::OUT_SIGNAL:
+//		return m_denoisedOutput.Get();
+//
+//	default:
+//		return nullptr;
+//	}
+//}
+
+
+
 ID3D12Resource* D3D12HelloTriangle::GetResourceForNrdType(nrd::ResourceType t)
 {
-	// UWAGA: nazwy enumów mog¹ siê minimalnie ró¿niæ zale¿nie od wersji NRD.
-	// Jeœli tu nie kompiluje -> podeœlij listê enumów z Twojego NRD/Include/NRD.h / NRDDescs.h
-
 	switch (t)
 	{
-		// Inputs
-	case nrd::ResourceType::IN_DIFF_RADIANCE_HITDIST:
-		return m_aovDiffuse.Get();
-	case nrd::ResourceType::IN_SPEC_RADIANCE_HITDIST:
-		return m_aovSpecular.Get();
-	case nrd::ResourceType::IN_NORMAL_ROUGHNESS:
-		return m_aovNormalRoughness.Get();
-	case nrd::ResourceType::IN_VIEWZ:
-		return m_aovViewZ.Get();
+	case nrd::ResourceType::IN_DIFF_RADIANCE_HITDIST:  return m_aovDiffuseIn.Get();
+	case nrd::ResourceType::IN_SPEC_RADIANCE_HITDIST:  return m_aovSpecularIn.Get();
+	case nrd::ResourceType::IN_NORMAL_ROUGHNESS:       return m_aovNormalRoughness.Get();
+	case nrd::ResourceType::IN_VIEWZ:                  return m_aovViewZ.Get();
 
-		// Outputs (czêsto REBLUR ma OUT_DIFF/OUT_SPEC albo OUT_SIGNAL)
-	case nrd::ResourceType::OUT_DIFF_RADIANCE_HITDIST:
-		return m_aovDiffuse.Get(); // jeœli robisz ping-pong, daj osobny output
-	case nrd::ResourceType::OUT_SPEC_RADIANCE_HITDIST:
-		return m_aovSpecular.Get();
+		// NEW:
+	case nrd::ResourceType::IN_MV:                     return m_aovMotion.Get();
 
-		// Final (najproœciej: denoised beauty)
-	case nrd::ResourceType::OUT_SIGNAL:
-		return m_denoisedOutput.Get();
+	case nrd::ResourceType::OUT_DIFF_RADIANCE_HITDIST: return m_aovDiffuseOut.Get();
+	case nrd::ResourceType::OUT_SPEC_RADIANCE_HITDIST: return m_aovSpecularOut.Get();
+	case nrd::ResourceType::OUT_SIGNAL:                return m_denoisedOutput.Get();
 
 	default:
 		return nullptr;
 	}
 }
 
+
+
+
+
+
+
 void D3D12HelloTriangle::ExecuteNRDDispatches()
 {
 	if (!m_nrd.GetInstance())
 		return;
 
+
+
+
+
+
+
+
 	const nrd::DispatchDesc* dispatches = nullptr;
 	uint32_t count = 0;
+
+
+
+
+
+
+
+
+
 	nrd::Identifier id = m_nrd.GetIdentifier();
 
 	nrd::Result res = nrd::GetComputeDispatches(*m_nrd.GetInstance(), &id, 1, dispatches, count);
 	if (res != nrd::Result::SUCCESS || count == 0)
 		return;
+	
 
-	// Musi istnieæ pool heap + pipeline/RS
+
+
+
+
+	bool usesOutSignal = false;
+	for (uint32_t i = 0; i < count; ++i)
+	{
+		const nrd::DispatchDesc& d = dispatches[i];
+		for (uint32_t r = 0; r < d.resourcesNum; ++r)
+			if (d.resources[r].type == nrd::ResourceType::OUT_SIGNAL)
+				usesOutSignal = true;
+	}
+	if (!usesOutSignal)
+		OutputDebugStringA("NRD: OUT_SIGNAL not used by dispatches\n");
+
+
 	PrepareNRDDescriptorPoolIfNeeded();
 	if (!m_nrdPoolHeap)
 		return;
@@ -179,8 +254,6 @@ void D3D12HelloTriangle::ExecuteNRDDispatches()
 	if (!m_nrdRootSignature || m_nrdPipelines.empty())
 		CreateNRDPipelines();
 
-	// Je¿eli pipeline’y s¹ puste/null -> denoiser nic nie zrobi => czarny
-	// (opcjonalnie mo¿esz tu dodaæ fallback kopii, ale na razie wracamy)
 	ID3D12DescriptorHeap* heaps[] = { m_nrdPoolHeap.Get() };
 	m_commandList->SetDescriptorHeaps(1, heaps);
 
@@ -193,29 +266,23 @@ void D3D12HelloTriangle::ExecuteNRDDispatches()
 		if (d.pipelineIndex >= m_nrdPipelines.size() || !m_nrdPipelines[d.pipelineIndex])
 			continue;
 
-		// Wpisz deskryptory wymagane przez ten dispatch
+		// Write required descriptors
 		for (uint32_t r = 0; r < d.resourcesNum; ++r)
 		{
 			const nrd::ResourceDesc& rd = d.resources[r];
-
 			ID3D12Resource* tex = GetResourceForNrdType(rd.type);
 			if (!tex) continue;
 
 			if (rd.descriptorType == nrd::DescriptorType::TEXTURE)
-			{
 				WriteNrdSrv(rd.indexInPool, tex);
-			}
 			else if (rd.descriptorType == nrd::DescriptorType::STORAGE_TEXTURE)
-			{
-				// UAV z offsetem w WriteNrdUav
 				WriteNrdUav(rd.indexInPool, tex);
-			}
 		}
 
 		m_commandList->SetComputeRootSignature(m_nrdRootSignature.Get());
 		m_commandList->SetPipelineState(m_nrdPipelines[d.pipelineIndex].Get());
 
-		// constants
+		// Upload constants
 		if (d.constantBufferData && d.constantBufferDataSize > 0)
 		{
 			uint32_t needed = (d.constantBufferDataSize + 255) & ~255u;
@@ -237,16 +304,110 @@ void D3D12HelloTriangle::ExecuteNRDDispatches()
 			memcpy(mapped, d.constantBufferData, d.constantBufferDataSize);
 			m_nrdConstUpload->Unmap(0, nullptr);
 
-			// param1 = CBV (tak jak w CreateNRDPipelines)
+			// param1 = CBV
 			m_commandList->SetComputeRootConstantBufferView(1, m_nrdConstUpload->GetGPUVirtualAddress());
 		}
 
-		// param0 = descriptor table start
+		// param0 = descriptor table
 		m_commandList->SetComputeRootDescriptorTable(0, poolGpuStart);
 
 		m_commandList->Dispatch(d.gridWidth, d.gridHeight, 1);
+
+		// Make UAV writes visible for the next dispatch
+		m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(nullptr));
 	}
 }
+
+
+//void D3D12HelloTriangle::ExecuteNRDDispatches()
+//{
+//	if (!m_nrd.GetInstance())
+//		return;
+//
+//	const nrd::DispatchDesc* dispatches = nullptr;
+//	uint32_t count = 0;
+//	nrd::Identifier id = m_nrd.GetIdentifier();
+//
+//	nrd::Result res = nrd::GetComputeDispatches(*m_nrd.GetInstance(), &id, 1, dispatches, count);
+//	if (res != nrd::Result::SUCCESS || count == 0)
+//		return;
+//
+//	// Musi istnieæ pool heap + pipeline/RS
+//	PrepareNRDDescriptorPoolIfNeeded();
+//	if (!m_nrdPoolHeap)
+//		return;
+//
+//	if (!m_nrdRootSignature || m_nrdPipelines.empty())
+//		CreateNRDPipelines();
+//
+//	// Je¿eli pipeline’y s¹ puste/null -> denoiser nic nie zrobi => czarny
+//	// (opcjonalnie mo¿esz tu dodaæ fallback kopii, ale na razie wracamy)
+//	ID3D12DescriptorHeap* heaps[] = { m_nrdPoolHeap.Get() };
+//	m_commandList->SetDescriptorHeaps(1, heaps);
+//
+//	D3D12_GPU_DESCRIPTOR_HANDLE poolGpuStart = m_nrdPoolHeap->GetGPUDescriptorHandleForHeapStart();
+//
+//	for (uint32_t i = 0; i < count; ++i)
+//	{
+//		const nrd::DispatchDesc& d = dispatches[i];
+//
+//		if (d.pipelineIndex >= m_nrdPipelines.size() || !m_nrdPipelines[d.pipelineIndex])
+//			continue;
+//
+//		// Wpisz deskryptory wymagane przez ten dispatch
+//		for (uint32_t r = 0; r < d.resourcesNum; ++r)
+//		{
+//			const nrd::ResourceDesc& rd = d.resources[r];
+//
+//			ID3D12Resource* tex = GetResourceForNrdType(rd.type);
+//			if (!tex) continue;
+//
+//			if (rd.descriptorType == nrd::DescriptorType::TEXTURE)
+//			{
+//				WriteNrdSrv(rd.indexInPool, tex);
+//			}
+//			else if (rd.descriptorType == nrd::DescriptorType::STORAGE_TEXTURE)
+//			{
+//				// UAV z offsetem w WriteNrdUav
+//				WriteNrdUav(rd.indexInPool, tex);
+//			}
+//		}
+//
+//		m_commandList->SetComputeRootSignature(m_nrdRootSignature.Get());
+//		m_commandList->SetPipelineState(m_nrdPipelines[d.pipelineIndex].Get());
+//
+//		// constants
+//		if (d.constantBufferData && d.constantBufferDataSize > 0)
+//		{
+//			uint32_t needed = (d.constantBufferDataSize + 255) & ~255u;
+//
+//			if (!m_nrdConstUpload || needed > m_nrdConstUploadSize)
+//			{
+//				m_nrdConstUploadSize = std::max(needed, 256u);
+//				CD3DX12_HEAP_PROPERTIES heapUpload(D3D12_HEAP_TYPE_UPLOAD);
+//				CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(m_nrdConstUploadSize);
+//				ThrowIfFailed(m_device->CreateCommittedResource(
+//					&heapUpload, D3D12_HEAP_FLAG_NONE, &bufDesc,
+//					D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+//					IID_PPV_ARGS(&m_nrdConstUpload)));
+//			}
+//
+//			uint8_t* mapped = nullptr;
+//			D3D12_RANGE rr = { 0,0 };
+//			ThrowIfFailed(m_nrdConstUpload->Map(0, &rr, reinterpret_cast<void**>(&mapped)));
+//			memcpy(mapped, d.constantBufferData, d.constantBufferDataSize);
+//			m_nrdConstUpload->Unmap(0, nullptr);
+//
+//			// param1 = CBV (tak jak w CreateNRDPipelines)
+//			m_commandList->SetComputeRootConstantBufferView(1, m_nrdConstUpload->GetGPUVirtualAddress());
+//		}
+//
+//		// param0 = descriptor table start
+//		m_commandList->SetComputeRootDescriptorTable(0, poolGpuStart);
+//
+//		m_commandList->Dispatch(d.gridWidth, d.gridHeight, 1);
+//	}
+//}
 
 
 
@@ -812,6 +973,8 @@ void D3D12HelloTriangle::OnDestroy()
 	m_nrd.Shutdown();
 }
 
+
+
 void D3D12HelloTriangle::PopulateCommandList()
 {
 	ThrowIfFailed(m_commandAllocator->Reset());
@@ -821,9 +984,11 @@ void D3D12HelloTriangle::PopulateCommandList()
 	m_commandList->RSSetViewports(1, &m_viewport);
 	m_commandList->RSSetScissorRects(1, &m_scissorRect);
 
-	// Backbuffer: PRESENT -> RENDER_TARGET
+	ID3D12Resource* backbuffer = m_renderTargets[m_frameIndex].Get();
+
+	// Backbuffer: PRESENT -> RENDER_TARGET (we will copy into it later)
 	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		m_renderTargets[m_frameIndex].Get(),
+		backbuffer,
 		D3D12_RESOURCE_STATE_PRESENT,
 		D3D12_RESOURCE_STATE_RENDER_TARGET));
 
@@ -841,41 +1006,18 @@ void D3D12HelloTriangle::PopulateCommandList()
 	m_commandList->SetDescriptorHeaps(_countof(rtHeaps), rtHeaps);
 
 	// ------------------------------------------------------------
-	// 1) Upewnij siê, ¿e zasoby, do których DXR bêdzie pisaæ, s¹ UAV
+	// 1) Ensure DXR outputs are UAV
 	// ------------------------------------------------------------
-	{
-		std::vector<CD3DX12_RESOURCE_BARRIER> barriers;
+	Transition(m_commandList.Get(), m_outputResource.Get(), m_stateOutput, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	Transition(m_commandList.Get(), m_aovDiffuseIn.Get(), m_stateDiffIn, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	Transition(m_commandList.Get(), m_aovSpecularIn.Get(), m_stateSpecIn, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	Transition(m_commandList.Get(), m_aovNormalRoughness.Get(), m_stateNR, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	Transition(m_commandList.Get(), m_aovViewZ.Get(), m_stateViewZ, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	Transition(m_commandList.Get(), m_aovMotion.Get(), m_stateMotion, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
-		auto toUav = [&](ID3D12Resource* r, D3D12_RESOURCE_STATES from)
-			{
-				if (!r) return;
-				barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
-					r, from, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-			};
-
-		// outputResource bywa w COPY_SOURCE po poprzedniej klatce
-		// (albo po CreateRaytracingOutputBuffer)
-		toUav(m_outputResource.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE);
-
-		// AOV-y po poprzednim NRD s¹ SRV -> prze³¹cz na UAV przed DXR
-		// (jeœli w pierwszej klatce s¹ ju¿ UAV, to to przejœcie te¿ zadzia³a jeœli "from" bêdzie inne,
-		// ale lepiej trzymaæ spójny "from" -> zobacz notkê ni¿ej)
-		if (m_aovDiffuse)         toUav(m_aovDiffuse.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-		if (m_aovSpecular)        toUav(m_aovSpecular.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-		if (m_aovNormalRoughness) toUav(m_aovNormalRoughness.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-		if (m_aovViewZ)           toUav(m_aovViewZ.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-
-		// NRD output te¿ bêdzie UAV (compute write)
-		if (m_denoisedOutput)
-			toUav(m_denoisedOutput.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE);
-
-		if (!barriers.empty())
-			m_commandList->ResourceBarrier((UINT)barriers.size(), barriers.data());
-	}
-
-	// ---------------------------
+	// ------------------------------------------------------------
 	// 2) Dispatch rays
-	// ---------------------------
+	// ------------------------------------------------------------
 	D3D12_DISPATCH_RAYS_DESC desc = {};
 	const uint32_t rayGenSize = m_sbtHelper.GetRayGenSectionSize();
 	desc.RayGenerationShaderRecord.StartAddress = m_sbtStorage->GetGPUVirtualAddress();
@@ -898,42 +1040,30 @@ void D3D12HelloTriangle::PopulateCommandList()
 	m_commandList->SetPipelineState1(m_rtStateObject.Get());
 	m_commandList->DispatchRays(&desc);
 
-	// *** KLUCZOWE *** - zapewnia, ¿e wszystkie zapisy UAV z DXR s¹ widoczne dla NRD
+	// Make DXR UAV writes visible
 	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(nullptr));
 
-	// ---------------- NRD DENOISE ----------------
-	ID3D12Resource* src = m_outputResource.Get();
-	//src = m_aovNormalRoughness.Get();
+	// ------------------------------------------------------------
+	// 3) NRD DENOISE (writes float16 OUT buffers)
+	// ------------------------------------------------------------
+	bool denoisedThisFrame = false;
 
-	if (m_enableDenoise)
+	if (m_enableDenoise && m_nrd.GetInstance())
 	{
-		// 3) AOV-y musz¹ byæ SRV (NRD czyta), wiêc UAV -> SRV
-		{
-			std::vector<CD3DX12_RESOURCE_BARRIER> b;
+		// IN must be SRV for NRD
+		Transition(m_commandList.Get(), m_aovDiffuseIn.Get(), m_stateDiffIn, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		Transition(m_commandList.Get(), m_aovSpecularIn.Get(), m_stateSpecIn, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		Transition(m_commandList.Get(), m_aovNormalRoughness.Get(), m_stateNR, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		Transition(m_commandList.Get(), m_aovViewZ.Get(), m_stateViewZ, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		Transition(m_commandList.Get(), m_aovMotion.Get(), m_stateMotion, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
-			auto toSrv = [&](ID3D12Resource* r)
-				{
-					if (!r) return;
-					b.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
-						r,
-						D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-						D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
-				};
+		// OUT must be UAV for NRD
+		Transition(m_commandList.Get(), m_aovDiffuseOut.Get(), m_stateDiffOut, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		Transition(m_commandList.Get(), m_aovSpecularOut.Get(), m_stateSpecOut, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
-			toSrv(m_aovDiffuse.Get());
-			toSrv(m_aovSpecular.Get());
-			toSrv(m_aovNormalRoughness.Get());
-			toSrv(m_aovViewZ.Get());
-			/*toSrv(m_outputResource.Get());
-			toSrv(m_outputResource.Get());
-			toSrv(m_outputResource.Get());
-			toSrv(m_outputResource.Get());*/
+		// We will write final UNORM after compose
+		Transition(m_commandList.Get(), m_denoisedOutput.Get(), m_stateDenoised, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
-			if (!b.empty())
-				m_commandList->ResourceBarrier((UINT)b.size(), b.data());
-		}
-
-		// NRD potrzebuje swojego heapu + poprawnych descriptorów
 		PrepareNRDDescriptorPoolIfNeeded();
 		if (!m_nrdRootSignature || m_nrdPipelines.empty())
 			CreateNRDPipelines();
@@ -941,57 +1071,67 @@ void D3D12HelloTriangle::PopulateCommandList()
 		UpdateNRDCommonSettingsPerFrame();
 		ExecuteNRDDispatches();
 
-		// NRD output (m_denoisedOutput) jest UAV -> zaraz bêdziemy kopiowaæ
-		src = m_denoisedOutput.Get();
-
-		// jeœli NRD pisa³ UAV, dodaj barrier UAV
+		// Make NRD UAV writes visible
 		m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(nullptr));
 
-		// 4) Przywróæ AOV-y na UAV na nastêpn¹ klatkê DXR (SRV -> UAV)
-		{
-			std::vector<CD3DX12_RESOURCE_BARRIER> b;
+		// ------------------------------------------------------------
+		// 3b) COMPOSE denoised diffuse+spec -> UNORM m_denoisedOutput
+		// ------------------------------------------------------------
+		// Inputs for compose must be SRV, output must be UAV
+		Transition(m_commandList.Get(), m_aovDiffuseOut.Get(), m_stateDiffOut, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		Transition(m_commandList.Get(), m_aovSpecularOut.Get(), m_stateSpecOut, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		Transition(m_commandList.Get(), m_denoisedOutput.Get(), m_stateDenoised, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
-			auto srvToUav = [&](ID3D12Resource* r)
-				{
-					if (!r) return;
-					b.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
-						r,
-						D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-						D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
-				};
+		ExecuteComposePass(m_aovDiffuseOut.Get(), m_aovSpecularOut.Get(), m_denoisedOutput.Get());
 
-			srvToUav(m_aovDiffuse.Get());
-			srvToUav(m_aovSpecular.Get());
-			srvToUav(m_aovNormalRoughness.Get());
-			srvToUav(m_aovViewZ.Get());
+		denoisedThisFrame = true;
 
-			if (!b.empty())
-				m_commandList->ResourceBarrier((UINT)b.size(), b.data());
-		}
+		// Restore OUT back to UAV for next frame NRD (optional, but keeps your state tracker sane)
+		Transition(m_commandList.Get(), m_aovDiffuseOut.Get(), m_stateDiffOut, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		Transition(m_commandList.Get(), m_aovSpecularOut.Get(), m_stateSpecOut, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+		// Restore IN back to UAV for next DXR frame
+		Transition(m_commandList.Get(), m_aovDiffuseIn.Get(), m_stateDiffIn, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		Transition(m_commandList.Get(), m_aovSpecularIn.Get(), m_stateSpecIn, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		Transition(m_commandList.Get(), m_aovNormalRoughness.Get(), m_stateNR, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		Transition(m_commandList.Get(), m_aovViewZ.Get(), m_stateViewZ, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		Transition(m_commandList.Get(), m_aovMotion.Get(), m_stateMotion, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+		m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(nullptr));
 	}
 
-	// --- Copy src -> backbuffer (TYLKO RAZ) ---
-	// src jest UAV (output albo denoisedOutput), wiêc UAV -> COPY_SOURCE
-	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		src, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE));
+	// ------------------------------------------------------------
+	// 4) Choose what to present
+	// ------------------------------------------------------------
+	ID3D12Resource* src = denoisedThisFrame ? m_denoisedOutput.Get() : m_outputResource.Get();
+
+	// ------------------------------------------------------------
+	// 5) Copy src -> backbuffer (formats must match: UNORM -> UNORM)
+	// ------------------------------------------------------------
+	if (src == m_outputResource.Get())
+		Transition(m_commandList.Get(), m_outputResource.Get(), m_stateOutput, D3D12_RESOURCE_STATE_COPY_SOURCE);
+	else
+		Transition(m_commandList.Get(), m_denoisedOutput.Get(), m_stateDenoised, D3D12_RESOURCE_STATE_COPY_SOURCE);
 
 	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		m_renderTargets[m_frameIndex].Get(),
+		backbuffer,
 		D3D12_RESOURCE_STATE_RENDER_TARGET,
 		D3D12_RESOURCE_STATE_COPY_DEST));
 
-	m_commandList->CopyResource(m_renderTargets[m_frameIndex].Get(), src);
+	m_commandList->CopyResource(backbuffer, src);
 
 	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		m_renderTargets[m_frameIndex].Get(),
+		backbuffer,
 		D3D12_RESOURCE_STATE_COPY_DEST,
 		D3D12_RESOURCE_STATE_RENDER_TARGET));
 
-	// Przywróæ src do UAV (¿eby kolejna klatka mog³a pisaæ)
-	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		src, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+	// Restore src back
+	if (src == m_outputResource.Get())
+		Transition(m_commandList.Get(), m_outputResource.Get(), m_stateOutput, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	else
+		Transition(m_commandList.Get(), m_denoisedOutput.Get(), m_stateDenoised, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
-	// --- Instance buffer update (jak mia³eœ) ---
+	// --- Instance buffer update ---
 	{
 		m_commandList->CopyResource(m_instancesBuffer.Get(), m_instancesUpload.Get());
 		CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
@@ -1006,16 +1146,501 @@ void D3D12HelloTriangle::PopulateCommandList()
 	ID3D12DescriptorHeap* imguiHeaps[] = { m_imguiHeap.Get() };
 	m_commandList->SetDescriptorHeaps(1, imguiHeaps);
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_commandList.Get());
-	
+
 	// Backbuffer: RENDER_TARGET -> PRESENT
 	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
-		m_renderTargets[m_frameIndex].Get(),
+		backbuffer,
 		D3D12_RESOURCE_STATE_RENDER_TARGET,
 		D3D12_RESOURCE_STATE_PRESENT));
 
 	ThrowIfFailed(m_commandList->Close());
-
 }
+
+
+//void D3D12HelloTriangle::PopulateCommandList()
+//{
+//	ThrowIfFailed(m_commandAllocator->Reset());
+//	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
+//
+//	m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+//	m_commandList->RSSetViewports(1, &m_viewport);
+//	m_commandList->RSSetScissorRects(1, &m_scissorRect);
+//
+//	// Backbuffer: PRESENT -> RENDER_TARGET
+//	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+//		m_renderTargets[m_frameIndex].Get(),
+//		D3D12_RESOURCE_STATE_PRESENT,
+//		D3D12_RESOURCE_STATE_RENDER_TARGET));
+//
+//	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(
+//		m_rtvHeap->GetCPUDescriptorHandleForHeapStart(),
+//		m_frameIndex,
+//		m_rtvDescriptorSize);
+//
+//	m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+//
+//	// --- Raytracing stuff ---
+//	BuildTLAS();
+//
+//	ID3D12DescriptorHeap* rtHeaps[] = { m_srvUavHeap.Get(), m_samplerHeap.Get() };
+//	m_commandList->SetDescriptorHeaps(_countof(rtHeaps), rtHeaps);
+//
+//	// ------------------------------------------------------------
+//	// 1) Ensure DXR outputs are UAV
+//	// ------------------------------------------------------------
+//	Transition(m_commandList.Get(), m_outputResource.Get(), m_stateOutput, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+//
+//	Transition(m_commandList.Get(), m_aovDiffuseIn.Get(), m_stateDiffIn, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+//	Transition(m_commandList.Get(), m_aovSpecularIn.Get(), m_stateSpecIn, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+//	Transition(m_commandList.Get(), m_aovNormalRoughness.Get(), m_stateNR, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+//	Transition(m_commandList.Get(), m_aovViewZ.Get(), m_stateViewZ, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+//	Transition(m_commandList.Get(), m_aovMotion.Get(), m_stateMotion, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+//
+//	// ------------------------------------------------------------
+//	// 2) Dispatch rays
+//	// ------------------------------------------------------------
+//	D3D12_DISPATCH_RAYS_DESC desc = {};
+//	const uint32_t rayGenSize = m_sbtHelper.GetRayGenSectionSize();
+//	desc.RayGenerationShaderRecord.StartAddress = m_sbtStorage->GetGPUVirtualAddress();
+//	desc.RayGenerationShaderRecord.SizeInBytes = rayGenSize;
+//
+//	const uint32_t missSize = m_sbtHelper.GetMissSectionSize();
+//	desc.MissShaderTable.StartAddress = m_sbtStorage->GetGPUVirtualAddress() + rayGenSize;
+//	desc.MissShaderTable.SizeInBytes = missSize;
+//	desc.MissShaderTable.StrideInBytes = m_sbtHelper.GetMissEntrySize();
+//
+//	const uint32_t hitSize = m_sbtHelper.GetHitGroupSectionSize();
+//	desc.HitGroupTable.StartAddress = m_sbtStorage->GetGPUVirtualAddress() + rayGenSize + missSize;
+//	desc.HitGroupTable.SizeInBytes = hitSize;
+//	desc.HitGroupTable.StrideInBytes = m_sbtHelper.GetHitGroupEntrySize();
+//
+//	desc.Width = GetWidth();
+//	desc.Height = GetHeight();
+//	desc.Depth = 1;
+//
+//	m_commandList->SetPipelineState1(m_rtStateObject.Get());
+//	m_commandList->DispatchRays(&desc);
+//
+//	// Make DXR UAV writes visible for NRD
+//	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(nullptr));
+//
+//	// ------------------------------------------------------------
+//	// 3) NRD DENOISE
+//	// ------------------------------------------------------------
+//	ID3D12Resource* src = m_outputResource.Get();
+//
+//	if (m_enableDenoise && m_nrd.GetInstance())
+//	{
+//		// IN must be SRV for NRD
+//		Transition(m_commandList.Get(), m_aovDiffuseIn.Get(), m_stateDiffIn, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+//		Transition(m_commandList.Get(), m_aovSpecularIn.Get(), m_stateSpecIn, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+//		Transition(m_commandList.Get(), m_aovNormalRoughness.Get(), m_stateNR, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+//		Transition(m_commandList.Get(), m_aovViewZ.Get(), m_stateViewZ, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+//		Transition(m_commandList.Get(), m_aovMotion.Get(), m_stateMotion, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+//
+//		// OUT must be UAV for NRD
+//		Transition(m_commandList.Get(), m_aovDiffuseOut.Get(), m_stateDiffOut, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+//		Transition(m_commandList.Get(), m_aovSpecularOut.Get(), m_stateSpecOut, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+//		Transition(m_commandList.Get(), m_denoisedOutput.Get(), m_stateDenoised, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+//
+//		PrepareNRDDescriptorPoolIfNeeded();
+//		if (!m_nrdRootSignature || m_nrdPipelines.empty())
+//			CreateNRDPipelines();
+//
+//		UpdateNRDCommonSettingsPerFrame();
+//		ExecuteNRDDispatches();
+//
+//		// Make NRD UAV writes visible before presenting/copy
+//		m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(nullptr));
+//
+//		// Candidate final output
+//	//	src = m_denoisedOutput.Get();
+//
+//		// Present something NRD definitely writes:
+//		src = m_aovDiffuseOut.Get();  // albo m_aovSpecularOut
+//
+//
+//		// Restore IN back to UAV for next DXR frame
+//		Transition(m_commandList.Get(), m_aovDiffuseIn.Get(), m_stateDiffIn, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+//		Transition(m_commandList.Get(), m_aovSpecularIn.Get(), m_stateSpecIn, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+//		Transition(m_commandList.Get(), m_aovNormalRoughness.Get(), m_stateNR, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+//		Transition(m_commandList.Get(), m_aovViewZ.Get(), m_stateViewZ, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+//		Transition(m_commandList.Get(), m_aovMotion.Get(), m_stateMotion, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+//
+//		m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(nullptr));
+//	}
+//
+//	// ------------------------------------------------------------
+//	// 4) Copy src -> backbuffer (ONLY if formats are compatible)
+//	// ------------------------------------------------------------
+//	ID3D12Resource* backbuffer = m_renderTargets[m_frameIndex].Get();
+//	const DXGI_FORMAT bbFmt = backbuffer->GetDesc().Format;
+//	const DXGI_FORMAT srcFmt = src->GetDesc().Format;
+//
+//	// If NRD output is float (common), CopyResource to UNORM swapchain will not work -> black.
+//	// Fallback: show original m_outputResource until you add fullscreen blit/tonemap.
+//	if (srcFmt != bbFmt)
+//	{
+//		src = m_outputResource.Get();
+//	}
+//
+//	// src must be COPY_SOURCE
+//	if (src == m_outputResource.Get())
+//		Transition(m_commandList.Get(), m_outputResource.Get(), m_stateOutput, D3D12_RESOURCE_STATE_COPY_SOURCE);
+//	else
+//		Transition(m_commandList.Get(), m_denoisedOutput.Get(), m_stateDenoised, D3D12_RESOURCE_STATE_COPY_SOURCE);
+//
+//	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+//		backbuffer,
+//		D3D12_RESOURCE_STATE_RENDER_TARGET,
+//		D3D12_RESOURCE_STATE_COPY_DEST));
+//
+//	m_commandList->CopyResource(backbuffer, src);
+//
+//	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+//		backbuffer,
+//		D3D12_RESOURCE_STATE_COPY_DEST,
+//		D3D12_RESOURCE_STATE_RENDER_TARGET));
+//
+//	// Restore src back to UAV for next frame
+//	if (src == m_outputResource.Get())
+//		Transition(m_commandList.Get(), m_outputResource.Get(), m_stateOutput, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+//	else
+//		Transition(m_commandList.Get(), m_denoisedOutput.Get(), m_stateDenoised, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+//
+//	// --- Instance buffer update ---
+//	{
+//		m_commandList->CopyResource(m_instancesBuffer.Get(), m_instancesUpload.Get());
+//		CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+//			m_instancesBuffer.Get(),
+//			D3D12_RESOURCE_STATE_COPY_DEST,
+//			D3D12_RESOURCE_STATE_GENERIC_READ);
+//		m_commandList->ResourceBarrier(1, &barrier);
+//	}
+//
+//	// ---------- IMGUI RENDER ----------
+//	ImGui::Render();
+//	ID3D12DescriptorHeap* imguiHeaps[] = { m_imguiHeap.Get() };
+//	m_commandList->SetDescriptorHeaps(1, imguiHeaps);
+//	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_commandList.Get());
+//
+//	// Backbuffer: RENDER_TARGET -> PRESENT
+//	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+//		backbuffer,
+//		D3D12_RESOURCE_STATE_RENDER_TARGET,
+//		D3D12_RESOURCE_STATE_PRESENT));
+//
+//	ThrowIfFailed(m_commandList->Close());
+//}
+
+
+
+//void D3D12HelloTriangle::PopulateCommandList()
+//{
+//	ThrowIfFailed(m_commandAllocator->Reset());
+//	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
+//
+//	m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+//	m_commandList->RSSetViewports(1, &m_viewport);
+//	m_commandList->RSSetScissorRects(1, &m_scissorRect);
+//
+//	// Backbuffer: PRESENT -> RENDER_TARGET
+//	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+//		m_renderTargets[m_frameIndex].Get(),
+//		D3D12_RESOURCE_STATE_PRESENT,
+//		D3D12_RESOURCE_STATE_RENDER_TARGET));
+//
+//	CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(
+//		m_rtvHeap->GetCPUDescriptorHandleForHeapStart(),
+//		m_frameIndex,
+//		m_rtvDescriptorSize);
+//
+//	m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, nullptr);
+//
+//	// --- Raytracing stuff ---
+//	BuildTLAS();
+//
+//	ID3D12DescriptorHeap* rtHeaps[] = { m_srvUavHeap.Get(), m_samplerHeap.Get() };
+//	m_commandList->SetDescriptorHeaps(_countof(rtHeaps), rtHeaps);
+//
+//	// ------------------------------------------------------------
+//	// 1) Upewnij siê, ¿e zasoby, do których DXR bêdzie pisaæ, s¹ UAV
+//	// ------------------------------------------------------------
+//	{
+//		std::vector<CD3DX12_RESOURCE_BARRIER> barriers;
+//
+//		auto toUav = [&](ID3D12Resource* r, D3D12_RESOURCE_STATES from)
+//			{
+//				if (!r) return;
+//				barriers.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+//					r, from, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+//			};
+//
+//		// outputResource bywa w COPY_SOURCE po poprzedniej klatce
+//		// (albo po CreateRaytracingOutputBuffer)
+//		toUav(m_outputResource.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE);
+//
+//		// AOV-y po poprzednim NRD s¹ SRV -> prze³¹cz na UAV przed DXR
+//		// (jeœli w pierwszej klatce s¹ ju¿ UAV, to to przejœcie te¿ zadzia³a jeœli "from" bêdzie inne,
+//		// ale lepiej trzymaæ spójny "from" -> zobacz notkê ni¿ej)
+//		if (m_aovDiffuse)         toUav(m_aovDiffuse.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+//		if (m_aovSpecular)        toUav(m_aovSpecular.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+//		if (m_aovNormalRoughness) toUav(m_aovNormalRoughness.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+//		if (m_aovViewZ)           toUav(m_aovViewZ.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+//
+//		// NRD output te¿ bêdzie UAV (compute write)
+//		if (m_denoisedOutput)
+//			toUav(m_denoisedOutput.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE);
+//
+//		if (!barriers.empty())
+//			m_commandList->ResourceBarrier((UINT)barriers.size(), barriers.data());
+//	}
+//
+//	// ---------------------------
+//	// 2) Dispatch rays
+//	// ---------------------------
+//	D3D12_DISPATCH_RAYS_DESC desc = {};
+//	const uint32_t rayGenSize = m_sbtHelper.GetRayGenSectionSize();
+//	desc.RayGenerationShaderRecord.StartAddress = m_sbtStorage->GetGPUVirtualAddress();
+//	desc.RayGenerationShaderRecord.SizeInBytes = rayGenSize;
+//
+//	const uint32_t missSize = m_sbtHelper.GetMissSectionSize();
+//	desc.MissShaderTable.StartAddress = m_sbtStorage->GetGPUVirtualAddress() + rayGenSize;
+//	desc.MissShaderTable.SizeInBytes = missSize;
+//	desc.MissShaderTable.StrideInBytes = m_sbtHelper.GetMissEntrySize();
+//
+//	const uint32_t hitSize = m_sbtHelper.GetHitGroupSectionSize();
+//	desc.HitGroupTable.StartAddress = m_sbtStorage->GetGPUVirtualAddress() + rayGenSize + missSize;
+//	desc.HitGroupTable.SizeInBytes = hitSize;
+//	desc.HitGroupTable.StrideInBytes = m_sbtHelper.GetHitGroupEntrySize();
+//
+//	desc.Width = GetWidth();
+//	desc.Height = GetHeight();
+//	desc.Depth = 1;
+//
+//	m_commandList->SetPipelineState1(m_rtStateObject.Get());
+//	m_commandList->DispatchRays(&desc);
+//
+//	// *** KLUCZOWE *** - zapewnia, ¿e wszystkie zapisy UAV z DXR s¹ widoczne dla NRD
+//	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(nullptr));
+//
+//	// ---------------- NRD DENOISE ----------------
+//	//ID3D12Resource* src = m_outputResource.Get();
+//	//src = m_aovNormalRoughness.Get();
+//
+//
+//
+//
+//
+//
+//
+//
+//	// ---------------- NRD DENOISE ----------------
+//	ID3D12Resource* src = m_outputResource.Get();
+//
+//	if (m_enableDenoise)
+//	{
+//		// 1) DXR wrote IN buffers as UAV. Now NRD needs:
+//		//    - IN buffers as SRV
+//		//    - OUT buffers as UAV
+//		std::vector<CD3DX12_RESOURCE_BARRIER> b;
+//
+//		auto uavToSrv = [&](ID3D12Resource* r)
+//			{
+//				if (!r) return;
+//				b.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+//					r, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+//			};
+//
+//		auto anyToUav = [&](ID3D12Resource* r, D3D12_RESOURCE_STATES from)
+//			{
+//				if (!r) return;
+//				b.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+//					r, from, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+//			};
+//
+//		// IN: UAV -> SRV
+//		uavToSrv(m_aovDiffuseIn.Get());
+//		uavToSrv(m_aovSpecularIn.Get());
+//		uavToSrv(m_aovNormalRoughness.Get());
+//		uavToSrv(m_aovViewZ.Get());
+//		uavToSrv(m_aovMotion.Get());   // <-- BRAKOWA£O
+//
+//
+//		// OUT: ensure UAV (jeœli coœ wczeœniej zmieni³o stan)
+//		// Zak³adamy, ¿e trzymasz OUT zawsze w UAV miêdzy klatkami,
+//		// ale dla bezpieczeñstwa mo¿esz wymuszaæ transition z UAV->UAV? nie ma sensu.
+//		// Jeœli gdzieœ wczeœniej prze³¹czy³eœ OUT na SRV/COPY, zmieñ "from".
+//		// Tu zak³adamy, ¿e OUT jest UAV (po CreateAOVResources i po frame).
+//		// Jeœli debug layer krzyczy, ustaw w³aœciwy "from".
+//		// anyToUav(m_aovDiffuseOut.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+//		// anyToUav(m_aovSpecularOut.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+//		// anyToUav(m_denoisedOutput.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE);
+//
+//		if (!b.empty())
+//			m_commandList->ResourceBarrier((UINT)b.size(), b.data());
+//
+//		// 2) Dispatch NRD
+//		PrepareNRDDescriptorPoolIfNeeded();
+//		if (!m_nrdRootSignature || m_nrdPipelines.empty())
+//			CreateNRDPipelines();
+//
+//		UpdateNRDCommonSettingsPerFrame();
+//		ExecuteNRDDispatches();
+//
+//		// 3) Select what to show on screen:
+//		// Prefer OUT_SIGNAL if your NRD method provides it
+//		//if (m_denoisedOutput)
+//		//	src = m_aovDiffuseOut.Get();
+//		//	//src = m_denoisedOutput.Get();
+//		//else
+//		//	src = m_aovDiffuseOut.Get(); // fallback
+//
+//
+//		if (m_denoisedOutput)
+//			src = m_aovDiffuseOut.Get();
+//			//src = m_denoisedOutput.Get();
+//		else
+//			src = m_outputResource.Get();
+//
+//	//	src = m_outputResource.Get();
+//		  // zamiast m_denoisedOutput
+//
+//
+//		// 4) Restore IN buffers back to UAV for next DXR frame (SRV -> UAV)
+//		std::vector<CD3DX12_RESOURCE_BARRIER> restore;
+//		auto srvToUav = [&](ID3D12Resource* r)
+//			{
+//				if (!r) return;
+//				restore.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+//					r, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+//			};
+//
+//		srvToUav(m_aovDiffuseIn.Get());
+//		srvToUav(m_aovSpecularIn.Get());
+//		srvToUav(m_aovNormalRoughness.Get());
+//		srvToUav(m_aovViewZ.Get());
+//		srvToUav(m_aovMotion.Get());   // <-- TE¯
+//
+//
+//		if (!restore.empty())
+//			m_commandList->ResourceBarrier((UINT)restore.size(), restore.data());
+//
+//		// Make sure NRD UAV writes are visible before copy
+//		m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(nullptr));
+//	}
+//
+//	//if (m_enableDenoise)
+//	//{
+//	//	// 3) AOV-y musz¹ byæ SRV (NRD czyta), wiêc UAV -> SRV
+//	//	{
+//	//		std::vector<CD3DX12_RESOURCE_BARRIER> b;
+//
+//	//		auto toSrv = [&](ID3D12Resource* r)
+//	//			{
+//	//				if (!r) return;
+//	//				b.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+//	//					r,
+//	//					D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+//	//					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE));
+//	//			};
+//
+//	//		toSrv(m_aovDiffuse.Get());
+//	//		toSrv(m_aovSpecular.Get());
+//	//		toSrv(m_aovNormalRoughness.Get());
+//	//		toSrv(m_aovViewZ.Get());
+//	//		/*toSrv(m_outputResource.Get());
+//	//		toSrv(m_outputResource.Get());
+//	//		toSrv(m_outputResource.Get());
+//	//		toSrv(m_outputResource.Get());*/
+//
+//	//		if (!b.empty())
+//	//			m_commandList->ResourceBarrier((UINT)b.size(), b.data());
+//	//	}
+//
+//	//	// NRD potrzebuje swojego heapu + poprawnych descriptorów
+//	//	PrepareNRDDescriptorPoolIfNeeded();
+//	//	if (!m_nrdRootSignature || m_nrdPipelines.empty())
+//	//		CreateNRDPipelines();
+//
+//	//	UpdateNRDCommonSettingsPerFrame();
+//	//	ExecuteNRDDispatches();
+//
+//	//	// NRD output (m_denoisedOutput) jest UAV -> zaraz bêdziemy kopiowaæ
+//	//	src = m_denoisedOutput.Get();
+//
+//	//	// jeœli NRD pisa³ UAV, dodaj barrier UAV
+//	//	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(nullptr));
+//
+//	//	// 4) Przywróæ AOV-y na UAV na nastêpn¹ klatkê DXR (SRV -> UAV)
+//	//	{
+//	//		std::vector<CD3DX12_RESOURCE_BARRIER> b;
+//
+//	//		auto srvToUav = [&](ID3D12Resource* r)
+//	//			{
+//	//				if (!r) return;
+//	//				b.push_back(CD3DX12_RESOURCE_BARRIER::Transition(
+//	//					r,
+//	//					D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+//	//					D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+//	//			};
+//
+//	//		srvToUav(m_aovDiffuse.Get());
+//	//		srvToUav(m_aovSpecular.Get());
+//	//		srvToUav(m_aovNormalRoughness.Get());
+//	//		srvToUav(m_aovViewZ.Get());
+//
+//	//		if (!b.empty())
+//	//			m_commandList->ResourceBarrier((UINT)b.size(), b.data());
+//	//	}
+//	//}
+//
+//	// --- Copy src -> backbuffer (TYLKO RAZ) ---
+//	// src jest UAV (output albo denoisedOutput), wiêc UAV -> COPY_SOURCE
+//	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+//		src, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE));
+//
+//	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+//		m_renderTargets[m_frameIndex].Get(),
+//		D3D12_RESOURCE_STATE_RENDER_TARGET,
+//		D3D12_RESOURCE_STATE_COPY_DEST));
+//
+//	m_commandList->CopyResource(m_renderTargets[m_frameIndex].Get(), src);
+//
+//	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+//		m_renderTargets[m_frameIndex].Get(),
+//		D3D12_RESOURCE_STATE_COPY_DEST,
+//		D3D12_RESOURCE_STATE_RENDER_TARGET));
+//
+//	// Przywróæ src do UAV (¿eby kolejna klatka mog³a pisaæ)
+//	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+//		src, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+//
+//	// --- Instance buffer update (jak mia³eœ) ---
+//	{
+//		m_commandList->CopyResource(m_instancesBuffer.Get(), m_instancesUpload.Get());
+//		CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
+//			m_instancesBuffer.Get(),
+//			D3D12_RESOURCE_STATE_COPY_DEST,
+//			D3D12_RESOURCE_STATE_GENERIC_READ);
+//		m_commandList->ResourceBarrier(1, &barrier);
+//	}
+//
+//	// ---------- IMGUI RENDER ----------
+//	ImGui::Render();
+//	ID3D12DescriptorHeap* imguiHeaps[] = { m_imguiHeap.Get() };
+//	m_commandList->SetDescriptorHeaps(1, imguiHeaps);
+//	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_commandList.Get());
+//	
+//	// Backbuffer: RENDER_TARGET -> PRESENT
+//	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+//		m_renderTargets[m_frameIndex].Get(),
+//		D3D12_RESOURCE_STATE_RENDER_TARGET,
+//		D3D12_RESOURCE_STATE_PRESENT));
+//
+//	ThrowIfFailed(m_commandList->Close());
+//
+//}
 
 
 
@@ -1258,9 +1883,9 @@ ComPtr<ID3D12RootSignature> D3D12HelloTriangle::CreateRayGenSignature()
 	nv_helpers_dx12::RootSignatureGenerator rsc;
 	rsc.AddHeapRangesParameter(
 		{
-			{ 0 /*u0*/, 5 /*u0..u4*/, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0 },
-			{ 0 /*t0*/, 1,           0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 5 }, // TLAS w slocie 5
-			{ 0 /*b0*/, 1,           0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 6 }  // Camera w slocie 6
+			{ 0 /*u0*/, 6 /*u0..u4*/, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0 },
+			{ 0 /*t0*/, 1,           0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6 }, // TLAS w slocie 5
+			{ 0 /*b0*/, 1,           0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 7 }  // Camera w slocie 6
 		});
 
 	return rsc.Generate(m_device.Get(), true);
@@ -1425,26 +2050,54 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 // Allocate the buffer holding the raytracing output, with the same size as the
 // output image
 //
-void D3D12HelloTriangle::CreateRaytracingOutputBuffer() {
+//void D3D12HelloTriangle::CreateRaytracingOutputBuffer() {
+//	D3D12_RESOURCE_DESC resDesc = {};
+//	resDesc.DepthOrArraySize = 1;
+//	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+//	// The backbuffer is actually DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, but sRGB
+//	// formats cannot be used with UAVs. For accuracy we should convert to sRGB
+//	// ourselves in the shader
+//	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+//
+//	resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+//	resDesc.Width = GetWidth();
+//	resDesc.Height = GetHeight();
+//	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+//	resDesc.MipLevels = 1;
+//	resDesc.SampleDesc.Count = 1;
+//	ThrowIfFailed(m_device->CreateCommittedResource(
+//		&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
+//		D3D12_RESOURCE_STATE_COPY_SOURCE, nullptr,
+//		IID_PPV_ARGS(&m_outputResource)));
+//}
+
+
+void D3D12HelloTriangle::CreateRaytracingOutputBuffer()
+{
 	D3D12_RESOURCE_DESC resDesc = {};
 	resDesc.DepthOrArraySize = 1;
 	resDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-	// The backbuffer is actually DXGI_FORMAT_R8G8B8A8_UNORM_SRGB, but sRGB
-	// formats cannot be used with UAVs. For accuracy we should convert to sRGB
-	// ourselves in the shader
 	resDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-
 	resDesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
 	resDesc.Width = GetWidth();
 	resDesc.Height = GetHeight();
 	resDesc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
 	resDesc.MipLevels = 1;
 	resDesc.SampleDesc.Count = 1;
+
 	ThrowIfFailed(m_device->CreateCommittedResource(
-		&nv_helpers_dx12::kDefaultHeapProps, D3D12_HEAP_FLAG_NONE, &resDesc,
-		D3D12_RESOURCE_STATE_COPY_SOURCE, nullptr,
-		IID_PPV_ARGS(&m_outputResource)));
+		&nv_helpers_dx12::kDefaultHeapProps,
+		D3D12_HEAP_FLAG_NONE,
+		&resDesc,
+		D3D12_RESOURCE_STATE_COPY_SOURCE,
+		nullptr,
+		IID_PPV_ARGS(&m_outputResource)
+	));
+
+	m_stateOutput = D3D12_RESOURCE_STATE_COPY_SOURCE;
 }
+
+
 
 //-----------------------------------------------------------------------------
 //
@@ -1453,13 +2106,16 @@ void D3D12HelloTriangle::CreateRaytracingOutputBuffer() {
 //
 void D3D12HelloTriangle::CreateShaderResourceHeap()
 {
-	// 0..4 UAV, 5 TLAS SRV, 6 Camera CBV, reszta wg Twoich potrzeb (np. inst SRV, env SRV)
-	// U Ciebie env SRV jest u¿ywane w Miss przez SBT pointer, wiêc NIE jest wymagane w global heap,
-	// ale mo¿esz zostawiæ jeœli chcesz.
+	// u0..u5 = 6 UAV
+	// slot 6 = TLAS SRV (t0)
+	// slot 7 = Camera CBV (b0)
+	const UINT baseCount = 8;
 
-	const UINT baseCount = 7; // do Camera
-	const UINT extraInstanceSrvs = (UINT)Models.size(); // jeœli dalej chcesz to trzymaæ w heapie
-	const UINT descriptorCount = baseCount + extraInstanceSrvs + 1; // +1 jeœli chcesz env SRV na koñcu
+	const UINT extraInstanceSrvs = (UINT)Models.size();
+	//const UINT descriptorCount = baseCount + extraInstanceSrvs + 1; // +1 env SRV (opcjonalnie)
+
+	const UINT descriptorCount = baseCount + extraInstanceSrvs + 1 + 3; // +3 for compose temp descriptors
+
 
 	m_srvUavHeap = nv_helpers_dx12::CreateDescriptorHeap(
 		m_device.Get(), descriptorCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, true);
@@ -1467,7 +2123,6 @@ void D3D12HelloTriangle::CreateShaderResourceHeap()
 	UINT inc = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 	CD3DX12_CPU_DESCRIPTOR_HANDLE h(m_srvUavHeap->GetCPUDescriptorHandleForHeapStart());
 
-	// --- UAVs u0..u4 ---
 	auto createUav = [&](ID3D12Resource* res)
 		{
 			D3D12_UNORDERED_ACCESS_VIEW_DESC u = {};
@@ -1477,13 +2132,15 @@ void D3D12HelloTriangle::CreateShaderResourceHeap()
 			h.Offset(1, inc);
 		};
 
-	createUav(m_outputResource.Get());        // u0
-	createUav(m_aovDiffuse.Get());            // u1
-	createUav(m_aovSpecular.Get());           // u2
-	createUav(m_aovNormalRoughness.Get());    // u3
-	createUav(m_aovViewZ.Get());              // u4
+	// --- UAVs u0..u5 ---
+	createUav(m_outputResource.Get());      // u0
+	createUav(m_aovDiffuseIn.Get());        // u1
+	createUav(m_aovSpecularIn.Get());       // u2
+	createUav(m_aovNormalRoughness.Get());  // u3
+	createUav(m_aovViewZ.Get());            // u4
+	createUav(m_aovMotion.Get());           // u5  <-- NEW
 
-	// --- TLAS SRV t0 (slot 5) ---
+	// --- TLAS SRV slot 6 ---
 	D3D12_SHADER_RESOURCE_VIEW_DESC tlas = {};
 	tlas.Format = DXGI_FORMAT_UNKNOWN;
 	tlas.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
@@ -1492,14 +2149,14 @@ void D3D12HelloTriangle::CreateShaderResourceHeap()
 	m_device->CreateShaderResourceView(nullptr, &tlas, h);
 	h.Offset(1, inc);
 
-	// --- Camera CBV b0 (slot 6) ---
+	// --- Camera CBV slot 7 ---
 	D3D12_CONSTANT_BUFFER_VIEW_DESC cbv = {};
 	cbv.BufferLocation = m_cameraBuffer->GetGPUVirtualAddress();
 	cbv.SizeInBytes = m_cameraBufferSize;
 	m_device->CreateConstantBufferView(&cbv, h);
 	h.Offset(1, inc);
 
-	// --- (Opcjonalnie) SRV instancji ---
+	// --- SRV instancji (opcjonalnie) ---
 	for (size_t i = 0; i < Models.size(); ++i)
 	{
 		D3D12_SHADER_RESOURCE_VIEW_DESC instSrv = {};
@@ -1514,7 +2171,7 @@ void D3D12HelloTriangle::CreateShaderResourceHeap()
 		h.Offset(1, inc);
 	}
 
-	// --- (Opcjonalnie) env SRV (jeœli chcesz nadal w heapie) ---
+	// env SRV (opcjonalnie)
 	m_envSrvIndex = baseCount + (UINT)Models.size();
 	if (m_envTexture)
 	{
@@ -1526,6 +2183,10 @@ void D3D12HelloTriangle::CreateShaderResourceHeap()
 
 		m_device->CreateShaderResourceView(m_envTexture.Get(), &envSrv, h);
 	}
+
+	// sampler heap jak mia³eœ...
+	// (zostawiam, bo u Ciebie dzia³a)
+
 
 	// Sampler heap jak mia³eœ
 	D3D12_DESCRIPTOR_HEAP_DESC sampDesc = {};
@@ -1672,6 +2333,39 @@ void D3D12HelloTriangle::SetShadingMode(const std::wstring& mode)
 }
 
 
+//void D3D12HelloTriangle::BuildTLAS() {
+//	m_instances.clear();
+//
+//	for (size_t i = 0; i < BLASes.size(); i++)
+//	{
+//		XMMATRIX scaleMatrix = XMMatrixScaling(ModelDescriptions[i].scale.x, ModelDescriptions[i].scale.y, ModelDescriptions[i].scale.z);
+//		XMMATRIX rotationMatrix = XMMatrixRotationRollPitchYaw(degreesToRadians(ModelDescriptions[i].rotation.x), degreesToRadians(ModelDescriptions[i].rotation.y), degreesToRadians(ModelDescriptions[i].rotation.z));
+//		XMMATRIX translationMatrix = XMMatrixTranslation(ModelDescriptions[i].position.x, ModelDescriptions[i].position.y, ModelDescriptions[i].position.z);
+//		XMMATRIX transform = scaleMatrix * rotationMatrix * translationMatrix;
+//
+//		m_instances.push_back({
+//			BLASes[i].pResult.Get(),
+//			transform
+//			});
+//	}
+//
+//	CreateTopLevelAS(m_instances, !BLASChanged);
+//	if (BLASChanged == true) {
+//		D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_srvUavHeap->GetCPUDescriptorHandleForHeapStart();
+//
+//		srvHandle.ptr += m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+//		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
+//		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+//		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+//		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+//		srvDesc.RaytracingAccelerationStructure.Location = m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
+//
+//		m_device->CreateShaderResourceView(nullptr, &srvDesc, srvHandle);
+//		BLASChanged = false;
+//	}
+//}
+
+
 void D3D12HelloTriangle::BuildTLAS() {
 	m_instances.clear();
 
@@ -1689,7 +2383,7 @@ void D3D12HelloTriangle::BuildTLAS() {
 	}
 
 	CreateTopLevelAS(m_instances, !BLASChanged);
-	if (BLASChanged == true) {
+	/*if (BLASChanged == true) {
 		D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_srvUavHeap->GetCPUDescriptorHandleForHeapStart();
 
 		srvHandle.ptr += m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -1701,7 +2395,34 @@ void D3D12HelloTriangle::BuildTLAS() {
 
 		m_device->CreateShaderResourceView(nullptr, &srvDesc, srvHandle);
 		BLASChanged = false;
+	}*/
+
+
+	if (BLASChanged)
+	{
+		const UINT inc = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+		// UAV u0..u4 = 5 slotów
+		//const UINT tlasIndexInHeap = 6;
+		// UINT tlasIndexInHeap = kTlasHeapIndex;
+
+
+		CD3DX12_CPU_DESCRIPTOR_HANDLE srvHandle(m_srvUavHeap->GetCPUDescriptorHandleForHeapStart());
+		//srvHandle.Offset((INT)tlasIndexInHeap, inc);
+
+		srvHandle.Offset((INT)kTlasHeapIndex, inc);
+
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.RaytracingAccelerationStructure.Location = m_topLevelASBuffers.pResult->GetGPUVirtualAddress();
+
+		m_device->CreateShaderResourceView(nullptr, &srvDesc, srvHandle);
+
+		BLASChanged = false;
 	}
+
 }
 
 D3D12HelloTriangle::HDRImage D3D12HelloTriangle::LoadHDR(const std::string& path)
@@ -1873,15 +2594,10 @@ void D3D12HelloTriangle::UpdateNRDCommonSettingsPerFrame()
 		return;
 
 	nrd::CommonSettings cs = {};
-
-	// Frame index MUST increase every frame when denoising
-	cs.frameIndex = m_nrdFrameIndex++;
-	cs.accumulationMode = nrd::AccumulationMode::CONTINUE;
 	cs.denoisingRange = 1000.0f;
 
-	// Sizes
-	cs.resourceSize[0] = static_cast<uint16_t>(GetWidth());
-	cs.resourceSize[1] = static_cast<uint16_t>(GetHeight());
+	cs.resourceSize[0] = (uint16_t)GetWidth();
+	cs.resourceSize[1] = (uint16_t)GetHeight();
 	cs.resourceSizePrev[0] = cs.resourceSize[0];
 	cs.resourceSizePrev[1] = cs.resourceSize[1];
 
@@ -1890,44 +2606,64 @@ void D3D12HelloTriangle::UpdateNRDCommonSettingsPerFrame()
 	cs.rectSizePrev[0] = cs.rectSize[0];
 	cs.rectSizePrev[1] = cs.rectSize[1];
 
-	// If you provide MV in world space -> true. Most pipelines provide view-space MV -> false.
 	cs.isMotionVectorInWorldSpace = false;
 	cs.isHistoryConfidenceAvailable = false;
-
-	// IMPORTANT: viewZScale must match how you interpret depth (NRD expects viewZ linearization settings)
 	cs.viewZScale = 1.0f;
 
-	// Current matrices from CameraManip
+	// current matrices
 	const glm::mat4& glmView = nv_helpers_dx12::CameraManip.getMatrix();
+
 	DirectX::XMMATRIX worldToView;
 	memcpy(&worldToView, glm::value_ptr(glmView), sizeof(DirectX::XMMATRIX));
 
 	float fovAngleY = 45.0f * DirectX::XM_PI / 180.0f;
 	DirectX::XMMATRIX viewToClip = DirectX::XMMatrixPerspectiveFovRH(
-		fovAngleY,
-		m_aspectRatio,
-		0.1f,
-		1000.0f
-	);
+		fovAngleY, m_aspectRatio, 0.1f, 1000.0f);
 
-	// Copy current
+	// Decide accumulation mode
+	bool justEnabled = (m_enableDenoise && !m_prevEnableDenoise);
+	m_prevEnableDenoise = m_enableDenoise;
+
+	// first valid frame: prev=current
+	if (!m_prevNrdValid)
+	{
+		m_prevWorldToView = worldToView;
+		m_prevViewToClip = viewToClip;
+		m_prevNrdValid = true;
+		cs.accumulationMode = nrd::AccumulationMode::RESTART;
+	}
+	else
+	{
+		// camera moved? (cheap check)
+		// If any significant delta in matrices, restart.
+		// (to jest proste, ale dzia³a)
+		float delta =
+			fabs(worldToView.r[3].m128_f32[0] - m_prevWorldToView.r[3].m128_f32[0]) +
+			fabs(worldToView.r[3].m128_f32[1] - m_prevWorldToView.r[3].m128_f32[1]) +
+			fabs(worldToView.r[3].m128_f32[2] - m_prevWorldToView.r[3].m128_f32[2]);
+
+		bool cameraMoved = (delta > 0.0005f);
+		cs.accumulationMode = (justEnabled || cameraMoved)
+			? nrd::AccumulationMode::RESTART
+			: nrd::AccumulationMode::CONTINUE;
+	}
+
+	cs.frameIndex = m_nrdFrameIndex++; // ALWAYS increasing
+
+	// write matrices (current + prev)
 	memcpy(cs.worldToViewMatrix, &worldToView, sizeof(cs.worldToViewMatrix));
 	memcpy(cs.viewToClipMatrix, &viewToClip, sizeof(cs.viewToClipMatrix));
-
-	// Copy prev (from stored values)
 	memcpy(cs.worldToViewMatrixPrev, &m_prevWorldToView, sizeof(cs.worldToViewMatrixPrev));
 	memcpy(cs.viewToClipMatrixPrev, &m_prevViewToClip, sizeof(cs.viewToClipMatrixPrev));
 
-	// Push to NRD
 	if (!m_nrd.UpdateCommonSettings(cs))
-	{
 		OutputDebugStringA("NRD: UpdateCommonSettings failed\n");
-	}
 
-	// Update prev for next frame
+	// update prev for next frame
 	m_prevWorldToView = worldToView;
 	m_prevViewToClip = viewToClip;
 }
+
 
 
 
@@ -2066,12 +2802,49 @@ void D3D12HelloTriangle::CreateNRDPipelines()
 
 
 
+//void D3D12HelloTriangle::CreateAOVResources()
+//{
+//	const UINT w = GetWidth();
+//	const UINT h = GetHeight();
+//
+//	auto makeTex = [&](DXGI_FORMAT fmt, ComPtr<ID3D12Resource>& out)
+//		{
+//			D3D12_RESOURCE_DESC d = {};
+//			d.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+//			d.Width = w;
+//			d.Height = h;
+//			d.DepthOrArraySize = 1;
+//			d.MipLevels = 1;
+//			d.Format = fmt;
+//			d.SampleDesc.Count = 1;
+//			d.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+//			d.Flags = D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
+//
+//			ThrowIfFailed(m_device->CreateCommittedResource(
+//				&nv_helpers_dx12::kDefaultHeapProps,
+//				D3D12_HEAP_FLAG_NONE,
+//				&d,
+//				D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // <-- KLUCZOWE
+//				nullptr,
+//				IID_PPV_ARGS(&out)
+//			));
+//		};
+//
+//	makeTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovDiffuse);
+//	makeTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovSpecular);
+//	makeTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovNormalRoughness);
+//	makeTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovViewZ);
+//
+//	// jeœli denoisedOutput ma byæ wynikiem compute (NRD) -> te¿ UAV
+//	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_denoisedOutput);
+//}
+
 void D3D12HelloTriangle::CreateAOVResources()
 {
 	const UINT w = GetWidth();
 	const UINT h = GetHeight();
 
-	auto makeTex = [&](DXGI_FORMAT fmt, ComPtr<ID3D12Resource>& out)
+	auto makeUavTex = [&](DXGI_FORMAT fmt, Microsoft::WRL::ComPtr<ID3D12Resource>& out, D3D12_RESOURCE_STATES initState)
 		{
 			D3D12_RESOURCE_DESC d = {};
 			d.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
@@ -2088,18 +2861,171 @@ void D3D12HelloTriangle::CreateAOVResources()
 				&nv_helpers_dx12::kDefaultHeapProps,
 				D3D12_HEAP_FLAG_NONE,
 				&d,
-				D3D12_RESOURCE_STATE_UNORDERED_ACCESS, // <-- KLUCZOWE
+				initState,
 				nullptr,
 				IID_PPV_ARGS(&out)
 			));
 		};
 
-	makeTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovDiffuse);
-	makeTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovSpecular);
-	makeTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovNormalRoughness);
-	makeTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovViewZ);
+	// DXR writes IN as UAV
+	makeUavTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovDiffuseIn, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	makeUavTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovSpecularIn, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	makeUavTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovNormalRoughness, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	makeUavTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovViewZ, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	makeUavTex(DXGI_FORMAT_R16G16_FLOAT, m_aovMotion, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
-	// jeœli denoisedOutput ma byæ wynikiem compute (NRD) -> te¿ UAV
-	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_denoisedOutput);
+	// NRD writes OUT as UAV
+	makeUavTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovDiffuseOut, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	makeUavTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovSpecularOut, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+	// OUT_SIGNAL
+	makeUavTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_denoisedOutput, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+	// Keep state tracker consistent:
+	m_stateDiffIn = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	m_stateSpecIn = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	m_stateNR = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	m_stateViewZ = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	m_stateMotion = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+
+	m_stateDiffOut = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	m_stateSpecOut = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	m_stateDenoised = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
 }
 
+
+
+void D3D12HelloTriangle::CreateComposePipeline()
+{
+	if (m_composePSO)
+		return;
+
+	// Root signature: table(SRV t0..t1, UAV u0) + CBV(b0)
+	CD3DX12_DESCRIPTOR_RANGE ranges[2] = {};
+	ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0, D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND); // t0,t1
+	ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND); // u0
+
+	CD3DX12_ROOT_PARAMETER params[2] = {};
+	params[0].InitAsDescriptorTable(2, ranges, D3D12_SHADER_VISIBILITY_ALL);
+	params[1].InitAsConstantBufferView(0, 0, D3D12_SHADER_VISIBILITY_ALL);
+
+	CD3DX12_ROOT_SIGNATURE_DESC rsDesc;
+	rsDesc.Init(_countof(params), params, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_NONE);
+
+	Microsoft::WRL::ComPtr<ID3DBlob> sigBlob;
+	Microsoft::WRL::ComPtr<ID3DBlob> errBlob;
+	ThrowIfFailed(D3D12SerializeRootSignature(&rsDesc, D3D_ROOT_SIGNATURE_VERSION_1, &sigBlob, &errBlob));
+	ThrowIfFailed(m_device->CreateRootSignature(
+		0, sigBlob->GetBufferPointer(), sigBlob->GetBufferSize(),
+		IID_PPV_ARGS(&m_composeRootSig)));
+
+	// Compile compute shader
+	Microsoft::WRL::ComPtr<ID3DBlob> csBlob;
+	Microsoft::WRL::ComPtr<ID3DBlob> csErr;
+
+	UINT flags = 0;
+#if defined(_DEBUG)
+	flags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#endif
+
+	HRESULT hr = D3DCompileFromFile(
+		L"shaders/NRDCompose.hlsl",
+		nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
+		"main", "cs_5_1", // you can switch to cs_6_0 if you use DXC; keep cs_5_1 for minimal DXC-less path
+		flags, 0,
+		&csBlob, &csErr);
+
+	if (FAILED(hr))
+	{
+		if (csErr) OutputDebugStringA((const char*)csErr->GetBufferPointer());
+		ThrowIfFailed(hr);
+	}
+
+	D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
+	psoDesc.pRootSignature = m_composeRootSig.Get();
+	psoDesc.CS.pShaderBytecode = csBlob->GetBufferPointer();
+	psoDesc.CS.BytecodeLength = csBlob->GetBufferSize();
+
+	ThrowIfFailed(m_device->CreateComputePipelineState(&psoDesc, IID_PPV_ARGS(&m_composePSO)));
+
+	// Create small upload CB
+	m_composeCBSize = 256;
+	CD3DX12_HEAP_PROPERTIES heapUpload(D3D12_HEAP_TYPE_UPLOAD);
+	CD3DX12_RESOURCE_DESC bufDesc = CD3DX12_RESOURCE_DESC::Buffer(m_composeCBSize);
+	ThrowIfFailed(m_device->CreateCommittedResource(
+		&heapUpload, D3D12_HEAP_FLAG_NONE, &bufDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+		IID_PPV_ARGS(&m_composeCBUpload)));
+}
+
+
+
+void D3D12HelloTriangle::ExecuteComposePass(ID3D12Resource* diffOut, ID3D12Resource* specOut, ID3D12Resource* outUnorm)
+{
+	CreateComposePipeline();
+
+	// Find 3 temporary descriptor slots at the end of m_srvUavHeap
+	// We assume CreateShaderResourceHeap created enough descriptors; if not, increase it by +3.
+	const UINT inc = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	D3D12_DESCRIPTOR_HEAP_DESC heapDesc = m_srvUavHeap->GetDesc();
+	const UINT base = heapDesc.NumDescriptors - 3;
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE cpu(m_srvUavHeap->GetCPUDescriptorHandleForHeapStart(), (INT)base, inc);
+	CD3DX12_GPU_DESCRIPTOR_HANDLE gpu(m_srvUavHeap->GetGPUDescriptorHandleForHeapStart(), (INT)base, inc);
+
+	// SRV diffOut (t0)
+	{
+		D3D12_SHADER_RESOURCE_VIEW_DESC s = {};
+		s.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		s.Format = diffOut->GetDesc().Format;
+		s.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		s.Texture2D.MipLevels = 1;
+		m_device->CreateShaderResourceView(diffOut, &s, cpu);
+		cpu.Offset(1, inc);
+	}
+
+	// SRV specOut (t1)
+	{
+		D3D12_SHADER_RESOURCE_VIEW_DESC s = {};
+		s.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		s.Format = specOut->GetDesc().Format;
+		s.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		s.Texture2D.MipLevels = 1;
+		m_device->CreateShaderResourceView(specOut, &s, cpu);
+		cpu.Offset(1, inc);
+	}
+
+	// UAV outUnorm (u0)
+	{
+		D3D12_UNORDERED_ACCESS_VIEW_DESC u = {};
+		u.Format = outUnorm->GetDesc().Format;
+		u.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+		m_device->CreateUnorderedAccessView(outUnorm, nullptr, &u, cpu);
+	}
+
+	// Upload CB (ISO)
+	struct ComposeCB { uint32_t ISOIndex; uint32_t pad[3]; } cb = {};
+	cb.ISOIndex = m_ISOIndex;
+
+	uint8_t* mapped = nullptr;
+	D3D12_RANGE rr = { 0,0 };
+	ThrowIfFailed(m_composeCBUpload->Map(0, &rr, (void**)&mapped));
+	memcpy(mapped, &cb, sizeof(cb));
+	m_composeCBUpload->Unmap(0, nullptr);
+
+	// Dispatch
+	m_commandList->SetComputeRootSignature(m_composeRootSig.Get());
+	m_commandList->SetPipelineState(m_composePSO.Get());
+
+	// param0 = descriptor table
+	m_commandList->SetComputeRootDescriptorTable(0, gpu);
+	// param1 = CBV
+	m_commandList->SetComputeRootConstantBufferView(1, m_composeCBUpload->GetGPUVirtualAddress());
+
+	const UINT gx = (GetWidth() + 7) / 8;
+	const UINT gy = (GetHeight() + 7) / 8;
+	m_commandList->Dispatch(gx, gy, 1);
+
+	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(nullptr));
+}

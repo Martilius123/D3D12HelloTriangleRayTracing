@@ -107,6 +107,78 @@ public:
 	//ComPtr<ID3D12Resource> m_aovViewZ;
 	ComPtr<ID3D12Resource> m_denoisedOutput; // wynik NRD (UAV)
 
+
+
+
+	// --- NRD frame control ---
+	//uint32_t m_nrdFrameIndex = 0;
+	bool m_forceNrdRestart = true; // restart on first frame
+
+	// Prev matrices stored in the SAME convention that NRD expects (transposed float[16])
+	DirectX::XMMATRIX m_prevWorldToViewT = DirectX::XMMatrixIdentity();
+	DirectX::XMMATRIX m_prevViewToClipT = DirectX::XMMatrixIdentity();
+
+	// For detecting camera movement (optional but useful)
+	DirectX::XMMATRIX m_lastWorldToViewT = DirectX::XMMatrixIdentity();
+	bool m_firstNrdFrame = true;
+
+
+
+
+
+
+
+	// --- resource state tracking (minimal) ---
+	D3D12_RESOURCE_STATES m_stateOutput = D3D12_RESOURCE_STATE_COPY_SOURCE;
+	D3D12_RESOURCE_STATES m_stateDiffIn = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	D3D12_RESOURCE_STATES m_stateSpecIn = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	D3D12_RESOURCE_STATES m_stateNR = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	D3D12_RESOURCE_STATES m_stateViewZ = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	D3D12_RESOURCE_STATES m_stateMotion = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+
+	D3D12_RESOURCE_STATES m_stateDiffOut = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	D3D12_RESOURCE_STATES m_stateSpecOut = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	D3D12_RESOURCE_STATES m_stateDenoised = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+
+
+
+
+
+
+
+	// --- Compose pipeline (diff+spec -> denoisedOutput) ---
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_composeRootSig;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_composePSO;
+	Microsoft::WRL::ComPtr<ID3D12Resource>      m_composeCBUpload;
+	uint32_t                                    m_composeCBSize = 0;
+	void D3D12HelloTriangle::CreateComposePipeline();
+	void D3D12HelloTriangle::ExecuteComposePass(ID3D12Resource* diffOut, ID3D12Resource* specOut, ID3D12Resource* outUnorm);
+
+
+
+
+	//uint32_t m_nrdFrameIndex = 0;
+	bool m_prevNrdValid = false;
+	bool m_prevEnableDenoise = false;
+	//DirectX::XMMATRIX m_prevWorldToView = DirectX::XMMatrixIdentity();
+	//DirectX::XMMATRIX m_prevViewToClip = DirectX::XMMatrixIdentity();
+
+
+	//
+
+	// AOV ping-pong (DXR writes -> IN, NRD writes -> OUT)
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_aovDiffuseIn;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_aovSpecularIn;
+	//Microsoft::WRL::ComPtr<ID3D12Resource> m_aovNormalRoughness; // IN only
+	//Microsoft::WRL::ComPtr<ID3D12Resource> m_aovViewZ;           // IN only
+
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_aovDiffuseOut;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_aovSpecularOut;
+
+	// Final output from NRD (if your NRD algo outputs OUT_SIGNAL)
+	//Microsoft::WRL::ComPtr<ID3D12Resource> m_denoisedOutput;
+
+
 	ID3D12Resource* D3D12HelloTriangle::GetResourceForNrdType(nrd::ResourceType t);
 
 	void D3D12HelloTriangle::WriteNrdUav(uint32_t index, ID3D12Resource* res);
@@ -140,23 +212,48 @@ private:
 	XMFLOAT3 m_environmentColor = XMFLOAT3(1.0f, 1.0f, 1.0f);
 	float m_environmentIntensity = 1.0f;
 
+	//struct SceneCB
+	//{
+	//	XMMATRIX View;
+	//	XMMATRIX Proj;
+	//	XMMATRIX InvView;
+	//	XMMATRIX InvProj;
+	//	UINT FrameIndex;
+	//	UINT SampleCount;
+	//	UINT MaxRecursionDepth;
+	//	UINT ISOIndex;
+	//	XMFLOAT3 EnvironmentColor;
+	//	bool HighlightOverexposed;
+	//	bool padding[3];
+	//	bool EnableEnvironmentTexture;
+	//	bool padding2[3];
+	//	float pad[2];
+	//};
+
 	struct SceneCB
 	{
-		XMMATRIX View;
-		XMMATRIX Proj;
-		XMMATRIX InvView;
-		XMMATRIX InvProj;
+		DirectX::XMMATRIX View;
+		DirectX::XMMATRIX Proj;
+		DirectX::XMMATRIX InvView;
+		DirectX::XMMATRIX InvProj;
+
+		// --- NRD history / motion ---
+		DirectX::XMMATRIX ViewProj;
+		DirectX::XMMATRIX PrevViewProj;
+
 		UINT FrameIndex;
 		UINT SampleCount;
 		UINT MaxRecursionDepth;
 		UINT ISOIndex;
-		XMFLOAT3 EnvironmentColor;
-		bool HighlightOverexposed;
-		bool padding[3];
-		bool EnableEnvironmentTexture;
-		bool padding2[3];
-		float pad[2];
+
+		DirectX::XMFLOAT3 EnvironmentColor;
+		UINT HighlightOverexposed;       // <-- UINT, nie bool
+
+		UINT EnableEnvironmentTexture;   // <-- UINT, nie bool
+		UINT Pad0;                       // padding pod alignment (mo¿e byæ 0)
+		float Pad1[2];                   // wyrównanie do 16B
 	};
+
 
 	struct Vertex
 	{
@@ -210,6 +307,25 @@ private:
 		
 	};
 public:
+
+
+
+	// Heap layout constants (SRV/UAV heap used by RayGen)
+	//static constexpr UINT kUavCount = 6;              // u0..u5
+	//static constexpr UINT kTlasHeapIndex = kUavCount;      // 6
+	//static constexpr UINT kCameraHeapIndex = kUavCount + 1;  // 7
+
+	static constexpr UINT kUavCount = 6;               // u0..u5
+	static constexpr UINT kTlasHeapIndex = kUavCount;  // 6
+	static constexpr UINT kCameraHeapIndex = kUavCount + 1; // 7
+
+
+	const UINT baseCount = kCameraHeapIndex + 1; // 8
+
+
+
+
+
 	//buffers:
 	ComPtr<ID3D12Resource> m_instancesBuffer;       // GPU buffer (ModelInstanceGPU)
 	ComPtr<ID3D12Resource> m_instancesUpload;       // Upload buffer
@@ -296,6 +412,8 @@ public:
 	ComPtr<ID3D12Fence> m_fence;
 	UINT64 m_fenceValue;
 
+
+	bool D3D12HelloTriangle::HasCameraChangedForNRD(const DirectX::XMMATRIX& worldToViewT);
 	void LoadPipeline();
 	void LoadAssets();
 	void InitializeShaderData(int i);
@@ -331,6 +449,8 @@ void CreateTopLevelAS(const std::vector<std::pair<ID3D12Resource*, DirectX::XMMA
 
 void CreateAccelerationStructures();
 
+
+Microsoft::WRL::ComPtr<ID3D12Resource> m_aovMotion; // RG16F or RG32F
 // #DXR additions
 
 // Methods to create root signatures and pipeline
@@ -394,7 +514,7 @@ void D3D12HelloTriangle::SaveScene(const std::string& filename);
 void OnButtonDown(UINT32 lParam);
 void OnMouseMove(UINT8 wParam, UINT32 lParam);
 //for changing shading mode
-void D3D12HelloTriangle::AddModel(const std::string& path, bool realoading = false);
+void D3D12HelloTriangle::AddModel(const std::string& path, bool reloading = false);
 void D3D12HelloTriangle::RemoveModel(int index);
 void D3D12HelloTriangle::BuildTLAS();
 bool BLASChanged=false;

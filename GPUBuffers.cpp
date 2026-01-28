@@ -117,9 +117,80 @@ void D3D12HelloTriangle::UpdateModelDataBuffer() {
 //--------------------------------------------------------------------------------
 // Create and copies the viewmodel and perspective matrices of the camera
 //
+//void D3D12HelloTriangle::UpdateCameraBuffer()
+//{
+//	using namespace nv_helpers_dx12;
+//
+//	Manipulator& manip = CameraManip;
+//
+//	// --- Timing ---
+//	static DWORD lastTime = GetTickCount();
+//	DWORD now = GetTickCount();
+//	float deltaTime = (now - lastTime) / 1000.0f;
+//	lastTime = now;
+//
+//	// --- Camera matrices ---
+//	SceneCB sceneCB = {};
+//
+//	// View matrix from manipulator (GLM -> XMMATRIX)
+//	const glm::mat4& glmView = manip.getMatrix();
+//	memcpy(&sceneCB.View, glm::value_ptr(glmView), sizeof(XMMATRIX));
+//
+//	// Projection matrix
+//	float fovAngleY = 45.0f * XM_PI / 180.0f;
+//	sceneCB.Proj = XMMatrixPerspectiveFovRH(
+//		fovAngleY,
+//		m_aspectRatio,
+//		0.1f,
+//		1000.0f
+//	);
+//
+//	// Inverses (needed for ray tracing)
+//	XMVECTOR det;
+//	sceneCB.InvView = XMMatrixInverse(&det, sceneCB.View);
+//	sceneCB.InvProj = XMMatrixInverse(&det, sceneCB.Proj);
+//
+//	// Frame index
+//	sceneCB.FrameIndex = m_frameIndexCPU++;
+//	sceneCB.SampleCount = m_sampleCount;
+//	sceneCB.MaxRecursionDepth = m_maximumRecursionDepth;
+//	sceneCB.ISOIndex = m_ISOIndex;
+//	sceneCB.HighlightOverexposed = m_highlightOverexposed;
+//	sceneCB.EnableEnvironmentTexture = m_enableEnvironmentTexture;
+//	sceneCB.EnvironmentColor = { m_environmentColor.x * m_environmentIntensity, m_environmentColor.y * m_environmentIntensity, m_environmentColor.z * m_environmentIntensity };
+//
+//	// --- Upload constant buffer ---
+//	uint8_t* pData;
+//	ThrowIfFailed(m_cameraBuffer->Map(0, nullptr, (void**)&pData));
+//	memcpy(pData, &sceneCB, sizeof(SceneCB));
+//	m_cameraBuffer->Unmap(0, nullptr);
+//
+//	// --- Keyboard movement ---
+//	glm::vec3 eye, center, up;
+//	manip.getLookat(eye, center, up);
+//
+//	glm::vec3 forward = glm::normalize(center - eye);
+//	glm::vec3 right = glm::normalize(glm::cross(forward, up));
+//
+//	float speed = manip.getSpeed();
+//
+//	if (keyWDown) eye += forward * speed * deltaTime;
+//	if (keySDown) eye -= forward * speed * deltaTime;
+//	if (keyADown) eye -= right * speed * deltaTime;
+//	if (keyDDown) eye += right * speed * deltaTime;
+//	if (keyQDown) eye -= up * speed * deltaTime;
+//	if (keyEDown) eye += up * speed * deltaTime;
+//
+//	// Update manipulator
+//	manip.setLookat(eye, eye + forward, up);
+//
+//}
+
+
 void D3D12HelloTriangle::UpdateCameraBuffer()
 {
 	using namespace nv_helpers_dx12;
+	using namespace DirectX;
 
 	Manipulator& manip = CameraManip;
 
@@ -129,43 +200,10 @@ void D3D12HelloTriangle::UpdateCameraBuffer()
 	float deltaTime = (now - lastTime) / 1000.0f;
 	lastTime = now;
 
-	// --- Camera matrices ---
-	SceneCB sceneCB = {};
+	// Clamp (¿eby po alt-tab / breakpoint nie odlecia³o)
+	if (deltaTime > 0.1f) deltaTime = 0.1f;
 
-	// View matrix from manipulator (GLM -> XMMATRIX)
-	const glm::mat4& glmView = manip.getMatrix();
-	memcpy(&sceneCB.View, glm::value_ptr(glmView), sizeof(XMMATRIX));
-
-	// Projection matrix
-	float fovAngleY = 45.0f * XM_PI / 180.0f;
-	sceneCB.Proj = XMMatrixPerspectiveFovRH(
-		fovAngleY,
-		m_aspectRatio,
-		0.1f,
-		1000.0f
-	);
-
-	// Inverses (needed for ray tracing)
-	XMVECTOR det;
-	sceneCB.InvView = XMMatrixInverse(&det, sceneCB.View);
-	sceneCB.InvProj = XMMatrixInverse(&det, sceneCB.Proj);
-
-	// Frame index
-	sceneCB.FrameIndex = m_frameIndexCPU++;
-	sceneCB.SampleCount = m_sampleCount;
-	sceneCB.MaxRecursionDepth = m_maximumRecursionDepth;
-	sceneCB.ISOIndex = m_ISOIndex;
-	sceneCB.HighlightOverexposed = m_highlightOverexposed;
-	sceneCB.EnableEnvironmentTexture = m_enableEnvironmentTexture;
-	sceneCB.EnvironmentColor = { m_environmentColor.x * m_environmentIntensity, m_environmentColor.y * m_environmentIntensity, m_environmentColor.z * m_environmentIntensity };
-
-	// --- Upload constant buffer ---
-	uint8_t* pData;
-	ThrowIfFailed(m_cameraBuffer->Map(0, nullptr, (void**)&pData));
-	memcpy(pData, &sceneCB, sizeof(SceneCB));
-	m_cameraBuffer->Unmap(0, nullptr);
-
-	// --- Keyboard movement ---
+	// --- Read current lookat ---
 	glm::vec3 eye, center, up;
 	manip.getLookat(eye, center, up);
 
@@ -174,6 +212,7 @@ void D3D12HelloTriangle::UpdateCameraBuffer()
 
 	float speed = manip.getSpeed();
 
+	// --- Apply keyboard movement FIRST (so this frame uses updated camera) ---
 	if (keyWDown) eye += forward * speed * deltaTime;
 	if (keySDown) eye -= forward * speed * deltaTime;
 	if (keyADown) eye -= right * speed * deltaTime;
@@ -181,10 +220,74 @@ void D3D12HelloTriangle::UpdateCameraBuffer()
 	if (keyQDown) eye -= up * speed * deltaTime;
 	if (keyEDown) eye += up * speed * deltaTime;
 
-	// Update manipulator
+	// Update manipulator immediately
 	manip.setLookat(eye, eye + forward, up);
 
+	// --- Build matrices AFTER movement ---
+	SceneCB sceneCB = {};
+
+	// View matrix from manipulator (GLM -> XMMATRIX)
+	const glm::mat4& glmView = manip.getMatrix();
+	XMMATRIX view;
+	memcpy(&view, glm::value_ptr(glmView), sizeof(XMMATRIX));
+	sceneCB.View = view;
+
+	// Projection
+	float fovAngleY = 45.0f * XM_PI / 180.0f;
+	XMMATRIX proj = XMMatrixPerspectiveFovRH(
+		fovAngleY,
+		m_aspectRatio,
+		0.1f,
+		1000.0f
+	);
+	sceneCB.Proj = proj;
+
+	// Inverses
+	XMVECTOR det;
+	sceneCB.InvView = XMMatrixInverse(&det, view);
+	sceneCB.InvProj = XMMatrixInverse(&det, proj);
+
+	// ViewProj + PrevViewProj (NRD / history stability)
+	XMMATRIX viewProj = XMMatrixMultiply(view, proj);
+	sceneCB.ViewProj = viewProj;
+
+	// Keep previous VP across frames
+	static bool hasPrev = false;
+	static XMMATRIX prevViewProj = XMMatrixIdentity();
+
+	sceneCB.PrevViewProj = hasPrev ? prevViewProj : viewProj;
+
+	// Update prev for next frame
+	prevViewProj = viewProj;
+	hasPrev = true;
+
+	// --- Constants ---
+	sceneCB.FrameIndex = m_frameIndexCPU++;          // MUST increase every frame
+	sceneCB.SampleCount = m_sampleCount;
+	sceneCB.MaxRecursionDepth = m_maximumRecursionDepth;
+	sceneCB.ISOIndex = m_ISOIndex;
+
+	sceneCB.EnvironmentColor = XMFLOAT3(
+		m_environmentColor.x * m_environmentIntensity,
+		m_environmentColor.y * m_environmentIntensity,
+		m_environmentColor.z * m_environmentIntensity
+	);
+
+	// IMPORTANT: no bool in CB (HLSL expects 4 bytes)
+	sceneCB.HighlightOverexposed = m_highlightOverexposed ? 1u : 0u;
+	sceneCB.EnableEnvironmentTexture = m_enableEnvironmentTexture ? 1u : 0u;
+
+	sceneCB.Pad0 = 0u;
+	sceneCB.Pad1[0] = 0.0f;
+	sceneCB.Pad1[1] = 0.0f;
+
+	// --- Upload constant buffer ---
+	uint8_t* pData = nullptr;
+	ThrowIfFailed(m_cameraBuffer->Map(0, nullptr, (void**)&pData));
+	memcpy(pData, &sceneCB, sizeof(SceneCB));
+	m_cameraBuffer->Unmap(0, nullptr);
 }
+
 
 //Animating Model translations
 void D3D12HelloTriangle::UpdateModelTranslations()

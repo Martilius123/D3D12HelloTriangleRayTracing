@@ -305,6 +305,9 @@ void D3D12HelloTriangle::AddModel(const std::string& path, bool reloading) {
 	ModelsShaderData.push_back(newModelInstance);
 	CreateModelDataBuffer();
 
+	//
+	CreateShaderResourceHeap();
+
 	CreateRaytracingPipeline();
 	CreateShaderBindingTable();
 
