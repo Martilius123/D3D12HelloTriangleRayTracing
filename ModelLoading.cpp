@@ -262,7 +262,9 @@ void D3D12HelloTriangle::AddModel(const std::string& path, bool reloading) {
 	ModelInstance newModel = {};
 	newDescription.id = newModel.id = static_cast<int>(Models.size());
 	newDescription.path = path;
+
 	LoadModel(path, newModel.vertices, newModel.indices);
+
 	const UINT vertexBufferSize = static_cast<UINT>(newModel.vertices.size()) * sizeof(Vertex);
 	ThrowIfFailed(m_device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
@@ -294,7 +296,7 @@ void D3D12HelloTriangle::AddModel(const std::string& path, bool reloading) {
 	BLASes.push_back(newBLAS);
 	m_bottomLevelAS.clear();
 	for (auto& b : BLASes) m_bottomLevelAS.push_back(b.pResult);
-	
+
 	if (!reloading) {
 		ModelDescriptions.push_back(newDescription);
 	}
@@ -302,9 +304,28 @@ void D3D12HelloTriangle::AddModel(const std::string& path, bool reloading) {
 
 	ModelInstanceGPU newModelInstance;
 	newModelInstance.id = newModel.id;
+	newModelInstance.albedo = newDescription.albedo;
+	newModelInstance.roughness = newDescription.roughness;
 	ModelsShaderData.push_back(newModelInstance);
+
 	CreateModelDataBuffer();
 
+	m_instances.clear();
+	for (size_t i = 0; i < BLASes.size(); i++) {
+		XMMATRIX tr = XMMatrixIdentity();
+		if (i < ModelDescriptions.size()) {
+			XMMATRIX sc = XMMatrixScaling(ModelDescriptions[i].scale.x, ModelDescriptions[i].scale.y, ModelDescriptions[i].scale.z);
+			XMMATRIX rot = XMMatrixRotationRollPitchYaw(degreesToRadians(ModelDescriptions[i].rotation.x), degreesToRadians(ModelDescriptions[i].rotation.y), degreesToRadians(ModelDescriptions[i].rotation.z));
+			XMMATRIX trans = XMMatrixTranslation(ModelDescriptions[i].position.x, ModelDescriptions[i].position.y, ModelDescriptions[i].position.z);
+			tr = sc * rot * trans;
+		}
+		m_instances.push_back({ BLASes[i].pResult.Get(), tr });
+	}
+
+	CreateTopLevelAS(m_instances, false);
+
+
+	CreateShaderResourceHeap();
 	CreateRaytracingPipeline();
 	CreateShaderBindingTable();
 
@@ -314,7 +335,6 @@ void D3D12HelloTriangle::AddModel(const std::string& path, bool reloading) {
 
 	WaitForPreviousFrame();
 	BLASChanged = true;
-
 }
 
 void D3D12HelloTriangle::RemoveModel(int index) {
@@ -323,41 +343,42 @@ void D3D12HelloTriangle::RemoveModel(int index) {
 
 	WaitForPreviousFrame();
 
-
 	ModelsShaderData.erase(ModelsShaderData.begin() + index);
-	for (int i = 0; i < ModelsShaderData.size(); i++)
-	{
-		ModelsShaderData[i].id = i;
-	}
-	UpdateModelDataBuffer();
+	for (int i = 0; i < ModelsShaderData.size(); i++) ModelsShaderData[i].id = i;
 
 	ModelDescriptions.erase(ModelDescriptions.begin() + index);
-	for (int i = 0; i < ModelDescriptions.size(); i++)
-	{
-		ModelDescriptions[i].id = i;
-	}
+	for (int i = 0; i < ModelDescriptions.size(); i++) ModelDescriptions[i].id = i;
 
 	Models.erase(Models.begin() + index);
-	for (int i = 0; i < Models.size(); i++)
-	{
-		Models[i].id = i;
-	}
+	for (int i = 0; i < Models.size(); i++) Models[i].id = i;
 
 	BLASes.erase(BLASes.begin() + index);
-	BLASChanged = true;
+
 	m_bottomLevelAS.clear();
 	for (auto& b : BLASes) m_bottomLevelAS.push_back(b.pResult);
 
+	UpdateModelDataBuffer();
+
+	m_instances.clear();
+	for (size_t i = 0; i < BLASes.size(); i++) {
+		m_instances.push_back({ BLASes[i].pResult.Get(), XMMatrixIdentity() });
+	}
+	CreateTopLevelAS(m_instances, false);
+
+	CreateShaderResourceHeap();
 	CreateRaytracingPipeline();
 	CreateShaderBindingTable();
+
 	ThrowIfFailed(m_commandAllocator->Reset());
 	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
-
 	ThrowIfFailed(m_commandList->Close());
+
 	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
 	m_commandQueue->ExecuteCommandLists(1, ppCommandLists);
 
 	WaitForPreviousFrame();
+
+	BLASChanged = true;
 }
 
 //for loading a scene based on a json file

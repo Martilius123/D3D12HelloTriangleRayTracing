@@ -1673,6 +1673,8 @@ void D3D12HelloTriangle::SetShadingMode(const std::wstring& mode)
 
 
 void D3D12HelloTriangle::BuildTLAS() {
+	if (BLASes.empty()) return;
+
 	m_instances.clear();
 
 	for (size_t i = 0; i < BLASes.size(); i++)
@@ -1682,18 +1684,17 @@ void D3D12HelloTriangle::BuildTLAS() {
 		XMMATRIX translationMatrix = XMMatrixTranslation(ModelDescriptions[i].position.x, ModelDescriptions[i].position.y, ModelDescriptions[i].position.z);
 		XMMATRIX transform = scaleMatrix * rotationMatrix * translationMatrix;
 
-		m_instances.push_back({
-			BLASes[i].pResult.Get(),
-			transform
-			});
+		m_instances.push_back({ BLASes[i].pResult.Get(), transform });
 	}
 
 	CreateTopLevelAS(m_instances, !BLASChanged);
+
 	if (BLASChanged == true) {
 		D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_srvUavHeap->GetCPUDescriptorHandleForHeapStart();
+		UINT inc = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+		srvHandle.ptr += 5 * inc;
 
-		srvHandle.ptr += m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc;
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
