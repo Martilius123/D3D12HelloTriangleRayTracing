@@ -24,6 +24,8 @@
 #include <string>
 #include "DXSample.h"
 #include "NRDIntegration.h"
+#include <unordered_map>
+
 
 using namespace DirectX;
 
@@ -80,7 +82,7 @@ public:
 //	uint32_t m_nrdConstUploadSize = 0;
 
 	// Toggle denoiser
-	bool m_enableDenoise = true;
+	bool m_enableDenoise = false;
 
 	// Create PSOs/root signature from NRD instance description (call after m_nrd.Initialize)
 	void CreateNRDPipelines();
@@ -94,12 +96,107 @@ public:
 
 
 
+
+	static const UINT FrameCount = 2;
+
+	//denoiser fix
+
+
+
+	static constexpr UINT UAV_COUNT = 6;
+	static constexpr UINT TLAS_INDEX = UAV_COUNT;        // 6
+	static constexpr UINT CAMERA_INDEX = UAV_COUNT + 1;  // 7
+	
+
+	// --- resource state tracking ---
+	D3D12_RESOURCE_STATES m_stateOutput = D3D12_RESOURCE_STATE_COPY_SOURCE;
+	D3D12_RESOURCE_STATES m_stateAovDiffuse = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	D3D12_RESOURCE_STATES m_stateAovSpecular = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	D3D12_RESOURCE_STATES m_stateAovNormalRough = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	D3D12_RESOURCE_STATES m_stateAovViewZ = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	D3D12_RESOURCE_STATES m_stateAovMV = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+
+	D3D12_RESOURCE_STATES m_stateDenoisedDiff = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	D3D12_RESOURCE_STATES m_stateDenoisedSpec = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+	D3D12_RESOURCE_STATES m_stateFinalOutput = D3D12_RESOURCE_STATE_UNORDERED_ACCESS;
+
+	// backbuffer tracked per-frame
+	D3D12_RESOURCE_STATES m_stateBackbuffer[FrameCount + 1] = {
+		D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_PRESENT
+	};
+
+	bool   m_prevEnableDenoise = false;
+	int    m_prevSampleCount = -1;
+	//uint32_t m_nrdFrameIndex = 0;
+
+
+
+	inline void TransitionResource(
+		ID3D12GraphicsCommandList* cl,
+		ID3D12Resource* res,
+		D3D12_RESOURCE_STATES& cur,
+		D3D12_RESOURCE_STATES next)
+	{
+		if (!res || cur == next) return;
+		cl->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(res, cur, next));
+		cur = next;
+	}
+
+
+
+	void D3D12HelloTriangle::CreateNRDPoolResourcesIfNeeded();
+
+	std::vector<ComPtr<ID3D12Resource>> m_nrdPermanentPool;
+	std::vector<ComPtr<ID3D12Resource>> m_nrdTransientPool;
+
+	// Tracking states
+	//std::unordered_map<ID3D12Resource*, D3D12_RESOURCE_STATES> m_state;
+
+	// Compose
+	//Microsoft::WRL::ComPtr<ID3D12RootSignature> m_composeRootSig;
+	//Microsoft::WRL::ComPtr<ID3D12PipelineState> m_composePSO;
+//	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_composeHeap;
+	UINT m_composeInc = 0;
+
+
+	std::unordered_map<ID3D12Resource*, D3D12_RESOURCE_STATES> m_state;
+
+	void Track(ID3D12Resource* r, D3D12_RESOURCE_STATES initial);
+	void Transition(ID3D12GraphicsCommandList* cl, ID3D12Resource* r, D3D12_RESOURCE_STATES to);
+	void UavBarrier(ID3D12GraphicsCommandList* cl, ID3D12Resource* r = nullptr);
+	void CreateComposeDescriptorHeap();
+	// Denoised outputs (separate)
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_denoisedDiffuse;
+	Microsoft::WRL::ComPtr<ID3D12Resource> m_denoisedSpecular;
+
+	// Compose pipeline (compute)
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_composeRootSig;
+	Microsoft::WRL::ComPtr<ID3D12PipelineState> m_composePSO;
+
+	// Optional: indices into some descriptor heap you already use for SRV/UAV
+	UINT m_composeSrvIndexDiffuse = UINT_MAX;
+	UINT m_composeSrvIndexSpecular = UINT_MAX;
+	UINT m_composeUavIndexFinal = UINT_MAX;
+
+	ComPtr<ID3D12Resource> m_finalOutput; // wynik NRD (UAV)
+
+	void ComposeFinalImage();
+	void CreateComposePipeline();
+
+	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_composeHeap;
+	UINT m_composeHeapInc = 0;
+
+
+
+
+
+
 	ComPtr<ID3D12Resource> m_aovNormalRoughness; // u1
 	ComPtr<ID3D12Resource> m_aovViewZ;           // u2
 	ComPtr<ID3D12Resource> m_aovDiffHitDist;     // u3
 	ComPtr<ID3D12Resource> m_aovSpecHitDist;     // u4
 
-	void D3D12HelloTriangle::CreateAOVResources();
+	void CreateAOVResources();
 
 	ComPtr<ID3D12Resource> m_aovDiffuse;
 	ComPtr<ID3D12Resource> m_aovSpecular;
@@ -107,10 +204,10 @@ public:
 	//ComPtr<ID3D12Resource> m_aovViewZ;
 	ComPtr<ID3D12Resource> m_denoisedOutput; // wynik NRD (UAV)
 
-	ID3D12Resource* D3D12HelloTriangle::GetResourceForNrdType(nrd::ResourceType t);
+	ID3D12Resource* GetResourceForNrdType(nrd::ResourceType t);
 
-	void D3D12HelloTriangle::WriteNrdUav(uint32_t index, ID3D12Resource* res);
-	void D3D12HelloTriangle::WriteNrdSrv(uint32_t index, ID3D12Resource* res);
+	void WriteNrdUav(uint32_t index, ID3D12Resource* res);
+	void WriteNrdSrv(uint32_t index, ID3D12Resource* res);
 
 
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_nrdPoolHeap;
@@ -123,7 +220,7 @@ public:
 
 private:
 	ComPtr<ID3D12DescriptorHeap> m_imguiHeap;
-	static const UINT FrameCount = 2;
+	
 
 	// NRD integration instance
 	NRDIntegration m_nrd;
@@ -269,7 +366,7 @@ public:
 	uint32_t m_lightsBufferSize = 0;
 	UINT m_envSrvIndex = UINT_MAX;
 
-	double D3D12HelloTriangle::degreesToRadians(double degrees);
+	double degreesToRadians(double degrees);
 
 	// Pipeline objects.
 	CD3DX12_VIEWPORT m_viewport;
@@ -370,9 +467,9 @@ ComPtr<ID3D12DescriptorHeap> m_srvUavHeap;
 // #DXR
 void CreateShaderBindingTable();
 
-void D3D12HelloTriangle::UpdateNRDCommonSettingsPerFrame();
-void D3D12HelloTriangle::PrepareNRDDescriptorPoolIfNeeded();
-void D3D12HelloTriangle::WriteNRDPoolDescriptor(
+void UpdateNRDCommonSettingsPerFrame();
+void PrepareNRDDescriptorPoolIfNeeded();
+void WriteNRDPoolDescriptor(
 	const nrd::ResourceDesc& rd,
 	ID3D12Resource* resource,
 	DXGI_FORMAT format,
@@ -382,15 +479,15 @@ nv_helpers_dx12::ShaderBindingTableGenerator m_sbtHelper;
 ComPtr<ID3D12Resource> m_sbtStorage;
 
 //file pickers
-std::wstring D3D12HelloTriangle::OpenFilePicker();
-std::wstring D3D12HelloTriangle::SaveFilePicker();
-std::string D3D12HelloTriangle::WStringToUtf8(const std::wstring& wstr);
+std::wstring OpenFilePicker();
+std::wstring SaveFilePicker();
+std::string WStringToUtf8(const std::wstring& wstr);
 
-void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
+void LoadModel(const std::string& modelPath,
 	std::vector<Vertex>& outVertices,
 	std::vector<uint32_t>& outIndices);
-std::vector<ModelDesc> D3D12HelloTriangle::LoadScene(const std::string& filename);
-void D3D12HelloTriangle::SaveScene(const std::string& filename);
+std::vector<ModelDesc> LoadScene(const std::string& filename);
+void SaveScene(const std::string& filename);
 
 // #DXR Extra: Perspective Camera++
 void OnButtonDown(UINT32 lParam);
@@ -428,5 +525,9 @@ public:
 	// Query NRD dispatches and record compute dispatches into the current m_commandList
 	// This function uses m_srvUavHeap and m_samplerHeap as the descriptor heaps for NRD resources.
 	//void ExecuteNRDDispatches();
+
+
+
+
 };
 
