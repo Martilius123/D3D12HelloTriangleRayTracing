@@ -125,36 +125,26 @@ void D3D12HelloTriangle::WriteNrdUav(uint32_t indexInPool, ID3D12Resource* res)
 }
 
 
-// Map NRD resource type -> your resource
 ID3D12Resource* D3D12HelloTriangle::GetResourceForNrdType(nrd::ResourceType t)
 {
-	// UWAGA: nazwy enumów mog¹ siê minimalnie ró¿niæ zale¿nie od wersji NRD.
-	// Jeœli tu nie kompiluje -> podeœlij listê enumów z Twojego NRD/Include/NRD.h / NRDDescs.h
-
+	// Single switch statement
 	switch (t)
 	{
-		// Inputs
-	case nrd::ResourceType::IN_DIFF_RADIANCE_HITDIST:
-		return m_aovDiffuse.Get();
-	case nrd::ResourceType::IN_SPEC_RADIANCE_HITDIST:
-		return m_aovSpecular.Get();
-	case nrd::ResourceType::IN_NORMAL_ROUGHNESS:
-		return m_aovNormalRoughness.Get();
-	case nrd::ResourceType::IN_VIEWZ:
-		return m_aovViewZ.Get();
+		// --- INPUTS ---
+	case nrd::ResourceType::IN_DIFF_RADIANCE_HITDIST: return m_aovDiffuse.Get();
+	case nrd::ResourceType::IN_SPEC_RADIANCE_HITDIST: return m_aovSpecular.Get();
+	case nrd::ResourceType::IN_NORMAL_ROUGHNESS:      return m_aovNormalRoughness.Get();
+	case nrd::ResourceType::IN_VIEWZ:                 return m_aovViewZ.Get();
+	case nrd::ResourceType::IN_MV:                    return m_aovMotionVectors.Get();
 
-		// Outputs (czêsto REBLUR ma OUT_DIFF/OUT_SPEC albo OUT_SIGNAL)
-	case nrd::ResourceType::OUT_DIFF_RADIANCE_HITDIST:
-		return m_aovDiffuse.Get(); // jeœli robisz ping-pong, daj osobny output
-	case nrd::ResourceType::OUT_SPEC_RADIANCE_HITDIST:
-		return m_aovSpecular.Get();
+		// --- OUTPUT ---
+	case nrd::ResourceType::OUT_SIGNAL:               return m_denoisedOutput.Get();
 
-		// Final (najproœciej: denoised beauty)
-	case nrd::ResourceType::OUT_SIGNAL:
-		return m_denoisedOutput.Get();
+		// --- INTERMEDIATES (Disable overwrite) ---
+	case nrd::ResourceType::OUT_DIFF_RADIANCE_HITDIST: return nullptr;
+	case nrd::ResourceType::OUT_SPEC_RADIANCE_HITDIST: return nullptr;
 
-	default:
-		return nullptr;
+	default: return nullptr;
 	}
 }
 
@@ -272,7 +262,6 @@ void D3D12HelloTriangle::OnInit() {
 		glm::vec3(0, 1, 0));
 	nv_helpers_dx12::CameraManip.setMode(nv_helpers_dx12::Manipulator::Fly);
 	nv_helpers_dx12::CameraManip.setSpeed(1);
-
 	LoadPipeline();
 	LoadScene("Models/scene.json");
 	LoadAssets(); // Models
@@ -784,6 +773,7 @@ void D3D12HelloTriangle::OnUpdate()
 void D3D12HelloTriangle::OnRender()
 {
 	// Record all the commands we need to render the scene into the command list.
+
 	PopulateCommandList();
 
 	// Execute the command list.
@@ -864,6 +854,7 @@ void D3D12HelloTriangle::PopulateCommandList()
 		if (m_aovSpecular)        toUav(m_aovSpecular.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 		if (m_aovNormalRoughness) toUav(m_aovNormalRoughness.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 		if (m_aovViewZ)           toUav(m_aovViewZ.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		if (m_aovMotionVectors)   toUav(m_aovMotionVectors.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
 		// NRD output te¿ bêdzie UAV (compute write)
 		if (m_denoisedOutput)
@@ -924,6 +915,7 @@ void D3D12HelloTriangle::PopulateCommandList()
 			toSrv(m_aovSpecular.Get());
 			toSrv(m_aovNormalRoughness.Get());
 			toSrv(m_aovViewZ.Get());
+			toSrv(m_aovMotionVectors.Get());
 			/*toSrv(m_outputResource.Get());
 			toSrv(m_outputResource.Get());
 			toSrv(m_outputResource.Get());
@@ -942,8 +934,8 @@ void D3D12HelloTriangle::PopulateCommandList()
 		ExecuteNRDDispatches();
 
 		// NRD output (m_denoisedOutput) jest UAV -> zaraz bêdziemy kopiowaæ
-		src = m_denoisedOutput.Get();
-
+		//src = m_denoisedOutput.Get();
+		src = m_aovSpecular.Get();
 		// jeœli NRD pisa³ UAV, dodaj barrier UAV
 		m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::UAV(nullptr));
 
@@ -964,6 +956,7 @@ void D3D12HelloTriangle::PopulateCommandList()
 			srvToUav(m_aovSpecular.Get());
 			srvToUav(m_aovNormalRoughness.Get());
 			srvToUav(m_aovViewZ.Get());
+
 
 			if (!b.empty())
 				m_commandList->ResourceBarrier((UINT)b.size(), b.data());
@@ -1258,9 +1251,17 @@ ComPtr<ID3D12RootSignature> D3D12HelloTriangle::CreateRayGenSignature()
 	nv_helpers_dx12::RootSignatureGenerator rsc;
 	rsc.AddHeapRangesParameter(
 		{
-			{ 0 /*u0*/, 5 /*u0..u4*/, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0 },
-			{ 0 /*t0*/, 1,           0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 5 }, // TLAS w slocie 5
-			{ 0 /*b0*/, 1,           0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 6 }  // Camera w slocie 6
+			// Range 1: UAVs u0..u5 (Count = 6)
+			// Occupies descriptor heap slots: 0, 1, 2, 3, 4, 5
+			{ 0 /*u0*/, 6 /*count*/, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0 },
+
+			// Range 2: TLAS t0 
+			// MUST start at 6 (because 0-5 are taken)
+			{ 0 /*t0*/, 1,           0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 6 }, // Changed 5 to 6
+
+			// Range 3: Camera b0
+			// MUST start at 7
+			{ 0 /*b0*/, 1,           0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 7 }  // Changed 6 to 7
 		});
 
 	return rsc.Generate(m_device.Get(), true);
@@ -1457,7 +1458,7 @@ void D3D12HelloTriangle::CreateShaderResourceHeap()
 	// U Ciebie env SRV jest u¿ywane w Miss przez SBT pointer, wiêc NIE jest wymagane w global heap,
 	// ale mo¿esz zostawiæ jeœli chcesz.
 
-	const UINT baseCount = 7; // do Camera
+	const UINT baseCount = 8; // do Camera
 	const UINT extraInstanceSrvs = (UINT)Models.size(); // jeœli dalej chcesz to trzymaæ w heapie
 	const UINT descriptorCount = baseCount + extraInstanceSrvs + 1; // +1 jeœli chcesz env SRV na koñcu
 
@@ -1482,6 +1483,7 @@ void D3D12HelloTriangle::CreateShaderResourceHeap()
 	createUav(m_aovSpecular.Get());           // u2
 	createUav(m_aovNormalRoughness.Get());    // u3
 	createUav(m_aovViewZ.Get());              // u4
+	createUav(m_aovMotionVectors.Get());
 
 	// --- TLAS SRV t0 (slot 5) ---
 	D3D12_SHADER_RESOURCE_VIEW_DESC tlas = {};
@@ -2095,12 +2097,22 @@ void D3D12HelloTriangle::CreateAOVResources()
 			));
 		};
 
-	makeTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovDiffuse);
-	makeTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovSpecular);
-	makeTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovNormalRoughness);
-	makeTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovViewZ);
+	// 1. Color/Diffuse/Spec can be UNORM (Standard Color)
+	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_aovDiffuse);
+	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_aovSpecular);
 
-	// jeœli denoisedOutput ma byæ wynikiem compute (NRD) -> te¿ UAV
+	// 2. Normals need precision. R8G8B8A8_UNORM is "okay" but R16_FLOAT is safer for NRD.
+	// Let's stick to FLOAT to be safe.
+	makeTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovNormalRoughness);
+
+	// 3. CRITICAL: ViewZ MUST be FLOAT (R32 or R16)
+	// UNORM destroys depth data.
+	makeTex(DXGI_FORMAT_R32_FLOAT, m_aovViewZ);
+
+	// 4. Motion Vectors
+	makeTex(DXGI_FORMAT_R16G16_FLOAT, m_aovMotionVectors);
+
+	// 5. Output
 	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_denoisedOutput);
 }
 

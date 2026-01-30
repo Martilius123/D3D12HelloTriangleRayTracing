@@ -6,6 +6,7 @@ RWTexture2D<float4> gDiffuseRadianceHitDist : register(u1); // diffuse + hitDist
 RWTexture2D<float4> gSpecRadianceHitDist    : register(u2); // spec + hitDist
 RWTexture2D<float4> gNormalRoughness        : register(u3); // normal + roughness
 RWTexture2D<float4> gViewZ                  : register(u4); // viewZ (for start: -hitDist)
+RWTexture2D<float2> gMotion                 : register(u5);
 
 RaytracingAccelerationStructure SceneBVH : register(t0);
 
@@ -110,6 +111,6 @@ void RayGen()
     gDiffuseRadianceHitDist[launchIndex] = outDiffuse;
     gSpecRadianceHitDist[launchIndex] = outSpec;
     gNormalRoughness[launchIndex] = outNR;
-    
+    gMotion[launchIndex] = float2(0.0f, 0.0f);
     gViewZ[launchIndex] = float4(-depthValue, 0, 0, 0);
 }

@@ -212,7 +212,6 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 		aiColor4D diffuseColor(1.0f, 1.0f, 1.0f, 1.0f); // Default to white
 		material->Get(AI_MATKEY_COLOR_DIFFUSE, diffuseColor);
 
-		// Convert from Assimp's color to DirectX's XMFLOAT4
 		DirectX::XMFLOAT4 meshColor = { diffuseColor.r, diffuseColor.g, diffuseColor.b, diffuseColor.a };
 
 		UINT vertexOffset = (UINT)outVertices.size();

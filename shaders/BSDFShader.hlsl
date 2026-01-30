@@ -72,7 +72,7 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
     float3 n2 = BTriVertex[indices[vertId + 2]].normal;
 
     float3 hitNormalObj = normalize(n0 * barycentrics.x + n1 * barycentrics.y + n2 * barycentrics.z);
-    float3 hitNormal = normalize(mul(hitNormalObj, (float3x3)WorldToObject3x4()));
+    float3 hitNormal = normalize(mul(hitNormalObj, (float3x3) WorldToObject3x4()));
     payload.normalAndRoughness.xyz = hitNormal;
 
     float3 lightDir = normalize(lightPos - hitPos);
@@ -120,9 +120,9 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
 
         if (inst.isGlass && payload.hopCount > -1)
         {
-            payload.hopCount--;  // Decrement the hop count
+            payload.hopCount--; // Decrement the hop count
 
-            newOrigin = hitPos - hitNormal * 0.001f;  // Offset the origin slightly to avoid self-intersection
+            newOrigin = hitPos - hitNormal * 0.001f; // Offset the origin slightly to avoid self-intersection
             //incoming = incoming;
             // Dot product between incoming ray and normal
             float dotI = dot(incoming, hitNormal);
@@ -133,15 +133,15 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             if (payload.isInGlass == 0)
             {
                 // Entering the material (ray goes from air to material)
-                n1 = 1.0;              // Refractive index of air
-                n2 = inst.IOR;         // Refractive index of the material
+                n1 = 1.0; // Refractive index of air
+                n2 = inst.IOR; // Refractive index of the material
                 payload.isInGlass = 1;
             }
             else
             {
                 // Exiting the material (ray goes from material to air)
-                n1 = inst.IOR;         // Refractive index of the material
-                n2 = 1.0;              // Refractive index of air
+                n1 = inst.IOR; // Refractive index of the material
+                n2 = 1.0; // Refractive index of air
                 hitNormal = -hitNormal; // Flip the normal for refraction
                 payload.isInGlass = 0;
             }

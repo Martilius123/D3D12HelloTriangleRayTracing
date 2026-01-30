@@ -217,6 +217,8 @@ public:
 	std::vector<ModelDesc> ModelDescriptions;
 	std::vector<ModelInstance> Models;
 
+	ComPtr<ID3D12Resource> m_aovMotionVectors;
+
 	struct ModelInstanceGPU
 	{
 		XMFLOAT3 albedo = { -1.0f, -1.0f, -1.0f };
