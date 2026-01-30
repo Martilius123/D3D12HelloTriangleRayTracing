@@ -97,6 +97,8 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
     if (inst.emmision > 0)
     {
         payload.DiffuseRadianceAndDistance = payload.colorAndDistance = float4(baseColor * inst.emmision, RayTCurrent());
+        payload.SpecularRadianceAndDistance = float4(0,0,0,RayTCurrent());
+        payload.normalAndRoughness = float4(hitNormal, 1.0);
         payload.colorAndDistance.w = RayTCurrent();
     }
     else
@@ -282,6 +284,8 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                     payload.SpecularRadianceAndDistance.xyz *= F * G;
                     payload.DiffuseRadianceAndDistance.xyz *= (1 - F);
                     payload.colorAndDistance = payload.DiffuseRadianceAndDistance + payload.SpecularRadianceAndDistance;
+                    //payload.SpecularRadianceAndDistance.xyz = 0;
+                    //payload.DiffuseRadianceAndDistance.xyz = payload.colorAndDistance.xyz;
                 }
                 //payload.colorAndDistance = averageColor / float(sampleCount);
             }
