@@ -41,7 +41,10 @@ int Win32Application::Run(DXSample* pSample, HINSTANCE hInstance, int nCmdShow)
 	m_hwnd = CreateWindow(
 		windowClass.lpszClassName,
 		pSample->GetTitle(),
-		WS_OVERLAPPEDWINDOW,
+		WS_OVERLAPPED |
+		WS_CAPTION |
+		WS_SYSMENU |
+		WS_MINIMIZEBOX,
 		CW_USEDEFAULT,
 		CW_USEDEFAULT,
 		windowRect.right - windowRect.left,
