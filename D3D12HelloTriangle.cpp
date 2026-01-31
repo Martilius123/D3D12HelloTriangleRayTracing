@@ -679,12 +679,12 @@ void D3D12HelloTriangle::OnUpdate()
 //					if (ImGui::Checkbox("Use Vertex Data", &useVertexData))
 //						inst2.albedo = useVertexData ? DirectX::XMFLOAT3(-1, -1, -1) : DirectX::XMFLOAT3(1, 1, 1);
 //=======
-					bool useVertexData = (inst2.albedo.x == -1.0f &&
+					bool useVertexData = !(inst2.albedo.x == -1.0f &&
 						inst2.albedo.y == -1.0f &&
 						inst2.albedo.z == -1.0f);
 
-					if (ImGui::Checkbox("Use Texture Color", &useVertexData)) {
-						if (useVertexData) {
+					if (ImGui::Checkbox("Set Model Color", &useVertexData)) {
+						if (!useVertexData) {
 							inst2.albedo = DirectX::XMFLOAT3(-1.0f, -1.0f, -1.0f);
 						}
 						else {
@@ -693,7 +693,7 @@ void D3D12HelloTriangle::OnUpdate()
 					}
 //>>>>>>> b4669dd4653344d6f34b8b5847b4f88e7d8d3103
 
-					if (!useVertexData) {
+					if (useVertexData) {
 						ImGui::Indent();
 						ImGui::ColorEdit3("Instance Color", &inst2.albedo.x);
 						ImGui::Unindent();
@@ -701,40 +701,37 @@ void D3D12HelloTriangle::OnUpdate()
 				}
 
 				// EMISSION
+				bool useEmission = !(inst2.emission == -1.0f);
 				{
-					bool useTextureEmission = (inst2.emission == -1.0f);
-					if (ImGui::Checkbox("Use Texture Emission", &useTextureEmission))
-						inst2.emission = useTextureEmission ? -1.0f : 1.0f;
+					if (ImGui::Checkbox("Emmisive Material", &useEmission))
+						inst2.emission = !useEmission ? -1.0f : 1.0f;
 
-					if (!useTextureEmission) {
+					if (useEmission) {
 						ImGui::Indent();
-						ImGui::DragFloat("Emission Value", &inst2.emission, 0.01f, 0.0f, 10.0f);
+						ImGui::DragFloat("Emission Intensity", &inst2.emission, 0.01f, 0.0f, 10.0f);
 						ImGui::Unindent();
 					}
 				}
 
 				// ROUGHNESS
+				if(!useEmission)
 				{
-					bool useTextureRoughness = (inst2.roughness == -1.0f);
-					if (ImGui::Checkbox("Use Texture Roughness", &useTextureRoughness))
-						inst2.roughness = useTextureRoughness ? -1.0f : 0.4f;
+					bool setRoughness = !(inst2.roughness == -1.0f);
+					if (ImGui::Checkbox("Set Roughness", &setRoughness))
+						inst2.roughness = !setRoughness ? -1.0f : 0.4f;
 
-					if (!useTextureRoughness) {
+					if (setRoughness) {
 						ImGui::Indent();
 						ImGui::DragFloat("Roughness Value", &inst2.roughness, 0.01f, 0.0f, 1.0f);
 						ImGui::Unindent();
 					}
 				}
 
-				//METALLIC
-				{
-					ImGui::Checkbox("Metallic Material", (bool*)&inst2.isMetallic);
-				}
-
 				// GLASS
+				bool isGlass = inst2.isGlass;
+				if(!useEmission)
 				{
-					bool isGlass = inst2.isGlass;
-					if (ImGui::Checkbox("Make the object Glass", &isGlass))
+					if (ImGui::Checkbox("Transparent Material", &isGlass))
 						inst2.isGlass = isGlass;
 
 					if (isGlass) {
@@ -742,6 +739,12 @@ void D3D12HelloTriangle::OnUpdate()
 						ImGui::DragFloat("IOR Value", &inst2.IOR, 0.01f, 0.0f, 2.0f);
 						ImGui::Unindent();
 					}
+				}
+
+				//METALLIC
+				if(!useEmission && !isGlass)
+				{
+					ImGui::Checkbox("Metallic Material", (bool*)&inst2.isMetallic);
 				}
 
 				ImGui::TreePop();
