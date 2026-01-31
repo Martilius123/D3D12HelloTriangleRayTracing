@@ -103,14 +103,20 @@ public:
 	ComPtr<ID3D12Resource> m_outputResource;     // u0
 	ComPtr<ID3D12Resource> m_aovNormalRoughness; // u1
 	ComPtr<ID3D12Resource> m_aovViewZ;           // u2
-	ComPtr<ID3D12Resource> m_aovDiffHitDist;     // u3
-	ComPtr<ID3D12Resource> m_aovSpecHitDist;     // u4
+	//ComPtr<ID3D12Resource> m_aovDiffHitDist;     // u3
+	//ComPtr<ID3D12Resource> m_aovSpecHitDist;     // u4
+	ComPtr<ID3D12Resource> m_aovDiffuse; //u3
+	ComPtr<ID3D12Resource> m_aovSpecular; //u4
 	ComPtr<ID3D12Resource> m_aovMotionVectors;	 // u5
+
+	ComPtr<ID3D12Resource> m_aovDiffHitDistHist;           // u6
+	ComPtr<ID3D12Resource> m_aovSpecHitDistHist;     // u7
+	ComPtr<ID3D12Resource> m_aovNormalRoughnessHist;     // u8
+	ComPtr<ID3D12Resource> m_aovViewZHist;	 // u9
 
 	void D3D12HelloTriangle::CreateAOVResources();
 
-	ComPtr<ID3D12Resource> m_aovDiffuse;
-	ComPtr<ID3D12Resource> m_aovSpecular;
+	
 	//ComPtr<ID3D12Resource> m_aovNormalRoughness;
 	//ComPtr<ID3D12Resource> m_aovViewZ;
 	ComPtr<ID3D12Resource> m_denoisedOutput; // wynik NRD (UAV)

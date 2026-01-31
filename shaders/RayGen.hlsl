@@ -8,6 +8,11 @@ RWTexture2D<float4> gNormalRoughness        : register(u3); // normal + roughnes
 RWTexture2D<float4> gViewZ                  : register(u4); // viewZ (for start: -hitDist)
 RWTexture2D<float2> gMotion                 : register(u5);
 
+RWTexture2D<float4> gDiffuseRadianceHitDistHistory : register(u6); // diffuse + hitDist
+RWTexture2D<float4> gSpecRadianceHitDistHistory : register(u7); // spec + hitDist
+RWTexture2D<float4> gNormalRoughnessHistory : register(u8); // normal + roughness
+RWTexture2D<float4> gViewZHistory : register(u9);
+
 RaytracingAccelerationStructure SceneBVH : register(t0);
 
 cbuffer CameraParams : register(b0)
