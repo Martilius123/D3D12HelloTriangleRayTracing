@@ -132,7 +132,7 @@ private:
 	UINT m_sampleCount = 4;
 	UINT m_maximumRecursionDepth = 25;
 	bool m_enableAdaptiveSampling = false;
-	float m_targetFrameRate = 30.0f;
+	float m_targetFrameRate = 32.0f;
 	int m_slowFrameCount = 0;
 	UINT m_ISOIndex = 400;
 	bool m_highlightOverexposed = false;

@@ -503,7 +503,6 @@ void D3D12HelloTriangle::OnUpdate()
 
 	// --- UI ---
 	ImGui::Begin("Raytracing Settings");
-	ImGui::Checkbox("Enable NRD Denoiser", &m_enableDenoise);
 
 	ImGui::Separator();
 	ImGui::TextColored(ImVec4(0, 1, 0, 1), "Scene Manager");
@@ -585,6 +584,7 @@ void D3D12HelloTriangle::OnUpdate()
 
 	if (currentShading == L"BSDF")
 	{
+		ImGui::Checkbox("Enable NRD Denoiser", &m_enableDenoise);
 		ImGui::Separator();
 		ImGui::Text("BSDF Parameters");
 		ImGui::DragInt("Sample Count", (int*)&m_sampleCount, 1, 1, 20);
@@ -616,6 +616,10 @@ void D3D12HelloTriangle::OnUpdate()
 			ImGui::ColorEdit3("Environment Color", &m_environmentColor.x);
 			ImGui::DragFloat("Environment Intensity", &m_environmentIntensity, 0.05f, 0.0f, 10.0f);
 		}
+	}
+	else
+	{
+		m_enableDenoise = false;
 	}
 
 	if (currentShading == L"Phong" || currentShading == L"MirrorDemo" || currentShading == L"BSDF")
@@ -662,7 +666,7 @@ void D3D12HelloTriangle::OnUpdate()
 
 		ImGui::PushID(i);
 
-		if (ImGui::CollapsingHeader((std::to_string(i) + ": " + std::to_string(inst.id)).c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+		if (ImGui::CollapsingHeader((std::to_string(i) + ": " + std::to_string(inst.id) + " - " + inst.path).c_str(), ImGuiTreeNodeFlags_DefaultOpen))
 		{
 			ImGui::DragFloat3("Position", &inst.position.x, 0.05f);
 			ImGui::DragFloat3("Rotation", &inst.rotation.x, 1.0f, -360.0f, 360.0f);
@@ -1864,12 +1868,12 @@ void D3D12HelloTriangle::AdjustSampleCount()
 	{
 		m_slowFrameCount--;
 	}
-	if (m_slowFrameCount > 3 && m_sampleCount > 1)
+	if (m_slowFrameCount > 2 && m_sampleCount > 1)
 	{
 		m_sampleCount--;
 		m_slowFrameCount = 0;
 	}
-	if (m_slowFrameCount < -5)
+	if (m_slowFrameCount < -7)
 	{
 		m_sampleCount++;
 		m_slowFrameCount = 0;
