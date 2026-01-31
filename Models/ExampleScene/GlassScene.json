@@ -1,0 +1,151 @@
+{
+    "camera": {
+        "center": [
+            -4.013266086578369,
+            3.4373648166656494,
+            4.416515350341797
+        ],
+        "eye": [
+            -4.6554179191589355,
+            3.8828563690185547,
+            5.0403571128845215
+        ],
+        "up": [
+            0.0,
+            1.0,
+            0.0
+        ]
+    },
+    "light": {
+        "color": [
+            1.0,
+            0.0,
+            0.0
+        ],
+        "intensity": 0.0,
+        "position": [
+            2.0,
+            5.0,
+            -3.0
+        ],
+        "type": 0
+    },
+    "models": [
+        {
+            "IOR": 1.5,
+            "albedo": [
+                -1.0,
+                -1.0,
+                -1.0
+            ],
+            "emission": -1.0,
+            "id": 0,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Cube.obj",
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                -0.5,
+                0.0
+            ],
+            "roughness": -1.0,
+            "scale": [
+                100.0,
+                1.0,
+                100.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "emission": -1.0,
+            "id": 1,
+            "isGlass": 1,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Bottle.obj",
+            "position": [
+                0.0,
+                22.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                0.20000000298023224,
+                0.20000000298023224,
+                0.20000000298023224
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "emission": -1.0,
+            "id": 2,
+            "isGlass": 1,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Glass.obj",
+            "position": [
+                0.0,
+                15.649999618530273,
+                20.75
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                3.0,
+                3.0,
+                3.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "emission": -1.0,
+            "id": 3,
+            "isGlass": 1,
+            "isMetallic": 0,
+            "path": "Models/Sphere2.obj",
+            "position": [
+                -26.0,
+                10.75,
+                20.25
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                20.0,
+                20.0,
+                20.0
+            ]
+        }
+    ]
+}
