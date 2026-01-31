@@ -290,6 +290,63 @@ void D3D12HelloTriangle::OnInit() {
 	// as the target image	
 	CreateRaytracingOutputBuffer(); // #DXR
 	CreateAOVResources();
+
+	// Creating the pipeline for our own denoiser
+	ComPtr<ID3D12Debug> debugController;
+	D3D12GetDebugInterface(IID_PPV_ARGS(&debugController));
+	debugController->EnableDebugLayer();
+
+	ComPtr<IDxcUtils> DxcUtils;
+	ComPtr<IDxcCompiler3> DxcCompiler;
+
+	// Create Utils
+	ThrowIfFailed(CoCreateInstance(
+		CLSID_DxcUtils,
+		nullptr,
+		CLSCTX_INPROC_SERVER,
+		IID_PPV_ARGS(&DxcUtils)
+	));
+
+	// Create Compiler
+	ThrowIfFailed(CoCreateInstance(
+		CLSID_DxcCompiler,
+		nullptr,
+		CLSCTX_INPROC_SERVER,
+		IID_PPV_ARGS(&DxcCompiler)
+	));
+	
+	auto sourceData = LoadFile(L"shaders/Denoiser.hlsl");
+
+	DxcBuffer buffer;
+	buffer.Ptr = sourceData.data();
+	buffer.Size = sourceData.size();
+	buffer.Encoding = DXC_CP_UTF8;
+
+	ComPtr<IDxcResult> result;
+	LPCWSTR arguments[] = {
+	L"-E", L"CSMain",        // entry point
+	L"-T", L"cs_6_0"         // target
+	};
+
+	// Compile
+	buffer.Ptr = sourceData.data();
+	buffer.Size = sourceData.size();
+	buffer.Encoding = DXC_CP_UTF8;
+
+	ThrowIfFailed(DxcCompiler->Compile(
+		&buffer,           // source buffer
+		arguments,         // array of wide string arguments
+		_countof(arguments),
+		nullptr,           // include handler (can be nullptr)
+		IID_PPV_ARGS(&result)
+	));
+
+	ThrowIfFailed(result->GetResult(&m_denoiseLibrary));
+
+
+	CreateDenoiseRootSignature();
+	CreateDenoisePipeline();
+
 	// #DXR Extra: Perspective Camera
 	// Create a buffer to store the modelview and perspective camera matrices
 	CreateCameraBuffer();
@@ -815,7 +872,7 @@ void D3D12HelloTriangle::OnDestroy()
 void D3D12HelloTriangle::PopulateCommandList()
 {
 	ThrowIfFailed(m_commandAllocator->Reset());
-	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
+	ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), nullptr));
 
 	m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
 	m_commandList->RSSetViewports(1, &m_viewport);
@@ -908,8 +965,47 @@ void D3D12HelloTriangle::PopulateCommandList()
 
 	if (m_enableDenoise)
 	{
+		//our denoiser
+		m_commandList->SetPipelineState(m_denoisePSO.Get());
+		m_commandList->SetComputeRootSignature(m_denoiseRootSignature.Get());
+
+		ID3D12DescriptorHeap* heaps[] = { m_srvUavHeap.Get() };
+		m_commandList->SetDescriptorHeaps(1, heaps);
+
+		m_commandList->SetComputeRootDescriptorTable(
+			0,
+			m_srvUavHeap->GetGPUDescriptorHandleForHeapStart()
+		);
+
+		&CD3DX12_RESOURCE_BARRIER::Transition(
+			src,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS
+		);
+
+		m_commandList->ResourceBarrier(
+			1,
+			&CD3DX12_RESOURCE_BARRIER::UAV(nullptr)
+		);
+
+		m_commandList->Dispatch(
+			(GetWidth() + 7) / 8,
+			(GetHeight() + 7) / 8,
+			1
+		);
+
+		&CD3DX12_RESOURCE_BARRIER::Transition(
+			m_denoisedOutput.Get(),
+			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+		);
+
+
+		// NRD DENOISER -- not used
+		/*
 		// 3) AOV-y musz¹ byæ SRV (NRD czyta), wiêc UAV -> SRV
 		{
+			
 			std::vector<CD3DX12_RESOURCE_BARRIER> b;
 
 			auto toSrv = [&](ID3D12Resource* r)
@@ -926,10 +1022,6 @@ void D3D12HelloTriangle::PopulateCommandList()
 			toSrv(m_aovNormalRoughness.Get());
 			toSrv(m_aovViewZ.Get());
 			toSrv(m_aovMotionVectors.Get());
-			/*toSrv(m_outputResource.Get());
-			toSrv(m_outputResource.Get());
-			toSrv(m_outputResource.Get());
-			toSrv(m_outputResource.Get());*/
 
 			if (!b.empty())
 				m_commandList->ResourceBarrier((UINT)b.size(), b.data());
@@ -970,7 +1062,7 @@ void D3D12HelloTriangle::PopulateCommandList()
 
 			if (!b.empty())
 				m_commandList->ResourceBarrier((UINT)b.size(), b.data());
-		}
+		}*/
 	}
 
 	// --- Copy src -> backbuffer (TYLKO RAZ) ---
@@ -2126,3 +2218,73 @@ void D3D12HelloTriangle::CreateAOVResources()
 	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_denoisedOutput);
 }
 
+// Our own denoising
+
+void D3D12HelloTriangle::CreateDenoiseRootSignature()
+{
+	CD3DX12_DESCRIPTOR_RANGE ranges[1];
+	ranges[0].Init(
+		D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
+		6,    // u0, u1
+		0     // base register
+	);
+
+	CD3DX12_ROOT_PARAMETER rootParams[1];
+	rootParams[0].InitAsDescriptorTable(
+		1,
+		&ranges[0]
+	);
+
+	CD3DX12_ROOT_SIGNATURE_DESC rootSigDesc;
+	rootSigDesc.Init(
+		1,
+		rootParams,
+		0,
+		nullptr,
+		D3D12_ROOT_SIGNATURE_FLAG_NONE
+	);
+
+	ComPtr<ID3DBlob> serialized;
+	ComPtr<ID3DBlob> error;
+
+	D3D12SerializeRootSignature(
+		&rootSigDesc,
+		D3D_ROOT_SIGNATURE_VERSION_1,
+		&serialized,
+		&error
+	);
+
+	ThrowIfFailed(m_device->CreateRootSignature(
+		0,
+		serialized->GetBufferPointer(),
+		serialized->GetBufferSize(),
+		IID_PPV_ARGS(&m_denoiseRootSignature)
+	));
+}
+
+void D3D12HelloTriangle::CreateDenoisePipeline()
+{
+	D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
+	psoDesc.pRootSignature = m_denoiseRootSignature.Get();
+	psoDesc.CS = {
+		m_denoiseLibrary->GetBufferPointer(),
+		m_denoiseLibrary->GetBufferSize()
+	};
+
+	ThrowIfFailed(m_device->CreateComputePipelineState(
+		&psoDesc,
+		IID_PPV_ARGS(&m_denoisePSO)
+	));
+
+}
+
+std::vector<char> D3D12HelloTriangle::LoadFile(const wchar_t* filename) {
+	std::ifstream file(filename, std::ios::binary);
+	if (!file) throw std::runtime_error("Cannot open file");
+	file.seekg(0, std::ios::end);
+	size_t size = file.tellg();
+	file.seekg(0, std::ios::beg);
+	std::vector<char> buffer(size);
+	file.read(buffer.data(), size);
+	return buffer;
+}

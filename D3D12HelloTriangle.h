@@ -88,16 +88,24 @@ public:
 	// Query NRD dispatches and record compute dispatches into current m_commandList
 	void ExecuteNRDDispatches();
 
+	// our own denoiser
+	void CreateDenoiseRootSignature();
+	void CreateDenoisePipeline();
+
+	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_denoiseRootSignature;
+	ComPtr<ID3D12PipelineState> m_denoisePSO;
 
 	//	uint32_t m_nrdFrameIndex = 0;
 
 
 
 
+	ComPtr<ID3D12Resource> m_outputResource;     // u0
 	ComPtr<ID3D12Resource> m_aovNormalRoughness; // u1
 	ComPtr<ID3D12Resource> m_aovViewZ;           // u2
 	ComPtr<ID3D12Resource> m_aovDiffHitDist;     // u3
 	ComPtr<ID3D12Resource> m_aovSpecHitDist;     // u4
+	ComPtr<ID3D12Resource> m_aovMotionVectors;	 // u5
 
 	void D3D12HelloTriangle::CreateAOVResources();
 
@@ -217,7 +225,6 @@ public:
 	std::vector<ModelDesc> ModelDescriptions;
 	std::vector<ModelInstance> Models;
 
-	ComPtr<ID3D12Resource> m_aovMotionVectors;
 
 	struct ModelInstanceGPU
 	{
@@ -351,6 +358,8 @@ ComPtr<IDxcBlob> m_normalShaderLibrary;
 ComPtr<IDxcBlob> m_phongShaderLibrary;
 ComPtr<IDxcBlob> m_mirrorDemoShaderLibrary;
 ComPtr<IDxcBlob> m_BSDFShaderLibrary;
+// Denoising shader library
+ComPtr<IDxcBlob> m_denoiseLibrary;
 
 // Root signatures for each shader stage
 ComPtr<ID3D12RootSignature> m_rayGenSignature;
@@ -365,7 +374,6 @@ ComPtr<ID3D12StateObjectProperties> m_rtStateObjectProps;
 // #DXR
 void CreateRaytracingOutputBuffer();
 void CreateShaderResourceHeap();
-ComPtr<ID3D12Resource> m_outputResource;
 ComPtr<ID3D12DescriptorHeap> m_srvUavHeap;
 // #DXR
 void CreateShaderBindingTable();
@@ -391,6 +399,8 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 	std::vector<uint32_t>& outIndices);
 std::vector<ModelDesc> D3D12HelloTriangle::LoadScene(const std::string& filename);
 void D3D12HelloTriangle::SaveScene(const std::string& filename);
+
+std::vector<char> LoadFile(const wchar_t* filename);
 
 // #DXR Extra: Perspective Camera++
 void OnButtonDown(UINT32 lParam);
