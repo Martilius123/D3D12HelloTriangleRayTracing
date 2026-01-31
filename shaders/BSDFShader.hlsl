@@ -266,8 +266,15 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                     //diffuse component
                     float3 l = ReflectDiffuse(hitNormal, payload.randomSeed);
                     ray.Direction = l;
-                    TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
-                    payload.DiffuseRadianceAndDistance = payload.colorAndDistance;
+                    HitInfo newPayload;
+                    newPayload.colorAndDistance = float4(0, 0, 0, 0);
+                    newPayload.hopCount = payload.hopCount;
+                    newPayload.sampleCount = 1;
+                    newPayload.randomSeed = payload.randomSeed;
+                    newPayload.isInGlass = payload.isInGlass;
+                    newPayload.isShadow = 0;
+                    TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, newPayload); // Trace the ray
+                    payload.DiffuseRadianceAndDistance = newPayload.colorAndDistance;
                     //specular component
                     float3 F;
                     do
@@ -275,9 +282,15 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                         l = ReflectSpecularMicrofacet(hitNormal, incoming, baseColor, roughness, payload.randomSeed, F);
                     } while (l.x == 0 && l.y == 0 && l.z == 0);
                     ray.Direction = l;
-                    TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload); // Trace the ray
+                    newPayload.colorAndDistance = float4(0, 0, 0, 0);
+                    newPayload.hopCount = payload.hopCount;
+                    newPayload.sampleCount = 1;
+                    newPayload.randomSeed = payload.randomSeed;
+                    newPayload.isInGlass = payload.isInGlass;
+                    newPayload.isShadow = 0;
+                    TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, newPayload); // Trace the ray
                     F = float3(0.04f, 0.04f, 0.04f);
-                    payload.SpecularRadianceAndDistance = payload.colorAndDistance;
+                    payload.SpecularRadianceAndDistance = newPayload.colorAndDistance;
                     float NdotV = saturate(dot(hitNormal, viewDir));
                     float NdotL = saturate(dot(hitNormal, l));
                     float G = G_Smith(NdotV, NdotL, roughness);
