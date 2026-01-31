@@ -80,7 +80,7 @@ public:
 //	uint32_t m_nrdConstUploadSize = 0;
 
 	// Toggle denoiser
-	bool m_enableDenoise = true;
+	bool m_enableDenoise = false;
 
 	// Create PSOs/root signature from NRD instance description (call after m_nrd.Initialize)
 	void CreateNRDPipelines();

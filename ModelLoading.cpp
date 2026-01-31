@@ -11,6 +11,7 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 #include "libraries/nlohmann/json.hpp"
+#include "manipulator.h"
 
 
 using json = nlohmann::json;
@@ -387,6 +388,32 @@ std::vector<D3D12HelloTriangle::ModelDesc> D3D12HelloTriangle::LoadScene(const s
 	json j;
 	file >> j;
 
+	//Camera
+	if (j.contains("camera"))
+	{
+		nv_helpers_dx12::Manipulator& manip = nv_helpers_dx12::CameraManip;
+		auto eye = j["camera"]["eye"];
+		auto center = j["camera"]["center"];
+		auto up = j["camera"]["up"];
+		manip.setLookat(
+			glm::vec3(eye[0], eye[1], eye[2]),
+			glm::vec3(center[0], center[1], center[2]),
+			glm::vec3(up[0], up[1], up[2])
+		);
+	}
+
+	//Light
+	if (j.contains("light"))
+	{
+		auto pos = j["light"]["position"];
+		auto color = j["light"]["color"];
+		m_lightData.position = { pos[0], pos[1], pos[2] };
+		m_lightData.color = { color[0], color[1], color[2] };
+		m_lightData.intensity = j["light"]["intensity"];
+		m_lightData.type = j["light"]["type"];
+		UpdateLightsBuffer();
+	}
+
 	std::vector<D3D12HelloTriangle::ModelDesc> result;
 
 	for (auto& m : j["models"])
@@ -528,6 +555,20 @@ void D3D12HelloTriangle::SaveScene(const std::string& filename)
 
 		j["models"].push_back(jm);
 	}
+
+	//Camera
+	nv_helpers_dx12::Manipulator& manip = nv_helpers_dx12::CameraManip;
+	glm::vec3 eye, center, up;
+	nv_helpers_dx12::CameraManip.getLookat(eye, center, up);
+	j["camera"]["eye"] = { eye.x, eye.y, eye.z };
+	j["camera"]["center"] = { center.x, center.y, center.z };
+	j["camera"]["up"] = { up.x, up.y, up.z };
+
+	//Light
+	j["light"]["position"] = { m_lightData.position.x, m_lightData.position.y, m_lightData.position.z };
+	j["light"]["intensity"] = m_lightData.intensity;
+	j["light"]["color"] = { m_lightData.color.x, m_lightData.color.y, m_lightData.color.z };
+	j["light"]["type"] = m_lightData.type;
 
 	std::ofstream file(filename);
 	file << j.dump(4);
