@@ -20,7 +20,16 @@
 _Use_decl_annotations_
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 {
-	D3D12HelloTriangle sample(1280, 720, L"D3D12 Hello Triangle");
+	// Initialize COM library for use of DXC compiler
+	HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+	if (FAILED(hr))
+	{
+		return 1;
+	}
 
-	return Win32Application::Run(&sample, hInstance, nCmdShow);
+	D3D12HelloTriangle sample(1280, 720, L"D3D12 Hello Triangle");
+	int ret = Win32Application::Run(&sample, hInstance, nCmdShow);
+
+	CoUninitialize();
+	return ret;
 }

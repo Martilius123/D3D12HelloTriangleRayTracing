@@ -400,7 +400,7 @@ void D3D12HelloTriangle::LoadModel(const std::string& modelPath,
 std::vector<ModelDesc> D3D12HelloTriangle::LoadScene(const std::string& filename);
 void D3D12HelloTriangle::SaveScene(const std::string& filename);
 
-std::vector<char> LoadFile(const wchar_t* filename);
+std::vector<char> D3D12HelloTriangle::LoadFile(const wchar_t* filename);
 
 // #DXR Extra: Perspective Camera++
 void OnButtonDown(UINT32 lParam);

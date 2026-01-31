@@ -13,7 +13,7 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     float4 color = gInput[pixel];
 
     // Darken by 10%
-    color.rgb *= 0.9f;
+    color.rgb = float3(1.0f, 0.0f, 0.0f);
 
     gInput[pixel] = color;
 }

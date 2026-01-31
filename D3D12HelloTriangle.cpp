@@ -300,18 +300,14 @@ void D3D12HelloTriangle::OnInit() {
 	ComPtr<IDxcCompiler3> DxcCompiler;
 
 	// Create Utils
-	ThrowIfFailed(CoCreateInstance(
+	ThrowIfFailed(DxcCreateInstance(
 		CLSID_DxcUtils,
-		nullptr,
-		CLSCTX_INPROC_SERVER,
 		IID_PPV_ARGS(&DxcUtils)
 	));
 
 	// Create Compiler
-	ThrowIfFailed(CoCreateInstance(
+	ThrowIfFailed(DxcCreateInstance(
 		CLSID_DxcCompiler,
-		nullptr,
-		CLSCTX_INPROC_SERVER,
 		IID_PPV_ARGS(&DxcCompiler)
 	));
 	
@@ -341,8 +337,20 @@ void D3D12HelloTriangle::OnInit() {
 		IID_PPV_ARGS(&result)
 	));
 
-	ThrowIfFailed(result->GetResult(&m_denoiseLibrary));
+	HRESULT hrStatus;
+	result->GetStatus(&hrStatus);
+	if (FAILED(hrStatus))
+	{
+		ComPtr<IDxcBlobUtf8> pErrors;
+		result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrors), nullptr);
+		if (pErrors && pErrors->GetStringLength() > 0)
+		{
+			OutputDebugStringA((char*)pErrors->GetBufferPointer());
+			throw std::runtime_error((char*)pErrors->GetBufferPointer());
+		}
+	}
 
+	ThrowIfFailed(result->GetResult(&m_denoiseLibrary));
 
 	CreateDenoiseRootSignature();
 	CreateDenoisePipeline();
@@ -834,7 +842,6 @@ void D3D12HelloTriangle::OnUpdate()
 	UpdateModelTranslations();
 	UpdateModelDataBuffer();
 }
-
 
 // Render the scene.
 void D3D12HelloTriangle::OnRender()
@@ -1501,8 +1508,8 @@ void D3D12HelloTriangle::CreateRaytracingPipeline()
 	// would result in unnecessary memory consumption and cache trashing.
 	pipeline.SetMaxPayloadSize(96); // 4 * sizeof(float)+sizeof(int) + 2 * sizeof(uint32_t)
 
-	// Upon hitting a surface, DXR can provide several attributes to the hit. In
-	// our sample we just use the barycentric coordinates defined by the weights
+	// Upon hitting a surface, DXR can provide several attributes to the hit.
+	// in. our sample we just use the barycentric coordinates defined by the weights
 	// u,v of the last two vertices of the triangle. The actual barycentrics can
 	// be obtained using float3 barycentrics = float3(1.f-u-v, u, v);
 	pipeline.SetMaxAttributeSize(2 * sizeof(float)); // barycentric coordinates
@@ -2061,7 +2068,7 @@ void D3D12HelloTriangle::CreateNRDPipelines()
 	//  param1 = CBV na sta³e per-dispatch
 	CD3DX12_DESCRIPTOR_RANGE range = {};
 	range.Init(
-		D3D12_DESCRIPTOR_RANGE_TYPE_UAV, // typ "nie ma znaczenia" dla RS v1? ma znaczenie — ale NRD u¿ywa i SRV i UAV.
+		D3D12_DESCRIPTOR_RANGE_TYPE_SRV, // typ "nie ma znaczenia" dla RS v1? ma znaczenie — ale NRD u¿ywa i SRV i UAV.
 		// Dlatego robimy 2 zakresy: SRV + UAV.
 		0, 0, 0
 	);
