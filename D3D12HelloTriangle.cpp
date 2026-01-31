@@ -509,6 +509,7 @@ void D3D12HelloTriangle::OnUpdate()
 	ImGui::TextColored(ImVec4(0, 1, 0, 1), "Scene Manager");
 
 	static char modelPathBuffer[128] = "Models/Cube.obj";
+	static char scenePathBuffer[128] = "Models/ExampleScene/scene.json";
 	static char environmentPathBuffer[128] = "HDR/studio.hdr";
 	ImGui::InputText("Model Path", modelPathBuffer, _countof(modelPathBuffer));
 
@@ -523,6 +524,8 @@ void D3D12HelloTriangle::OnUpdate()
 		}
 	}
 
+	ImGui::InputText("Scene Path", scenePathBuffer, _countof(scenePathBuffer));
+
 	if (ImGui::Button("Load Scene"))
 	{
 		try
@@ -531,7 +534,7 @@ void D3D12HelloTriangle::OnUpdate()
 			{
 				RemoveModel(i);
 			}
-			LoadScene("Models/scene.json");
+			LoadScene(scenePathBuffer);
 			for (int i = 0; i < ModelDescriptions.size(); i++)
 			{
 				AddModel(ModelDescriptions[i].path, true);
@@ -547,7 +550,7 @@ void D3D12HelloTriangle::OnUpdate()
 	{
 		try
 		{
-			SaveScene("Models/scene.json");
+			SaveScene(scenePathBuffer);
 		}
 		catch (const std::runtime_error& e)
 		{
