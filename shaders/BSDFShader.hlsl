@@ -194,6 +194,12 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             payload.colorAndDistance.x *= baseColor.x;
             payload.colorAndDistance.y *= baseColor.y;
             payload.colorAndDistance.z *= baseColor.z;
+            payload.DiffuseRadianceAndDistance.x *= baseColor.x;
+            payload.DiffuseRadianceAndDistance.y *= baseColor.y;
+            payload.DiffuseRadianceAndDistance.z *= baseColor.z;
+            payload.SpecularRadianceAndDistance.x *= baseColor.x;
+            payload.SpecularRadianceAndDistance.y *= baseColor.y;
+            payload.SpecularRadianceAndDistance.z *= baseColor.z;
             payload.colorAndDistance.w += RayTCurrent();
         }
         else
@@ -269,7 +275,6 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                     HitInfo newPayload;
                     newPayload.colorAndDistance = float4(0, 0, 0, 0);
                     newPayload.hopCount = payload.hopCount;
-                    newPayload.sampleCount = 1;
                     newPayload.randomSeed = payload.randomSeed;
                     newPayload.isInGlass = payload.isInGlass;
                     newPayload.isShadow = 0;
@@ -284,7 +289,6 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                     ray.Direction = l;
                     newPayload.colorAndDistance = float4(0, 0, 0, 0);
                     newPayload.hopCount = payload.hopCount;
-                    newPayload.sampleCount = 1;
                     newPayload.randomSeed = payload.randomSeed;
                     newPayload.isInGlass = payload.isInGlass;
                     newPayload.isShadow = 0;
@@ -378,7 +382,22 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
         payload.colorAndDistance.x *= baseColor.x;
         payload.colorAndDistance.y *= baseColor.y;
         payload.colorAndDistance.z *= baseColor.z;
+        payload.SpecularRadianceAndDistance.x *= baseColor.x;
+        payload.SpecularRadianceAndDistance.y *= baseColor.y;
+        payload.SpecularRadianceAndDistance.z *= baseColor.z;
+        payload.DiffuseRadianceAndDistance.x *= baseColor.x;
+        payload.DiffuseRadianceAndDistance.y *= baseColor.y;
+        payload.DiffuseRadianceAndDistance.z *= baseColor.z;
     }
-    payload.DiffuseRadianceAndDistance.w = payload.SpecularRadianceAndDistance.w = payload.colorAndDistance.w = RayTCurrent();
-    payload.normalAndRoughness = float4(hitNormal, roughness);
+    if (roughness < 0.2 && inst.isMetallic)
+    {
+        payload.SpecularRadianceAndDistance.w += RayTCurrent();
+    }
+    else
+    {
+        payload.SpecularRadianceAndDistance.w = RayTCurrent();
+        payload.normalAndRoughness = float4(hitNormal, roughness);
+        payload.instanceID = id;
+    }
+    payload.DiffuseRadianceAndDistance.w = payload.colorAndDistance.w = RayTCurrent();
 }

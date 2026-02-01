@@ -8,6 +8,12 @@ RWTexture2D<float4> gNormalRoughness        : register(u3); // normal + roughnes
 RWTexture2D<float4> gViewZ                  : register(u4); // viewZ (for start: -hitDist)
 RWTexture2D<float2> gMotion                 : register(u5);
 
+RWTexture2D<float4> gDiffuseRadianceHitDistHistory : register(u6); // diffuse + hitDist
+RWTexture2D<float4> gSpecRadianceHitDistHistory : register(u7); // spec + hitDist
+RWTexture2D<float4> gNormalRoughnessHistory : register(u8); // normal + roughness
+RWTexture2D<float4> gViewZHistory : register(u9);
+RWTexture2D<uint> gInstanceID : register(u10);
+
 RaytracingAccelerationStructure SceneBVH : register(t0);
 
 cbuffer CameraParams : register(b0)
@@ -43,15 +49,16 @@ void RayGen()
     float4 outSpec = float4(0, 0, 0, 0);
     float4 outNR = float4(0, 0, 1, 0.5); // normal+roughness fallback
     float  outHitDist = 0;
+    int outInstanceID = 0;
 
     for (uint i = 0; i < SampleCount; i++)
     {
         payload.colorAndDistance = float4(0, 0, 0, 0);
         payload.hopCount = min(27, MaxRecursionDepth);
-        payload.sampleCount = 1;
         payload.randomSeed = InitSeed(launchIndex, FrameIndex + 1000 * i);
         payload.isInGlass = 0;
         payload.isShadow = 0;
+        payload.instanceID = 1000;
 
         
         if (UseEnvLight)
@@ -85,6 +92,7 @@ void RayGen()
         outSpec += payload.SpecularRadianceAndDistance;
         outNR = payload.normalAndRoughness;
         outHitDist = payload.colorAndDistance.w;
+        outInstanceID = payload.instanceID;
     }
 
     pixelColor /= max(1.0, (float)SampleCount);
@@ -105,12 +113,15 @@ void RayGen()
             beauty.rgb = float3(0.0f, 0.0f, 0.0f);
     }
 
-    gOutput[launchIndex] = beauty;
+    gOutput[launchIndex] = beauty = float4(pixelColor,1);
 
+    outNR.xyz = normalize(mul((float3x3) view, outNR.xyz));
+    
     float depthValue = min(payload.colorAndDistance.w, 1000.0f);
     gDiffuseRadianceHitDist[launchIndex] = outDiffuse;
     gSpecRadianceHitDist[launchIndex] = outSpec;
     gNormalRoughness[launchIndex] = outNR;
     gMotion[launchIndex] = float2(0.0f, 0.0f);
     gViewZ[launchIndex] = float4(-depthValue, 0, 0, 0);
+    gInstanceID[launchIndex] = outInstanceID;
 }
