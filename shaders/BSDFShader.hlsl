@@ -275,7 +275,6 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                     HitInfo newPayload;
                     newPayload.colorAndDistance = float4(0, 0, 0, 0);
                     newPayload.hopCount = payload.hopCount;
-                    newPayload.sampleCount = 1;
                     newPayload.randomSeed = payload.randomSeed;
                     newPayload.isInGlass = payload.isInGlass;
                     newPayload.isShadow = 0;
@@ -290,7 +289,6 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                     ray.Direction = l;
                     newPayload.colorAndDistance = float4(0, 0, 0, 0);
                     newPayload.hopCount = payload.hopCount;
-                    newPayload.sampleCount = 1;
                     newPayload.randomSeed = payload.randomSeed;
                     newPayload.isInGlass = payload.isInGlass;
                     newPayload.isShadow = 0;
@@ -399,6 +397,7 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
     {
         payload.SpecularRadianceAndDistance.w = RayTCurrent();
         payload.normalAndRoughness = float4(hitNormal, roughness);
+        payload.instanceID = id;
     }
     payload.DiffuseRadianceAndDistance.w = payload.colorAndDistance.w = RayTCurrent();
 }

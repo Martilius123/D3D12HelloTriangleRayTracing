@@ -13,6 +13,9 @@ RWTexture2D<float4> gDiffuseRadianceHitDistHistory : register(u6); // diffuse + 
 RWTexture2D<float4> gSpecRadianceHitDistHistory : register(u7); // spec + hitDist
 RWTexture2D<float4> gNormalRoughnessHistory : register(u8); // normal + roughness
 RWTexture2D<float4> gViewZHistory : register(u9);
+RWTexture2D<uint> gInstanceID : register(u10);
+RWTexture2D<uint> gInstanceIDHistory : register(u11);
+
 [numthreads(8, 8, 1)]
 void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -24,6 +27,7 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     float centerDepth = gDiffuseRadianceHitDist[pixel].w;
     float centerRoughness = gNormalRoughness[pixel].w;
     float3 centerNormal = gNormalRoughness[pixel].xyz;
+    uint centerInstanceID = gInstanceID[pixel];
     
     float depthThreshold = abs(centerDepth) * 0.01f;
     float roughnessThreshold = 0.1f;
@@ -49,10 +53,12 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
             float neighborDepth = gDiffuseRadianceHitDist[neighbor].w;
             float neighborRoughness = gNormalRoughness[neighbor].w;
             float3 neighborNormal = gNormalRoughness[neighbor].xyz;
+            uint neighborInstanceID = gInstanceID[neighbor];
             float depthDiff = abs(centerDepth - neighborDepth);
             float depthWeight = exp(-depthDiff * 30);
             float roughnessWeight = lerp(0.2, 1.0, centerRoughness);
             float normalWeight = saturate(dot(centerNormal, neighborNormal));
+            float instanceWeight = (centerInstanceID == neighborInstanceID) ? 1.0 : 0.0;
             normalWeight = pow(normalWeight, 32); // sharpen edge rejection
             float dist2 = dx * dx + dy * dy;
             float spatialWeight = exp(-dist2 / 4); // gaussian spatial weight 4 for 7x7 kernel, 2 for 5x5 kernel
@@ -60,7 +66,8 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
                 spatialWeight *
                 normalWeight *
                 depthWeight *
-                roughnessWeight;
+                roughnessWeight *
+                instanceWeight;
             if (abs(dx)<=0 && abs(dy)<=0)
             {
                 specular += gSpecRadianceHitDist[neighbor].xyz * weight;
@@ -78,6 +85,7 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     gSpecRadianceHitDistHistory[pixel] = float4(specular, gSpecRadianceHitDist[pixel].w);
     gNormalRoughnessHistory[pixel] = gNormalRoughness[pixel];
     gViewZHistory[pixel] = gViewZ[pixel];
+    gInstanceIDHistory[pixel] = gInstanceID[pixel];
     
     gOutput[pixel] = float4(LinearToSRGB(diffuse + specular), 0);
     

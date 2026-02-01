@@ -13,6 +13,8 @@ RWTexture2D<float4> gDiffuseRadianceHitDistHistory : register(u6); // diffuse + 
 RWTexture2D<float4> gSpecRadianceHitDistHistory : register(u7); // spec + hitDist
 RWTexture2D<float4> gNormalRoughnessHistory : register(u8); // normal + roughness
 RWTexture2D<float4> gViewZHistory : register(u9);
+RWTexture2D<uint> gInstanceID : register(u10);
+RWTexture2D<uint> gInstanceIDHistory: register(u11);
 [numthreads(8, 8, 1)]
 void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
@@ -44,6 +46,16 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     {
         validHistory = false;
     }
+    uint instanceID = gInstanceID[pixel];
+    uint prevInstanceID = gInstanceIDHistory[pixel];
+    if (instanceID != prevInstanceID)
+    {
+        validHistory = false;
+    }
+    if(instanceID == 1000) // miss shader
+    {
+        validHistory = false;
+    }
     
     // temporal blending
     if (validHistory)
@@ -62,6 +74,7 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     gSpecRadianceHitDistHistory[pixel] = float4(specular, gSpecRadianceHitDist[pixel].w);
     gNormalRoughnessHistory[pixel] = gNormalRoughness[pixel];
     gViewZHistory[pixel] = gViewZ[pixel];
+    gInstanceIDHistory[pixel] = gInstanceID[pixel];
     
     //gOutput[pixel] = float4(LinearToSRGB(diffuse + specular), 0);
     gDiffuseRadianceHitDist[pixel] = float4(diffuse, gDiffuseRadianceHitDist[pixel].w);

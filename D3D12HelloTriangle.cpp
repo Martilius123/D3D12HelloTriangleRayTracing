@@ -1375,13 +1375,13 @@ ComPtr<ID3D12RootSignature> D3D12HelloTriangle::CreateRayGenSignature()
 	rsc.AddHeapRangesParameter(
 		{
 			// Range 1: UAVs u0..u9 (Count = 10)
-			{ 0 /*u0*/, 10 /*count*/, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0 },
+			{ 0 /*u0*/, 12 /*count*/, 0, D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 0 },
 
-			// Range 2: TLAS t0 (slot 10)
-			{ 0 /*t0*/, 1,           0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 10 },
+			// Range 2: TLAS t0 (slot 12)
+			{ 0 /*t0*/, 1,           0, D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 12 },
 
-			// Range 3: Camera b0 (slot 11)
-			{ 0 /*b0*/, 1,           0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 11 }
+			// Range 3: Camera b0 (slot 13)
+			{ 0 /*b0*/, 1,           0, D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 13 }
 		});
 
 	return rsc.Generate(m_device.Get(), true);
@@ -1578,7 +1578,7 @@ void D3D12HelloTriangle::CreateShaderResourceHeap()
 	// U Ciebie env SRV jest u¿ywane w Miss przez SBT pointer, wiêc NIE jest wymagane w global heap,
 	// ale mo¿esz zostawiæ jeœli chcesz.
 
-	const UINT baseCount = 12; // u0..u9 + TLAS + Camera
+	const UINT baseCount = 14; // u0..u9 + TLAS + Camera
 	const UINT extraInstanceSrvs = (UINT)Models.size(); // jeœli dalej chcesz to trzymaæ w heapie
 	const UINT descriptorCount = baseCount + extraInstanceSrvs + 1; // +1 jeœli chcesz env SRV na koñcu
 
@@ -1606,10 +1606,12 @@ void D3D12HelloTriangle::CreateShaderResourceHeap()
 	createUav(m_aovMotionVectors.Get());      // u5
 	createUav(m_aovDiffHitDistHist.Get());    // u6
 	createUav(m_aovSpecHitDistHist.Get());    // u7
-	createUav(m_aovNormalRoughnessHist.Get()); // u8
+	createUav(m_aovNormalRoughnessHist.Get());// u8
 	createUav(m_aovViewZHist.Get());          // u9
+	createUav(m_aovInstanceID.Get());         // u10
+	createUav(m_aovInstanceIDHist.Get());     // u11
 
-	// --- TLAS SRV t0 (slot 10) ---
+	// --- TLAS SRV t0 (slot 11) ---
 	D3D12_SHADER_RESOURCE_VIEW_DESC tlas = {};
 	tlas.Format = DXGI_FORMAT_UNKNOWN;
 	tlas.ViewDimension = D3D12_SRV_DIMENSION_RAYTRACING_ACCELERATION_STRUCTURE;
@@ -1618,7 +1620,7 @@ void D3D12HelloTriangle::CreateShaderResourceHeap()
 	m_device->CreateShaderResourceView(nullptr, &tlas, h);
 	h.Offset(1, inc);
 
-	// --- Camera CBV b0 (slot 11) ---
+	// --- Camera CBV b0 (slot 12) ---
 	D3D12_CONSTANT_BUFFER_VIEW_DESC cbv = {};
 	cbv.BufferLocation = m_cameraBuffer->GetGPUVirtualAddress();
 	cbv.SizeInBytes = m_cameraBufferSize;
@@ -2243,6 +2245,8 @@ void D3D12HelloTriangle::CreateAOVResources()
 	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_aovSpecHitDistHist);
 	makeTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovNormalRoughnessHist);
 	makeTex(DXGI_FORMAT_R32_FLOAT, m_aovViewZHist);
+	makeTex(DXGI_FORMAT_R32_UINT, m_aovInstanceID);
+	makeTex(DXGI_FORMAT_R32_UINT, m_aovInstanceIDHist);
 }
 
 // Our own denoising
@@ -2252,7 +2256,7 @@ void D3D12HelloTriangle::CreateDenoiseRootSignature()
 	CD3DX12_DESCRIPTOR_RANGE ranges[1];
 	ranges[0].Init(
 		D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
-		10,    // u0, u1
+		12,    // u0, u1
 		0     // base register
 	);
 

@@ -102,17 +102,18 @@ public:
 
 
 
-	ComPtr<ID3D12Resource> m_outputResource;     // u0
-	ComPtr<ID3D12Resource> m_aovNormalRoughness; // u1
-	ComPtr<ID3D12Resource> m_aovViewZ;           // u2
-	ComPtr<ID3D12Resource> m_aovDiffuse; //u3
-	ComPtr<ID3D12Resource> m_aovSpecular; //u4
-	ComPtr<ID3D12Resource> m_aovMotionVectors;	 // u5
-
-	ComPtr<ID3D12Resource> m_aovDiffHitDistHist;           // u6
-	ComPtr<ID3D12Resource> m_aovSpecHitDistHist;     // u7
-	ComPtr<ID3D12Resource> m_aovNormalRoughnessHist;     // u8
-	ComPtr<ID3D12Resource> m_aovViewZHist;	 // u9
+	ComPtr<ID3D12Resource> m_outputResource;		// u0
+	ComPtr<ID3D12Resource> m_aovNormalRoughness;	// u1
+	ComPtr<ID3D12Resource> m_aovViewZ;				// u2
+	ComPtr<ID3D12Resource> m_aovDiffuse;			// u3
+	ComPtr<ID3D12Resource> m_aovSpecular;			// u4
+	ComPtr<ID3D12Resource> m_aovMotionVectors;		// u5
+	ComPtr<ID3D12Resource> m_aovDiffHitDistHist;    // u6
+	ComPtr<ID3D12Resource> m_aovSpecHitDistHist;    // u7
+	ComPtr<ID3D12Resource> m_aovNormalRoughnessHist;// u8
+	ComPtr<ID3D12Resource> m_aovViewZHist;			// u9
+	ComPtr<ID3D12Resource> m_aovInstanceID;			// u10
+	ComPtr<ID3D12Resource> m_aovInstanceIDHist;		// u11
 
 	void D3D12HelloTriangle::CreateAOVResources();
 
