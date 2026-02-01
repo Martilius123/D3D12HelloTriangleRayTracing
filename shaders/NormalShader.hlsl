@@ -16,6 +16,6 @@ void ClosestHit_Normal(inout HitInfo payload : SV_RayPayload, Attributes attrib)
 
     float3 hitColor = normalize(mul(hitNormalObj, (float3x3)WorldToObject3x4()));
 
-    payload.colorAndDistance = float4(hitColor, RayTCurrent());
+    payload.DiffuseRadianceAndDistance = float4(hitColor, RayTCurrent());
 }
 

@@ -59,6 +59,7 @@ void RayGen()
         payload.isInGlass = 0;
         payload.isShadow = 0;
         payload.instanceID = 1000;
+        payload.distanceInGlass = 0.0f;
 
         
         if (UseEnvLight)

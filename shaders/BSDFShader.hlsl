@@ -65,6 +65,19 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
 
     //BDSF logic
 
+    //glass color absorption
+    float segmentLength = RayTCurrent();
+
+    if (payload.isInGlass == 1)
+    {
+        float3 T = exp(-inst.albedo * segmentLength);
+
+        payload.colorAndDistance.xyz *= T;
+        payload.DiffuseRadianceAndDistance.xyz *= T;
+        payload.SpecularRadianceAndDistance.xyz *= T;
+    }
+    
+    //further BSDF
     payload.randomSeed = HashSeed(payload.randomSeed);
 
     float3 n0 = BTriVertex[indices[vertId + 0]].normal;
@@ -131,6 +144,7 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             float sinTheta1 = sqrt(1.0 - dotI * dotI); // sin(theta1)
 
             float n1, n2;
+            float distanceInGlass = 0;
             // Determine whether we are entering or exiting the material
             if (payload.isInGlass == 0)
             {
@@ -146,6 +160,7 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                 n2 = 1.0; // Refractive index of air
                 hitNormal = -hitNormal; // Flip the normal for refraction
                 payload.isInGlass = 0;
+                distanceInGlass = RayTCurrent();
             }
 
             float eta = n1 / n2;
@@ -153,7 +168,7 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             float sinT2 = eta * eta * (1.0 - cosI * cosI);
 
             // Check if total internal reflection occurs (sinTheta2 > 1 means no refraction)
-            if (false && sinT2 > 1.0)
+            if (sinT2 > 1.0)
             {
                 // Total reflection, no refraction
                 float3 reflected = reflect(incoming, hitNormal);
@@ -191,7 +206,7 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                 payload.colorAndDistance = float4(0, 0, 0, 0);
                 TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, payload);
             }
-            payload.colorAndDistance.x *= baseColor.x;
+            /*payload.colorAndDistance.x *= baseColor.x;
             payload.colorAndDistance.y *= baseColor.y;
             payload.colorAndDistance.z *= baseColor.z;
             payload.DiffuseRadianceAndDistance.x *= baseColor.x;
@@ -199,7 +214,16 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             payload.DiffuseRadianceAndDistance.z *= baseColor.z;
             payload.SpecularRadianceAndDistance.x *= baseColor.x;
             payload.SpecularRadianceAndDistance.y *= baseColor.y;
-            payload.SpecularRadianceAndDistance.z *= baseColor.z;
+            payload.SpecularRadianceAndDistance.z *= baseColor.z;*/
+            /*float3 T;
+            T.x = exp(-inst.albedo.x * distanceInGlass / 100);
+            T.y = exp(-inst.albedo.y * distanceInGlass / 100);
+            T.z = exp(-inst.albedo.z * distanceInGlass / 100);
+            
+            payload.colorAndDistance.xyz *= T;
+            payload.DiffuseRadianceAndDistance.xyz *= T;
+            payload.SpecularRadianceAndDistance.xyz *= T;*/
+            
             payload.colorAndDistance.w += RayTCurrent();
         }
         else
@@ -309,6 +333,7 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             
             
             //Now we will calculate the point light contribution
+            if (lightIntensity > 0.0f && roughness > 0.0f && (lightColor.x > 0.0f || lightColor.y > 0.0f || lightColor.z > 0.0f))
             {
                 float3 shadowRay;
                 float3 lightDirection;
@@ -338,11 +363,13 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                 HitInfo shadowPayload;
                 shadowPayload.colorAndDistance = float4(0, 0, 0, 0);
                 shadowPayload.isShadow = 1;
+                shadowPayload.hopCount = 1;
                 RayDesc ray;
                 ray.Origin = newOrigin;
                 ray.TMin = 0;
                 ray.TMax = lightDistance;
                 ray.Direction = lightDirection;
+                payload.hopCount -= shadowPayload.hopCount;
                 TraceRay(SceneBVH, RAY_FLAG_NONE, 0xFF, 0, 0, 0, ray, shadowPayload);
                 if (shadowPayload.colorAndDistance.w < 0.0f)
                 {

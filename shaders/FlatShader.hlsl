@@ -19,5 +19,5 @@ void ClosestHit_Flat(inout HitInfo payload : SV_RayPayload, Attributes attrib)
     
     //payload.colorAndDistance = float4(inst.testColor, RayTCurrent());
 
-    payload.colorAndDistance = float4(hitColor, RayTCurrent());
+    payload.DiffuseRadianceAndDistance = float4(hitColor, RayTCurrent());
 }

@@ -115,6 +115,6 @@ void ClosestHit_MirrorDemo(inout HitInfo payload : SV_RayPayload, Attributes att
           // Payload associated to the ray, which will be used to communicate between the hit/miss
           // shaders and the raygen
           payload);
-		payload.colorAndDistance = 0.9f * payload.colorAndDistance; // darken a bit on each reflection
+		payload.DiffuseRadianceAndDistance = 0.9f * payload.colorAndDistance; // darken a bit on each reflection
     }
 }

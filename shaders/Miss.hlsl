@@ -6,19 +6,22 @@ SamplerState envSampler : register(s0);
 [shader("miss")]
 void Miss(inout HitInfo payload : SV_RayPayload)
 {
+    float3 dir = normalize(WorldRayDirection());
+    float3 color;
     if (payload.environmentColor.x >= 0)
     {
-        payload.colorAndDistance = float4(payload.environmentColor.xyz, -1.0f);
-        return;
+        color = payload.environmentColor.xyz;
     }
-    float3 dir = normalize(WorldRayDirection());
-    float u = atan2(dir.z, dir.x) / (2.0 * 3.14159265) + 0.5;
-    float v = 0.5 - asin(clamp(dir.y, -1.0, 1.0)) / 3.14159265;
-    float4 hdr = envMap.SampleLevel(envSampler, float2(u, v), 0.0);
-	payload.SpecularRadianceAndDistance = float4(hdr.xyz, -1.0f);
+    else
+    {
+        float u = atan2(dir.z, dir.x) / (2.0 * 3.14159265) + 0.5;
+        float v = 0.5 - asin(clamp(dir.y, -1.0, 1.0)) / 3.14159265;
+        float4 hdr = envMap.SampleLevel(envSampler, float2(u, v), 0.0);
+        color = hdr.xyz;
+    }
+    payload.SpecularRadianceAndDistance = payload.colorAndDistance = float4(color, -1.0f);
 	payload.DiffuseRadianceAndDistance = float4(0.0f, 0.0f, 0.0f, -1.0f);
 	payload.normalAndRoughness = float4(dir, 1.0f);
-    payload.colorAndDistance = float4(hdr.xyz, -1.0f);
 }
 /*
     //payload.colorAndDistance = float4(0.2f, 0.2f, 0.8f, -1.f);

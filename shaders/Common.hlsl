@@ -20,6 +20,7 @@ struct HitInfo
     float4 SpecularRadianceAndDistance;
     uint isShadow;
     uint instanceID;
+    float distanceInGlass;
 };
 
 // Attributes output by the raytracing when hitting a surface,
