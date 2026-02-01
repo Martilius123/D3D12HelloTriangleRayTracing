@@ -100,8 +100,10 @@ void RayGen()
     outSpec /= max(1.0, (float) SampleCount);
 
     // ISO + SRGB
-    pixelColor *= ISOIndex / 400.0f;
-    pixelColor = LinearToSRGB(pixelColor);
+    outDiffuse.xyz *= ISOIndex / 400.0f;
+    outDiffuse.xyz = LinearToSRGB(outDiffuse.xyz);
+    outSpec.xyz *= ISOIndex / 400.0f;
+    outSpec.xyz = LinearToSRGB(outSpec.xyz);
 
     float4 beauty = float4(pixelColor, 1.0f);
 
@@ -113,7 +115,7 @@ void RayGen()
             beauty.rgb = float3(0.0f, 0.0f, 0.0f);
     }
 
-    gOutput[launchIndex] = beauty = float4(pixelColor,1);
+    gOutput[launchIndex] = outSpec + outDiffuse;//beauty = float4(pixelColor,1);
 
     outNR.xyz = normalize(mul((float3x3) view, outNR.xyz));
     
