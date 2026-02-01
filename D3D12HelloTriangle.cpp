@@ -296,6 +296,7 @@ void D3D12HelloTriangle::OnInit() {
 
 	ComPtr<IDxcUtils> DxcUtils;
 	ComPtr<IDxcCompiler3> DxcCompiler;
+	ComPtr<IDxcIncludeHandler> includeHandler;
 
 	// Create Utils
 	ThrowIfFailed(DxcCreateInstance(
@@ -308,50 +309,31 @@ void D3D12HelloTriangle::OnInit() {
 		CLSID_DxcCompiler,
 		IID_PPV_ARGS(&DxcCompiler)
 	));
-	
-	auto sourceData = LoadFile(L"shaders/Denoiser.hlsl");
 
-	DxcBuffer buffer;
-	buffer.Ptr = sourceData.data();
-	buffer.Size = sourceData.size();
-	buffer.Encoding = DXC_CP_UTF8;
+	//Create Include Handler
+	ThrowIfFailed(DxcUtils->CreateDefaultIncludeHandler(&includeHandler));
 
-	ComPtr<IDxcResult> result;
-	LPCWSTR arguments[] = {
-	L"-E", L"CSMain",        // entry point
-	L"-T", L"cs_6_0"         // target
-	};
+	m_denoiseTemporalLibrary = CompileCS(
+		L"shaders/DenoiserTemporalPass.hlsl",
+		L"CSMain",
+		L"cs_6_0",
+		DxcUtils.Get(),
+		DxcCompiler.Get(),
+		includeHandler.Get()
+	);
 
-	// Compile
-	buffer.Ptr = sourceData.data();
-	buffer.Size = sourceData.size();
-	buffer.Encoding = DXC_CP_UTF8;
-
-	ThrowIfFailed(DxcCompiler->Compile(
-		&buffer,           // source buffer
-		arguments,         // array of wide string arguments
-		_countof(arguments),
-		nullptr,           // include handler (can be nullptr)
-		IID_PPV_ARGS(&result)
-	));
-
-	HRESULT hrStatus;
-	result->GetStatus(&hrStatus);
-	if (FAILED(hrStatus))
-	{
-		ComPtr<IDxcBlobUtf8> pErrors;
-		result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&pErrors), nullptr);
-		if (pErrors && pErrors->GetStringLength() > 0)
-		{
-			OutputDebugStringA((char*)pErrors->GetBufferPointer());
-			throw std::runtime_error((char*)pErrors->GetBufferPointer());
-		}
-	}
-
-	ThrowIfFailed(result->GetResult(&m_denoiseLibrary));
+	m_denoiseSpacialLibrary = CompileCS(
+		L"shaders/DenoiserSpacialPass.hlsl",
+		L"CSMain",
+		L"cs_6_0",
+		DxcUtils.Get(),
+		DxcCompiler.Get(),
+		includeHandler.Get()
+	);
 
 	CreateDenoiseRootSignature();
-	CreateDenoisePipeline();
+	CreateDenoiseTemporalPipeline();
+	CreateDenoiseSpacialPipeline();
 
 	// #DXR Extra: Perspective Camera
 	// Create a buffer to store the modelview and perspective camera matrices
@@ -647,7 +629,7 @@ void D3D12HelloTriangle::OnUpdate()
 
 	if (currentShading == L"BSDF")
 	{
-		ImGui::Checkbox("Enable NRD Denoiser", &m_enableDenoise);
+		ImGui::Checkbox("Enable Denoising", &m_enableDenoise);
 		ImGui::Separator();
 		ImGui::Text("BSDF Parameters");
 		ImGui::DragInt("Sample Count", (int*)&m_sampleCount, 1, 1, 20);
@@ -971,27 +953,42 @@ void D3D12HelloTriangle::PopulateCommandList()
 	if (m_enableDenoise)
 	{
 		//our denoiser
-		m_commandList->SetPipelineState(m_denoisePSO.Get());
-		m_commandList->SetComputeRootSignature(m_denoiseRootSignature.Get());
-
 		ID3D12DescriptorHeap* heaps[] = { m_srvUavHeap.Get() };
 		m_commandList->SetDescriptorHeaps(1, heaps);
 
+		m_commandList->SetComputeRootSignature(m_denoiseRootSignature.Get());
 		m_commandList->SetComputeRootDescriptorTable(
 			0,
 			m_srvUavHeap->GetGPUDescriptorHandleForHeapStart()
 		);
 
-		&CD3DX12_RESOURCE_BARRIER::Transition(
-			src,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS
-		);
+		// ---------- TRANSITIONS BEFORE TEMPORAL ----------
+		CD3DX12_RESOURCE_BARRIER preBarriers[] =
+		{
+			// src is read-only
+			CD3DX12_RESOURCE_BARRIER::Transition(
+				src,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,   // or UAV
+				D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE
+			),
 
-		m_commandList->ResourceBarrier(
-			1,
-			&CD3DX12_RESOURCE_BARRIER::UAV(nullptr)
-		);
+			// temporal output written as UAV
+			CD3DX12_RESOURCE_BARRIER::Transition(
+				m_aovDiffuse.Get(),
+				D3D12_RESOURCE_STATE_COMMON,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS
+			),
+			CD3DX12_RESOURCE_BARRIER::Transition(
+				m_aovSpecular.Get(),
+				D3D12_RESOURCE_STATE_COMMON,
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS
+			)
+		};
+
+		m_commandList->ResourceBarrier(_countof(preBarriers), preBarriers);
+
+		// ---------- TEMPORAL PASS ----------
+		m_commandList->SetPipelineState(m_denoiseTemporalPSO.Get());
 
 		m_commandList->Dispatch(
 			(GetWidth() + 7) / 8,
@@ -999,10 +996,29 @@ void D3D12HelloTriangle::PopulateCommandList()
 			1
 		);
 
-		&CD3DX12_RESOURCE_BARRIER::Transition(
-			m_denoisedOutput.Get(),
-			D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
-			D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+		// Ensure temporal writes are visible
+		CD3DX12_RESOURCE_BARRIER uavBarrier =
+			CD3DX12_RESOURCE_BARRIER::UAV(nullptr);
+
+		m_commandList->ResourceBarrier(1, &uavBarrier);
+
+		// ---------- SPATIAL PASS ----------
+		m_commandList->SetPipelineState(m_denoiseSpacialPSO.Get());
+
+		m_commandList->Dispatch(
+			(GetWidth() + 7) / 8,
+			(GetHeight() + 7) / 8,
+			1
+		);
+
+
+		m_commandList->ResourceBarrier(
+			1,
+			&CD3DX12_RESOURCE_BARRIER::Transition(
+				m_denoisedOutput.Get(),
+				D3D12_RESOURCE_STATE_UNORDERED_ACCESS,
+				D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+			)
 		);
 
 
@@ -1071,6 +1087,7 @@ void D3D12HelloTriangle::PopulateCommandList()
 
 	// --- Copy src -> backbuffer (TYLKO RAZ) ---
 	// src jest UAV (output albo denoisedOutput), wiêc UAV -> COPY_SOURCE
+	//src = m_aovDiffuse.Get();
 	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
 		src, D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_COPY_SOURCE));
 
@@ -1965,7 +1982,7 @@ void D3D12HelloTriangle::AdjustSampleCount()
 	{
 		m_slowFrameCount--;
 	}
-	if (m_slowFrameCount > 2 && m_sampleCount > 1)
+	if (m_slowFrameCount > 2 && m_sampleCount > 2)
 	{
 		m_sampleCount--;
 		m_slowFrameCount = 0;
@@ -1975,6 +1992,8 @@ void D3D12HelloTriangle::AdjustSampleCount()
 		m_sampleCount++;
 		m_slowFrameCount = 0;
 	}
+	if(m_sampleCount > 20)
+		m_sampleCount = 20;
 }
 
 void D3D12HelloTriangle::UpdateNRDCommonSettingsPerFrame()
@@ -2270,18 +2289,34 @@ void D3D12HelloTriangle::CreateDenoiseRootSignature()
 	));
 }
 
-void D3D12HelloTriangle::CreateDenoisePipeline()
+void D3D12HelloTriangle::CreateDenoiseTemporalPipeline()
 {
 	D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
 	psoDesc.pRootSignature = m_denoiseRootSignature.Get();
 	psoDesc.CS = {
-		m_denoiseLibrary->GetBufferPointer(),
-		m_denoiseLibrary->GetBufferSize()
+		m_denoiseTemporalLibrary->GetBufferPointer(),
+		m_denoiseTemporalLibrary->GetBufferSize()
 	};
 
 	ThrowIfFailed(m_device->CreateComputePipelineState(
 		&psoDesc,
-		IID_PPV_ARGS(&m_denoisePSO)
+		IID_PPV_ARGS(&m_denoiseTemporalPSO)
+	));
+
+}
+
+void D3D12HelloTriangle::CreateDenoiseSpacialPipeline()
+{
+	D3D12_COMPUTE_PIPELINE_STATE_DESC psoDesc = {};
+	psoDesc.pRootSignature = m_denoiseRootSignature.Get();
+	psoDesc.CS = {
+		m_denoiseSpacialLibrary->GetBufferPointer(),
+		m_denoiseSpacialLibrary->GetBufferSize()
+	};
+
+	ThrowIfFailed(m_device->CreateComputePipelineState(
+		&psoDesc,
+		IID_PPV_ARGS(&m_denoiseSpacialPSO)
 	));
 
 }
@@ -2296,3 +2331,53 @@ std::vector<char> D3D12HelloTriangle::LoadFile(const wchar_t* filename) {
 	file.read(buffer.data(), size);
 	return buffer;
 }
+
+ComPtr<IDxcBlob> D3D12HelloTriangle::CompileCS(
+	const wchar_t* filename,
+	const wchar_t* entryPoint,
+	const wchar_t* target,
+	IDxcUtils* utils,
+	IDxcCompiler3* compiler,
+	IDxcIncludeHandler* includeHandler
+)
+{
+	auto sourceData = LoadFile(filename);
+
+	DxcBuffer buffer{};
+	buffer.Ptr = sourceData.data();
+	buffer.Size = sourceData.size();
+	buffer.Encoding = DXC_CP_UTF8;
+
+	LPCWSTR arguments[] = {
+		L"-E", entryPoint,
+		L"-T", target,
+		L"-I", L"shaders"
+	};
+
+	ComPtr<IDxcResult> result;
+	ThrowIfFailed(compiler->Compile(
+		&buffer,
+		arguments,
+		_countof(arguments),
+		includeHandler,
+		IID_PPV_ARGS(&result)
+	));
+
+	HRESULT hr;
+	result->GetStatus(&hr);
+	if (FAILED(hr))
+	{
+		ComPtr<IDxcBlobUtf8> errors;
+		result->GetOutput(DXC_OUT_ERRORS, IID_PPV_ARGS(&errors), nullptr);
+		if (errors && errors->GetStringLength() > 0)
+		{
+			OutputDebugStringA((char*)errors->GetBufferPointer());
+			throw std::runtime_error((char*)errors->GetBufferPointer());
+		}
+	}
+
+	ComPtr<IDxcBlob> shader;
+	ThrowIfFailed(result->GetResult(&shader));
+	return shader;
+}
+

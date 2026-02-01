@@ -110,8 +110,10 @@ void RayGen()
             beauty.rgb = float3(0.0f, 0.0f, 0.0f);
     }
 
-    gOutput[launchIndex] = beauty;
+    gOutput[launchIndex] = beauty = float4(pixelColor,1);
 
+    outNR.xyz = normalize(mul((float3x3) view, outNR.xyz));
+    
     float depthValue = min(payload.colorAndDistance.w, 1000.0f);
     gDiffuseRadianceHitDist[launchIndex] = outDiffuse;
     gSpecRadianceHitDist[launchIndex] = outSpec;

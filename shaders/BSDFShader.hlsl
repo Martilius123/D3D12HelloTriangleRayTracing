@@ -194,6 +194,12 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             payload.colorAndDistance.x *= baseColor.x;
             payload.colorAndDistance.y *= baseColor.y;
             payload.colorAndDistance.z *= baseColor.z;
+            payload.DiffuseRadianceAndDistance.x *= baseColor.x;
+            payload.DiffuseRadianceAndDistance.y *= baseColor.y;
+            payload.DiffuseRadianceAndDistance.z *= baseColor.z;
+            payload.SpecularRadianceAndDistance.x *= baseColor.x;
+            payload.SpecularRadianceAndDistance.y *= baseColor.y;
+            payload.SpecularRadianceAndDistance.z *= baseColor.z;
             payload.colorAndDistance.w += RayTCurrent();
         }
         else
@@ -378,7 +384,21 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
         payload.colorAndDistance.x *= baseColor.x;
         payload.colorAndDistance.y *= baseColor.y;
         payload.colorAndDistance.z *= baseColor.z;
+        payload.SpecularRadianceAndDistance.x *= baseColor.x;
+        payload.SpecularRadianceAndDistance.y *= baseColor.y;
+        payload.SpecularRadianceAndDistance.z *= baseColor.z;
+        payload.DiffuseRadianceAndDistance.x *= baseColor.x;
+        payload.DiffuseRadianceAndDistance.y *= baseColor.y;
+        payload.DiffuseRadianceAndDistance.z *= baseColor.z;
     }
-    payload.DiffuseRadianceAndDistance.w = payload.SpecularRadianceAndDistance.w = payload.colorAndDistance.w = RayTCurrent();
-    payload.normalAndRoughness = float4(hitNormal, roughness);
+    if (roughness < 0.2 && inst.isMetallic)
+    {
+        payload.SpecularRadianceAndDistance.w += RayTCurrent();
+    }
+    else
+    {
+        payload.SpecularRadianceAndDistance.w = RayTCurrent();
+        payload.normalAndRoughness = float4(hitNormal, roughness);
+    }
+    payload.DiffuseRadianceAndDistance.w = payload.colorAndDistance.w = RayTCurrent();
 }

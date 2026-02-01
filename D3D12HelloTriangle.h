@@ -80,7 +80,7 @@ public:
 //	uint32_t m_nrdConstUploadSize = 0;
 
 	// Toggle denoiser
-	bool m_enableDenoise = false;
+	bool m_enableDenoise = true;
 
 	// Create PSOs/root signature from NRD instance description (call after m_nrd.Initialize)
 	void CreateNRDPipelines();
@@ -90,10 +90,12 @@ public:
 
 	// our own denoiser
 	void CreateDenoiseRootSignature();
-	void CreateDenoisePipeline();
+	void CreateDenoiseTemporalPipeline();
+	void CreateDenoiseSpacialPipeline();
 
 	Microsoft::WRL::ComPtr<ID3D12RootSignature> m_denoiseRootSignature;
-	ComPtr<ID3D12PipelineState> m_denoisePSO;
+	ComPtr<ID3D12PipelineState> m_denoiseTemporalPSO;
+	ComPtr<ID3D12PipelineState> m_denoiseSpacialPSO;
 
 	//	uint32_t m_nrdFrameIndex = 0;
 
@@ -103,8 +105,6 @@ public:
 	ComPtr<ID3D12Resource> m_outputResource;     // u0
 	ComPtr<ID3D12Resource> m_aovNormalRoughness; // u1
 	ComPtr<ID3D12Resource> m_aovViewZ;           // u2
-	//ComPtr<ID3D12Resource> m_aovDiffHitDist;     // u3
-	//ComPtr<ID3D12Resource> m_aovSpecHitDist;     // u4
 	ComPtr<ID3D12Resource> m_aovDiffuse; //u3
 	ComPtr<ID3D12Resource> m_aovSpecular; //u4
 	ComPtr<ID3D12Resource> m_aovMotionVectors;	 // u5
@@ -145,8 +145,8 @@ private:
 	UINT m_frameIndexCPU = 0;
 	UINT m_sampleCount = 4;
 	UINT m_maximumRecursionDepth = 25;
-	bool m_enableAdaptiveSampling = false;
-	float m_targetFrameRate = 32.0f;
+	bool m_enableAdaptiveSampling = true;
+	float m_targetFrameRate = 30.0f;
 	int m_slowFrameCount = 0;
 	UINT m_ISOIndex = 400;
 	bool m_highlightOverexposed = false;
@@ -365,7 +365,8 @@ ComPtr<IDxcBlob> m_phongShaderLibrary;
 ComPtr<IDxcBlob> m_mirrorDemoShaderLibrary;
 ComPtr<IDxcBlob> m_BSDFShaderLibrary;
 // Denoising shader library
-ComPtr<IDxcBlob> m_denoiseLibrary;
+ComPtr<IDxcBlob> m_denoiseTemporalLibrary;
+ComPtr<IDxcBlob> m_denoiseSpacialLibrary;
 
 // Root signatures for each shader stage
 ComPtr<ID3D12RootSignature> m_rayGenSignature;
@@ -407,6 +408,15 @@ std::vector<ModelDesc> D3D12HelloTriangle::LoadScene(const std::string& filename
 void D3D12HelloTriangle::SaveScene(const std::string& filename);
 
 std::vector<char> D3D12HelloTriangle::LoadFile(const wchar_t* filename);
+ComPtr<IDxcBlob> D3D12HelloTriangle::CompileCS(
+	const wchar_t* filename,
+	const wchar_t* entryPoint,
+	const wchar_t* target,
+	IDxcUtils* utils,
+	IDxcCompiler3* compiler,
+	IDxcIncludeHandler* includeHandler
+);
+
 
 // #DXR Extra: Perspective Camera++
 void OnButtonDown(UINT32 lParam);
