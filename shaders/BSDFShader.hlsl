@@ -367,14 +367,15 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
                     float3 kd = (1.0f - F) * (1.0f - inst.isMetallic);
                     float3 diffuse = kd * baseColor / PI;
 
-                    float3 radiance =
-                        (diffuse + specular) *
-                        lightColor *
-                        lightIntensity *
-                        attenuation *
-                        NdotL;
+                    diffuse *= lightColor * lightIntensity * attenuation * NdotL;
+                    specular *= lightColor * lightIntensity * attenuation * NdotL;
+                    
+                    float3 radiance = diffuse + specular;
 
                     payload.colorAndDistance += float4(radiance, 0);
+                    payload.DiffuseRadianceAndDistance += float4(diffuse, 0);
+                    payload.SpecularRadianceAndDistance += float4(specular, 0);
+
                 }
 
             }
