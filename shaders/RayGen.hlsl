@@ -41,6 +41,7 @@ void RayGen()
     float2 dims = float2(DispatchRaysDimensions().xy);
 
     float2 d = (((launchIndex.xy + 0.5f) / dims.xy) * 2.f - 1.f);
+    float2 pixelSize = 2.0f / dims.xy;
     float aspectRatio = dims.x / dims.y;
 
     float3 pixelColor = float3(0, 0, 0);
@@ -75,12 +76,15 @@ void RayGen()
         payload.SpecularRadianceAndDistance = float4(0, 0, 0, -1);
     
         // Define a ray, consisting of origin, direction, and the min-max distance values
-    
+        
+        //random jitter for anti-alliasing
+        float2 jitter = RandomJitter(payload.randomSeed); // [0,1)
+        float2 jitteredD = d + (jitter - 0.5f) * pixelSize;
         
         // Perspective
         RayDesc ray;
         ray.Origin = mul(viewI, float4(0, 0, 0, 10 /*distance*/));
-        float4 target = mul(projectionI, float4(d.x, -d.y, 1, 1));
+        float4 target = mul(projectionI, float4(jitteredD.x, -jitteredD.y, 1, 1));
         ray.Direction = mul(viewI, float4(target.xyz, 0));
         ray.TMin = 0;
         ray.TMax = 100000;

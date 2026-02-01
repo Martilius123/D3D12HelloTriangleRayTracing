@@ -59,6 +59,12 @@ float RandomFloat(inout uint state)
     return float(state & 0x00FFFFFF) / float(0x01000000);
 }
 
+float Random01Float(inout uint state)
+{
+    state = 1664525u * state + 1013904223u;
+    return (state >> 8) * (1.0 / 16777216.0); // 2^24
+}
+
 float3 SampleCosineHemisphere(float2 u)
 {
     float r = sqrt(u.x);
@@ -233,4 +239,13 @@ void LimitRoughBounces(inout HitInfo payload, float roughness, bool triggeredByG
             payload.hopCount = min(payload.hopCount, 2); // Limit the remaining hops after rough bounce to 2
         }
     }
+}
+
+//For anti-alliasing
+float2 RandomJitter(inout uint randomSeed)
+{
+    float2 jitter;
+    jitter.x = Random01Float(randomSeed);
+    jitter.y = Random01Float(randomSeed);
+    return jitter;
 }
