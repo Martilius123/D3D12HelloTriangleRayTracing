@@ -1,0 +1,267 @@
+{
+    "camera": {
+        "center": [
+            -3.8121066093444824,
+            3.707883358001709,
+            3.7960994243621826
+        ],
+        "eye": [
+            -4.629601001739502,
+            3.9832818508148193,
+            4.301924228668213
+        ],
+        "up": [
+            0.0,
+            1.0,
+            0.0
+        ]
+    },
+    "light": {
+        "color": [
+            1.0,
+            0.0,
+            0.0
+        ],
+        "intensity": 0.0,
+        "position": [
+            2.0,
+            5.0,
+            -3.0
+        ],
+        "type": 0
+    },
+    "models": [
+        {
+            "IOR": 1.3200000524520874,
+            "albedo": [
+                0.8992848992347717,
+                1.0,
+                0.8549019694328308
+            ],
+            "emission": -1.0,
+            "id": 0,
+            "isGlass": 1,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Sphere.obj",
+            "position": [
+                81.3499984741211,
+                21.75,
+                19.450000762939453
+            ],
+            "rotation": [
+                0.0,
+                90.0,
+                0.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                15.0,
+                15.0,
+                15.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "emission": -1.0,
+            "id": 1,
+            "isGlass": 1,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Glass.obj",
+            "position": [
+                0.0,
+                15.649999618530273,
+                24.200000762939453
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                3.0,
+                3.0,
+                3.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                0.4627451002597809,
+                0.2666666805744171,
+                0.1568627506494522
+            ],
+            "emission": -1.0,
+            "id": 2,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Cube.obj",
+            "position": [
+                0.0,
+                -0.5,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.17000000178813934,
+            "scale": [
+                80.0,
+                1.0,
+                50.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                0.0,
+                0.49411749839782715,
+                1.0
+            ],
+            "emission": -1.0,
+            "id": 3,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/FinalBaseMesh.obj",
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                110.0,
+                0.0
+            ],
+            "roughness": 1.0,
+            "scale": [
+                2.0,
+                2.0,
+                2.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                0.9411765336990356,
+                1.0,
+                0.0
+            ],
+            "emission": -1.0,
+            "id": 4,
+            "isGlass": 0,
+            "isMetallic": 1,
+            "path": "Models/ExampleScene/Ring.obj",
+            "position": [
+                26.75,
+                1.649999976158142,
+                -14.850000381469727
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.23000000417232513,
+            "scale": [
+                10.0,
+                10.0,
+                10.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                0.8823529481887817,
+                1.0,
+                0.0
+            ],
+            "emission": -1.0,
+            "id": 5,
+            "isGlass": 0,
+            "isMetallic": 1,
+            "path": "Models/ExampleScene/Ring.obj",
+            "position": [
+                33.099998474121094,
+                3.799999952316284,
+                3.8499999046325684
+            ],
+            "rotation": [
+                13.0,
+                0.0,
+                -8.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                10.0,
+                10.0,
+                10.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                0.49995195865631104,
+                0.9901960492134094,
+                0.5576276779174805
+            ],
+            "emission": -1.0,
+            "id": 6,
+            "isGlass": 1,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/CrazyGlass.obj",
+            "position": [
+                56.54999923706055,
+                12.050000190734863,
+                -26.299999237060547
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.15000000596046448,
+            "scale": [
+                10.0,
+                10.0,
+                10.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                1.0,
+                0.0,
+                0.5294122695922852
+            ],
+            "emission": -1.0,
+            "id": 7,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Cube.obj",
+            "position": [
+                85.44999694824219,
+                0.0,
+                -36.20000076293945
+            ],
+            "rotation": [
+                0.0,
+                14.0,
+                0.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                1.0,
+                50.0,
+                55.95000076293945
+            ]
+        }
+    ]
+}

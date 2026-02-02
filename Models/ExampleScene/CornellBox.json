@@ -1,0 +1,296 @@
+{
+    "camera": {
+        "center": [
+            -19.0,
+            3.5,
+            0.0
+        ],
+        "eye": [
+            -20.0,
+            3.5,
+            0.0
+        ],
+        "up": [
+            0.0,
+            1.0,
+            0.0
+        ]
+    },
+    "light": {
+        "color": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "intensity": 0.0,
+        "position": [
+            0.0,
+            78.0,
+            0.0
+        ],
+        "type": 0
+    },
+    "models": [
+        {
+            "IOR": 1.5,
+            "albedo": [
+                -1.0,
+                -1.0,
+                -1.0
+            ],
+            "emission": -1.0,
+            "id": 0,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/statue.obj",
+            "position": [
+                10.899999618530273,
+                0.0,
+                0.0
+            ],
+            "rotation": [
+                90.0,
+                90.0,
+                0.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                0.30000001192092896,
+                0.30000001192092896,
+                0.30000001192092896
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                -1.0,
+                -1.0,
+                -1.0
+            ],
+            "emission": -1.0,
+            "id": 1,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Cube.obj",
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": -1.0,
+            "scale": [
+                40.0,
+                1.0,
+                40.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                -1.0,
+                -1.0,
+                -1.0
+            ],
+            "emission": -1.0,
+            "id": 2,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Cube.obj",
+            "position": [
+                40.0,
+                40.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": -1.0,
+            "scale": [
+                1.0,
+                40.0,
+                40.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                -1.0,
+                -1.0,
+                -1.0
+            ],
+            "emission": -1.0,
+            "id": 3,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Cube.obj",
+            "position": [
+                0.0,
+                80.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": -1.0,
+            "scale": [
+                40.0,
+                1.0,
+                40.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                0.0,
+                1.0,
+                0.0
+            ],
+            "emission": -1.0,
+            "id": 4,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Cube.obj",
+            "position": [
+                0.0,
+                40.0,
+                40.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": -1.0,
+            "scale": [
+                40.0,
+                40.0,
+                1.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                1.0,
+                0.0,
+                0.0
+            ],
+            "emission": -1.0,
+            "id": 5,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Cube.obj",
+            "position": [
+                0.0,
+                40.0,
+                -40.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": -1.0,
+            "scale": [
+                40.0,
+                40.0,
+                1.0
+            ]
+        },
+        {
+            "IOR": 1.3600000143051147,
+            "albedo": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "emission": -1.0,
+            "id": 6,
+            "isGlass": 1,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Glass.obj",
+            "position": [
+                -18.299999237060547,
+                15.899999618530273,
+                21.450000762939453
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": -1.0,
+            "scale": [
+                3.0,
+                3.0,
+                3.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                -1.0,
+                -1.0,
+                -1.0
+            ],
+            "emission": -1.0,
+            "id": 7,
+            "isGlass": 0,
+            "isMetallic": 1,
+            "path": "Models/ExampleScene/Sphere.obj",
+            "position": [
+                -18.5,
+                10.449999809265137,
+                -21.299999237060547
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                10.0,
+                10.0,
+                10.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                -1.0,
+                -1.0,
+                -1.0
+            ],
+            "emission": 10.0,
+            "id": 8,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/Cube.obj",
+            "position": [
+                0.0,
+                79.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": -1.0,
+            "scale": [
+                10.0,
+                1.0,
+                10.0
+            ]
+        }
+    ]
+}
