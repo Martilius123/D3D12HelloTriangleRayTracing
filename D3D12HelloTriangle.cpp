@@ -258,6 +258,10 @@ void D3D12HelloTriangle::OnUpdate()
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
+	ImGui::SetNextWindowPos(ImVec2(3.0f, 3.0f), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(400.0f, 600.0f), ImGuiCond_FirstUseEver);
+
+	// --- UI ---
 	ImGui::Begin("Raytracing Settings");
 	ImGui::Separator();
 	ImGui::TextColored(ImVec4(0, 1, 0, 1), "Scene Manager");
@@ -316,7 +320,7 @@ void D3D12HelloTriangle::OnUpdate()
 	ImGui::Text("Camera Parameters");
 
 	ImGui::DragInt("ISO", (int*)&m_ISOIndex, 100, 100, 1600);
-	ImGui::Checkbox("Highlight Overexposed Areas", &m_highlightOverexposed);
+	//ImGui::Checkbox("Highlight Overexposed Areas", &m_highlightOverexposed);
 
 	ImGui::Separator();
 
