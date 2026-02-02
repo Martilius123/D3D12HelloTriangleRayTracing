@@ -545,6 +545,8 @@ void D3D12HelloTriangle::OnUpdate()
 	ImGui_ImplDX12_NewFrame();
 	ImGui_ImplWin32_NewFrame();
 	ImGui::NewFrame();
+	ImGui::SetNextWindowPos(ImVec2(3.0f, 3.0f), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(400.0f, 600.0f), ImGuiCond_FirstUseEver);
 
 	// --- UI ---
 	ImGui::Begin("Raytracing Settings");
