@@ -1,3 +1,0 @@
-C:/Users/patry/Documents/NRD/build/_deps/dxc-subbuild/CMakeFiles/dxc-populate.dir
-C:/Users/patry/Documents/NRD/build/_deps/dxc-subbuild/CMakeFiles/ALL_BUILD.dir
-C:/Users/patry/Documents/NRD/build/_deps/dxc-subbuild/CMakeFiles/ZERO_CHECK.dir

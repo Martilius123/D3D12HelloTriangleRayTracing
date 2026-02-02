@@ -66,7 +66,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>dxcompiler.lib;dxguid.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;NRD.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dxcompiler.lib;dxguid.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
       <AdditionalLibraryDirectories>$(ProjectDir)\NRD\Include$(ProjectDir)\NRD\_NRD_SDK\Lib\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
@@ -106,7 +106,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>dxcompiler.lib;dxguid.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;NRD.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dxcompiler.lib;dxguid.lib;d3d12.lib;dxgi.lib;d3dcompiler.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <DelayLoadDLLs>d3d12.dll</DelayLoadDLLs>
       <AdditionalLibraryDirectories>$(ProjectDir)\NRD\_NRD_SDK\Lib\Release;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
@@ -140,8 +140,6 @@ IF EXIST "C:\Users\patry\Documents\dzialaj\D3D12HelloTriangleRayTracing\NRD\_NRD
   <ItemGroup>
     <ClInclude Include="DXRHelper.h" />
     <ClInclude Include="manipulator.h" />
-    <ClInclude Include="NRD\Include\NRD.h" />
-    <ClInclude Include="NRD\NRDIntegration.h" />
     <ClInclude Include="nv_helpers_dx12\BottomLevelASGenerator.h" />
     <ClInclude Include="nv_helpers_dx12\RaytracingPipelineGenerator.h" />
     <ClInclude Include="nv_helpers_dx12\RootSignatureGenerator.h" />
@@ -185,8 +183,6 @@ IF EXIST "C:\Users\patry\Documents\dzialaj\D3D12HelloTriangleRayTracing\NRD\_NRD
     </ClCompile>
     <ClCompile Include="manipulator.cpp" />
     <ClCompile Include="ModelLoading.cpp" />
-    <ClCompile Include="NRDIntegration.cpp" />
-    <ClCompile Include="NRDIntegration.h" />
     <ClCompile Include="nv_helpers_dx12\BottomLevelASGenerator.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>

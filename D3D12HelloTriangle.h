@@ -23,7 +23,6 @@
 #include "nv_helpers_dx12/ShaderBindingTableGenerator.h"
 #include <string>
 #include "DXSample.h"
-#include "NRDIntegration.h"
 
 using namespace DirectX;
 
@@ -122,12 +121,6 @@ public:
 	//ComPtr<ID3D12Resource> m_aovViewZ;
 	ComPtr<ID3D12Resource> m_denoisedOutput; // wynik NRD (UAV)
 
-	ID3D12Resource* D3D12HelloTriangle::GetResourceForNrdType(nrd::ResourceType t);
-
-	void D3D12HelloTriangle::WriteNrdUav(uint32_t index, ID3D12Resource* res);
-	void D3D12HelloTriangle::WriteNrdSrv(uint32_t index, ID3D12Resource* res);
-
-
 	Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_nrdPoolHeap;
 	//uint32_t m_nrdPoolSize = 0;       // total descriptors in pool = srvCount + uavCount
 //	uint32_t m_nrdSrvCount = 0;
@@ -139,9 +132,6 @@ public:
 private:
 	ComPtr<ID3D12DescriptorHeap> m_imguiHeap;
 	static const UINT FrameCount = 2;
-
-	// NRD integration instance
-	NRDIntegration m_nrd;
 
 	UINT m_frameIndexCPU = 0;
 	UINT m_sampleCount = 4;
@@ -385,14 +375,6 @@ void CreateShaderResourceHeap();
 ComPtr<ID3D12DescriptorHeap> m_srvUavHeap;
 // #DXR
 void CreateShaderBindingTable();
-
-void D3D12HelloTriangle::UpdateNRDCommonSettingsPerFrame();
-void D3D12HelloTriangle::PrepareNRDDescriptorPoolIfNeeded();
-void D3D12HelloTriangle::WriteNRDPoolDescriptor(
-	const nrd::ResourceDesc& rd,
-	ID3D12Resource* resource,
-	DXGI_FORMAT format,
-	bool isUav);
 
 nv_helpers_dx12::ShaderBindingTableGenerator m_sbtHelper;
 ComPtr<ID3D12Resource> m_sbtStorage;
