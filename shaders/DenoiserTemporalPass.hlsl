@@ -114,7 +114,7 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     // check for invalid history
     bool validHistory = true;
     // check for pixels out of frame
-    if (prevPixel.x < 0 || prevPixel.y < 0 || prevPixel.x >= dims.x || prevPixel.y >= dims.y)
+    if (prevPixel.x < 1 || prevPixel.y < 1 || prevPixel.x >= dims.x || prevPixel.y >= dims.y)
     {
         validHistory = false;
     }

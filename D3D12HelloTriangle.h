@@ -139,7 +139,7 @@ private:
 
 	UINT m_frameIndexCPU = 0;
 	UINT m_sampleCount = 4;
-	UINT m_maximumRecursionDepth = 25;
+	UINT m_maximumRecursionDepth = 7;
 	bool m_enableAdaptiveSampling = true;
 	float m_targetFrameRate = 30.0f;
 	int m_slowFrameCount = 0;
@@ -249,7 +249,7 @@ public:
 	
 	XMFLOAT3 tempLight;
 	struct LightData {
-		XMFLOAT3 position; float intensity = 100;
+		XMFLOAT3 position; float intensity = 0;
 		XMFLOAT3 color;    int type;
 	};
 	//HDR Image
