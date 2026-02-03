@@ -1,4 +1,5 @@
 #define LIGHT_INTENSITY 1000.0f
+#define MISS_SHADER_INSTANCE_ID 1000
 
 
 static const float PI = 3.14159265f;
@@ -37,10 +38,16 @@ float3 TransformLocalToWorld(float3 localVector)
     return normalize(mul(worldRotateScale, localVector));
 }
 
+uint Hash(uint2 v)
+{
+    uint x = v.x * 374761393u + v.y * 668265263u; // large primes
+    x = (x ^ (x >> 13)) * 1274126177u;
+    return x ^ (x >> 16);
+}
+
 uint InitSeed(uint2 pixel, uint frameIndex)
 {
-    uint seed = pixel.x * 1973u + pixel.y * 9277u + frameIndex * 26699u;
-    return seed | 1u; // avoid zero seed
+    return Hash(pixel + frameIndex * 1013u) | 1u;
 }
 
 uint HashSeed(uint x)

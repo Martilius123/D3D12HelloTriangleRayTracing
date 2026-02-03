@@ -20,6 +20,13 @@ RWTexture2D<uint> gInstanceIDHistory : register(u11);
 void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
     uint2 pixel = dispatchThreadID.xy;
+    
+    //setting history
+    gDiffuseRadianceHitDistHistory[pixel] = gDiffuseRadianceHitDist[pixel];
+    gSpecRadianceHitDistHistory[pixel] = gSpecRadianceHitDist[pixel];
+    gNormalRoughnessHistory[pixel] = gNormalRoughness[pixel];
+    gViewZHistory[pixel] = gViewZ[pixel];
+    gInstanceIDHistory[pixel] = gInstanceID[pixel];
 
     float3 specular = float3(0, 0, 0);
     float3 diffuse = float3(0, 0, 0);
@@ -81,16 +88,9 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     diffuse /= totalDiffuseWeight;
 
     //setting history
-    gDiffuseRadianceHitDistHistory[pixel] = float4(diffuse, gDiffuseRadianceHitDist[pixel].w);
-    gSpecRadianceHitDistHistory[pixel] = float4(specular, gSpecRadianceHitDist[pixel].w);
-    gNormalRoughnessHistory[pixel] = gNormalRoughness[pixel];
-    gViewZHistory[pixel] = gViewZ[pixel];
-    gInstanceIDHistory[pixel] = gInstanceID[pixel];
+    //gNormalRoughnessHistory[pixel] = gNormalRoughness[pixel];
+    //gViewZHistory[pixel] = gViewZ[pixel];
+    //gInstanceIDHistory[pixel] = gInstanceID[pixel];
     
     gOutput[pixel] = float4(diffuse + specular, 0);
-    
-    /*if(pixel.x % 100 < 50)
-        gOutput[pixel] = gDiffuseRadianceHitDist[pixel];
-    else
-        gOutput[pixel] = gSpecRadianceHitDist[pixel];*/
 }

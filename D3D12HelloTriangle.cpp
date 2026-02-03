@@ -625,8 +625,8 @@ void D3D12HelloTriangle::PopulateCommandList()
 
 	if (m_enableDenoise)
 	{
-		ID3D12DescriptorHeap* heaps[] = { m_srvUavHeap.Get() };
-		m_commandList->SetDescriptorHeaps(1, heaps);
+		ID3D12DescriptorHeap* heaps[] = { m_srvUavHeap.Get(), m_samplerHeap.Get() };
+		m_commandList->SetDescriptorHeaps(_countof(heaps), heaps);
 
 		m_commandList->SetComputeRootSignature(m_denoiseRootSignature.Get());
 		m_commandList->SetComputeRootDescriptorTable(
@@ -682,6 +682,7 @@ void D3D12HelloTriangle::PopulateCommandList()
 			)
 		);
 
+		std::swap(m_historyReadIndex, m_historyWriteIndex);
 	}
 
 	m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
@@ -1040,18 +1041,18 @@ void D3D12HelloTriangle::CreateShaderResourceHeap()
 			h.Offset(1, inc);
 		};
 
-	createUav(m_outputResource.Get());        // u0
-	createUav(m_aovDiffuse.Get());            // u1
-	createUav(m_aovSpecular.Get());           // u2
-	createUav(m_aovNormalRoughness.Get());    // u3
-	createUav(m_aovViewZ.Get());              // u4
-	createUav(m_aovMotionVectors.Get());      // u5
-	createUav(m_aovDiffHitDistHist.Get());    // u6
-	createUav(m_aovSpecHitDistHist.Get());    // u7
-	createUav(m_aovNormalRoughnessHist.Get());// u8
-	createUav(m_aovViewZHist.Get());          // u9
-	createUav(m_aovInstanceID.Get());         // u10
-	createUav(m_aovInstanceIDHist.Get());     // u11
+	createUav(m_outputResource.Get());			// u0
+	createUav(m_aovDiffuse.Get());				// u1
+	createUav(m_aovSpecular.Get());				// u2
+	createUav(m_aovNormalRoughness.Get());		// u3
+	createUav(m_aovViewZ.Get());				// u4
+	createUav(m_aovMotionVectors.Get());		// u5
+	createUav(m_aovDiffHitDistHistRead.Get());	// u6
+	createUav(m_aovSpecHitDistHistRead.Get());	// u7
+	createUav(m_aovNormalRoughnessHist.Get());	// u8
+	createUav(m_aovViewZHist.Get());			// u9
+	createUav(m_aovInstanceID.Get());			// u10
+	createUav(m_aovInstanceIDHist.Get());		// u11
 
 	D3D12_SHADER_RESOURCE_VIEW_DESC tlas = {};
 	tlas.Format = DXGI_FORMAT_UNKNOWN;
@@ -1457,8 +1458,8 @@ void D3D12HelloTriangle::CreateAOVResources()
 	makeTex(DXGI_FORMAT_R32_FLOAT, m_aovViewZ);
 	makeTex(DXGI_FORMAT_R16G16_FLOAT, m_aovMotionVectors);
 	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_denoisedOutput);
-	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_aovDiffHitDistHist);
-	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_aovSpecHitDistHist);
+	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_aovDiffHitDistHistRead);
+	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_aovSpecHitDistHistRead);
 	makeTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovNormalRoughnessHist);
 	makeTex(DXGI_FORMAT_R32_FLOAT, m_aovViewZHist);
 	makeTex(DXGI_FORMAT_R32_UINT, m_aovInstanceID);
@@ -1469,16 +1470,29 @@ void D3D12HelloTriangle::CreateAOVResources()
 
 void D3D12HelloTriangle::CreateDenoiseRootSignature()
 {
-	CD3DX12_DESCRIPTOR_RANGE ranges[1];
+	CD3DX12_DESCRIPTOR_RANGE ranges[3];
 	ranges[0].Init(
 		D3D12_DESCRIPTOR_RANGE_TYPE_UAV,
 		12,    // u0, u1
 		0     // base register
 	);
 
+	ranges[1].Init(
+		D3D12_DESCRIPTOR_RANGE_TYPE_SRV,
+		1,
+		0 // t0
+	);
+
+	// Camera CBV b0
+	ranges[2].Init(
+		D3D12_DESCRIPTOR_RANGE_TYPE_CBV,
+		1,
+		0 // b0
+	);
+
 	CD3DX12_ROOT_PARAMETER rootParams[1];
 	rootParams[0].InitAsDescriptorTable(
-		1,
+		_countof(ranges),
 		&ranges[0]
 	);
 
@@ -1601,3 +1615,20 @@ ComPtr<IDxcBlob> D3D12HelloTriangle::CompileCS(
 	return shader;
 }
 
+void D3D12HelloTriangle::BindHistoryWriteUAVs(int writeIndex)
+{
+	//CD3DX12_GPU_DESCRIPTOR_HANDLE handle(m_srvUavHeap->GetGPUDescriptorHandleForHeapStart());
+
+	//// Offset to current history UAVs
+	//handle.Offset(HISTORY_DIFFUSE_UAV_OFFSET + writeIndex * HISTORY_SLOT_SIZE, m_srvDescriptorSize);
+	//m_commandList->SetComputeRootDescriptorTable(HISTORY_DIFFUSE_UAV_ROOT_PARAM, handle);
+
+	//handle.Offset(HISTORY_SPECULAR_UAV_OFFSET, m_srvDescriptorSize);
+	//m_commandList->SetComputeRootDescriptorTable(HISTORY_SPECULAR_UAV_ROOT_PARAM, handle);
+
+	//handle.Offset(HISTORY_NORMAL_UAV_OFFSET, m_srvDescriptorSize);
+	//m_commandList->SetComputeRootDescriptorTable(HISTORY_NORMAL_UAV_ROOT_PARAM, handle);
+
+	//handle.Offset(HISTORY_VIEWZ_UAV_OFFSET, m_srvDescriptorSize);
+	//m_commandList->SetComputeRootDescriptorTable(HISTORY_VIEWZ_UAV_ROOT_PARAM, handle);
+}

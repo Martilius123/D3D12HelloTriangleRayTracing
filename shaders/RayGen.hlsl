@@ -64,7 +64,7 @@ void RayGen()
         payload.randomSeed = InitSeed(launchIndex, FrameIndex + 1000 * i);
         payload.isInGlass = 0;
         payload.isShadow = 0;
-        payload.instanceID = 1000;
+        payload.instanceID = MISS_SHADER_INSTANCE_ID;
         payload.distanceInGlass = 0.0f;
 
         
@@ -83,7 +83,9 @@ void RayGen()
         // Define a ray, consisting of origin, direction, and the min-max distance values
         
         //random jitter for anti-alliasing
-        float2 jitter = RandomJitter(payload.randomSeed); // [0,1)
+        float jitter = 0;
+        if(i!=SampleCount-1)
+            jitter = RandomJitter(payload.randomSeed); // [0,1)
         float2 jitteredD = d + (jitter - 0.5f) * pixelSize;
         
         // Perspective
