@@ -146,8 +146,8 @@ IF EXIST "C:\Users\patry\Documents\dzialaj\D3D12HelloTriangleRayTracing\NRD\_NRD
     <ClInclude Include="nv_helpers_dx12\ShaderBindingTableGenerator.h" />
     <ClInclude Include="nv_helpers_dx12\TopLevelASGenerator.h" />
     <ClInclude Include="packages\stb_image\stb_image.h" />
+    <ClInclude Include="RealTimeRaytracer.h" />
     <ClInclude Include="Win32Application.h" />
-    <ClInclude Include="D3D12HelloTriangle.h" />
     <ClInclude Include="d3dx12.h" />
     <ClInclude Include="DXSample.h" />
     <ClInclude Include="DXSampleHelper.h" />
@@ -198,8 +198,8 @@ IF EXIST "C:\Users\patry\Documents\dzialaj\D3D12HelloTriangleRayTracing\NRD\_NRD
     <ClCompile Include="nv_helpers_dx12\TopLevelASGenerator.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="RealTimeRaytracer.cpp" />
     <ClCompile Include="Win32Application.cpp" />
-    <ClCompile Include="D3D12HelloTriangle.cpp" />
     <ClCompile Include="DXSample.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="stdafx.cpp">
