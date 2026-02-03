@@ -170,8 +170,14 @@ private:
 		bool padding[3];
 		bool EnableEnvironmentTexture;
 		bool padding2[3];
-		float pad[2];
+		XMMATRIX prevView;
+		XMMATRIX prevProjection;
+		XMMATRIX prevViewProj;
+		XMMATRIX viewProj;
 	};
+
+	XMMATRIX m_prevViewProj = XMMatrixIdentity();
+	bool     m_hasPrevCamera = false;
 
 	struct Vertex
 	{

@@ -145,6 +145,22 @@ void D3D12HelloTriangle::UpdateCameraBuffer()
 		1000.0f
 	);
 
+	XMMATRIX viewProj = XMMatrixMultiply(sceneCB.View, sceneCB.Proj);
+
+	// --- History handling ---
+	if (!m_hasPrevCamera)
+	{
+		// First frame: history = current
+		m_prevViewProj = viewProj;
+		m_hasPrevCamera = true;
+	}
+
+	sceneCB.viewProj = viewProj;
+	sceneCB.prevViewProj = m_prevViewProj;
+
+	// Update history for NEXT frame
+	m_prevViewProj = viewProj;
+
 	// Inverses (needed for ray tracing)
 	XMVECTOR det;
 	sceneCB.InvView = XMMatrixInverse(&det, sceneCB.View);

@@ -1,0 +1,412 @@
+{
+    "camera": {
+        "center": [
+            -1.2500536441802979,
+            3.179805278778076,
+            6.647469520568848
+        ],
+        "eye": [
+            -1.5245771408081055,
+            3.5934691429138184,
+            7.515524387359619
+        ],
+        "up": [
+            0.0,
+            1.0,
+            0.0
+        ]
+    },
+    "light": {
+        "color": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "intensity": 0.0,
+        "position": [
+            2.0,
+            5.0,
+            -3.0
+        ],
+        "type": 0
+    },
+    "models": [
+        {
+            "IOR": 1.5,
+            "albedo": [
+                -1.0,
+                -1.0,
+                -1.0
+            ],
+            "emission": -1.0,
+            "id": 0,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Sphere.obj",
+            "position": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": -1.0,
+            "scale": [
+                2.0,
+                2.0,
+                2.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                1.0,
+                0.9705882668495178,
+                0.0
+            ],
+            "emission": 1.0,
+            "id": 1,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Sphere.obj",
+            "position": [
+                16.950000762939453,
+                9.25,
+                -14.350000381469727
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": -1.0,
+            "scale": [
+                3.0,
+                3.0,
+                3.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                0.9803921580314636,
+                0.7641292214393616,
+                0.7641292214393616
+            ],
+            "emission": -1.0,
+            "id": 2,
+            "isGlass": 1,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Sphere.obj",
+            "position": [
+                28.950000762939453,
+                7.050000190734863,
+                -12.649999618530273
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.07999999821186066,
+            "scale": [
+                3.0,
+                3.0,
+                3.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                0.7892156839370728,
+                0.4642444849014282,
+                0.4642444849014282
+            ],
+            "emission": -1.0,
+            "id": 3,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Sphere.obj",
+            "position": [
+                0.0,
+                20.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 1.0,
+            "scale": [
+                4.0,
+                4.0,
+                4.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                0.1508554369211197,
+                0.21730603277683258,
+                0.7156862616539001
+            ],
+            "emission": -1.0,
+            "id": 4,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Sphere.obj",
+            "position": [
+                0.0,
+                2.4000000953674316,
+                33.04999923706055
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                5.0,
+                5.0,
+                5.0
+            ]
+        },
+        {
+            "IOR": 1.100000023841858,
+            "albedo": [
+                0.7526912689208984,
+                0.7688897848129272,
+                0.936274528503418
+            ],
+            "emission": -1.0,
+            "id": 5,
+            "isGlass": 1,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Ring.obj",
+            "position": [
+                22.799999237060547,
+                25.700000762939453,
+                -4.5
+            ],
+            "rotation": [
+                0.0,
+                42.0,
+                67.0
+            ],
+            "roughness": 0.09000000357627869,
+            "scale": [
+                10.0,
+                10.0,
+                10.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "emission": -1.0,
+            "id": 6,
+            "isGlass": 1,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Ring.obj",
+            "position": [
+                0.0,
+                20.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                11.0,
+                11.0,
+                11.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "emission": -1.0,
+            "id": 7,
+            "isGlass": 0,
+            "isMetallic": 1,
+            "path": "Models/ExampleScene/Ring.obj",
+            "position": [
+                0.0,
+                4.800000190734863,
+                0.0
+            ],
+            "rotation": [
+                69.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.15000000596046448,
+            "scale": [
+                6.0,
+                6.0,
+                6.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                0.529411792755127,
+                0.2958477735519409,
+                0.0
+            ],
+            "emission": -1.0,
+            "id": 8,
+            "isGlass": 0,
+            "isMetallic": 1,
+            "path": "Models/ExampleScene/Ring.obj",
+            "position": [
+                7.300000190734863,
+                4.300000190734863,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                6.0,
+                6.0,
+                6.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                -1.0,
+                -1.0,
+                -1.0
+            ],
+            "emission": -1.0,
+            "id": 9,
+            "isGlass": 0,
+            "isMetallic": 1,
+            "path": "Models/ExampleScene/Cube.obj",
+            "position": [
+                0.0,
+                -10.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                50.0,
+                1.0,
+                50.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                0.25903499126434326,
+                0.7549019455909729,
+                0.5069683790206909
+            ],
+            "emission": -1.0,
+            "id": 10,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Cube.obj",
+            "position": [
+                50.0,
+                25.0,
+                0.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": -1.0,
+            "scale": [
+                1.0,
+                50.0,
+                50.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                0.8333333134651184,
+                0.1021241620182991,
+                0.7903209924697876
+            ],
+            "emission": -1.0,
+            "id": 11,
+            "isGlass": 0,
+            "isMetallic": 0,
+            "path": "Models/ExampleScene/Cube.obj",
+            "position": [
+                0.0,
+                25.0,
+                -50.0
+            ],
+            "rotation": [
+                0.0,
+                0.0,
+                0.0
+            ],
+            "roughness": -1.0,
+            "scale": [
+                50.0,
+                50.0,
+                1.0
+            ]
+        },
+        {
+            "IOR": 1.5,
+            "albedo": [
+                1.0,
+                1.0,
+                0.0
+            ],
+            "emission": -1.0,
+            "id": 12,
+            "isGlass": 0,
+            "isMetallic": 1,
+            "path": "Models/ExampleScene/Cube.obj",
+            "position": [
+                26.299999237060547,
+                6.349999904632568,
+                14.649999618530273
+            ],
+            "rotation": [
+                13.0,
+                35.0,
+                27.0
+            ],
+            "roughness": 0.0,
+            "scale": [
+                5.0,
+                5.0,
+                5.0
+            ]
+        }
+    ]
+}

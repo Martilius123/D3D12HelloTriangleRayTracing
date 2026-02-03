@@ -29,7 +29,12 @@ cbuffer CameraParams : register(b0)
     float3 envLightColor;
     bool HighlightOverexposed;
     bool UseEnvLight;
-    float pad[2];
+    // --- Previous frame (history) ---
+    float4x4 prevView;
+    float4x4 prevProjection;
+    float4x4 prevViewProj;
+    // --- Current frame derived ---
+    float4x4 viewProj;
 }
 
 [shader("raygeneration")]
