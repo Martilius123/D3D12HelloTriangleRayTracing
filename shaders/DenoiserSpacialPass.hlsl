@@ -5,7 +5,7 @@ RWTexture2D<float4> gDiffuseRadianceHitDist : register(u1); // diffuse + hitDist
 RWTexture2D<float4> gSpecRadianceHitDist : register(u2); // spec + hitDist
 RWTexture2D<float4> gNormalRoughness : register(u3); // normal + roughness
 RWTexture2D<float4> gViewZ : register(u4); // viewZ (for start: -hitDist)
-RWTexture2D<float2> gMotion : register(u5);
+RWTexture2D<float3> gHitPosition : register(u5);
 
 
 

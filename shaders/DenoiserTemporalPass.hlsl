@@ -5,7 +5,7 @@ RWTexture2D<float4> gDiffuseRadianceHitDist : register(u1); // diffuse + hitDist
 RWTexture2D<float4> gSpecRadianceHitDist : register(u2); // spec + hitDist
 RWTexture2D<float4> gNormalRoughness : register(u3); // normal + roughness
 RWTexture2D<float4> gViewZ : register(u4); // viewZ (for start: -hitDist)
-RWTexture2D<float2> gMotion : register(u5);
+RWTexture2D<float3> gHitPosition : register(u5);
 
 
 
@@ -37,54 +37,24 @@ cbuffer CameraParams : register(b0)
     float4x4 viewProj;
 }
 
-float3 ReconstructWorldPos(uint2 pixel, float viewZ, float2 dims)
-{
-    // Pixel center - UV
-    float2 uv = (float2(pixel) + 0.5f) / dims;
-    
-    // UV - NDC
-    float2 ndc;
-    ndc.x = uv.x * 2.0f - 1.0f;
-    ndc.y = 1.0f - uv.y * 2.0f;
-
-    // Reconstruct view-space position
-    float4 clip = float4(ndc, 1.0f, 1.0f);
-    float4 viewPos = mul(projectionI, clip);
-    viewPos.xyz /= viewPos.w;
-
-    // Scale by linear view-space depth
-    viewPos.xyz *= (-viewZ / viewPos.z);
-
-    // View - world
-    float4 worldPos = mul(viewI, float4(viewPos.xyz, 1.0f));
-    return worldPos.xyz;
-}
-
 float2 ProjectWorldToUV(float3 worldPos, float4x4 viewProj)
 {
+    // World to Clip
     float4 clip = mul(viewProj, float4(worldPos, 1.0f));
+
+    // Behind the camera or invalid
+    if (clip.w <= 0.0f)
+        return float2(-1.0f, -1.0f);
+
+    // Clip to NDC
     float2 ndc = clip.xy / clip.w;
 
+    // NDC to UV
     float2 uv;
     uv.x = ndc.x * 0.5f + 0.5f;
-    uv.y = 0.5f - ndc.y * 0.5f;
+    uv.y = 0.5f - ndc.y * 0.5f; // flip Y
+
     return uv;
-}
-
-bool IsValidMotion(float2 uv)
-{
-    return all(uv >= 0.0f) && all(uv <= 1.0f);
-}
-
-float2 ComputeMotionVector(uint2 pixel, float viewZ, float2 dims)
-{
-    float3 worldPos = ReconstructWorldPos(pixel, viewZ, dims);
-    
-    float2 currUV = ProjectWorldToUV(worldPos, viewProj);
-    float2 prevUV = ProjectWorldToUV(worldPos, prevViewProj);
-
-    // Motion = where it came from
-    return prevUV - currUV;
 }
 
 [numthreads(8, 8, 1)]
@@ -105,8 +75,15 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     
     if (instanceID != MISS_SHADER_INSTANCE_ID)
     {
-        motion = ComputeMotionVector(pixel, gViewZ[pixel].x, dims);
+        float3 worldPos = gHitPosition[pixel].xyz;
+
+        float2 currUV = ProjectWorldToUV(worldPos, viewProj);
+        float2 prevUV = ProjectWorldToUV(worldPos, prevViewProj);
+
+        motion = prevUV - currUV;
     }
+
+    // Reproject history
     float2 currUV = (float2(pixel) + 0.5f) / dims;
     float2 prevUV = currUV + motion;
     uint2 prevPixel = uint2(prevUV * dims);

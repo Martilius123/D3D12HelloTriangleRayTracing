@@ -589,7 +589,7 @@ void D3D12HelloTriangle::PopulateCommandList()
 		if (m_aovSpecular)        toUav(m_aovSpecular.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 		if (m_aovNormalRoughness) toUav(m_aovNormalRoughness.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 		if (m_aovViewZ)           toUav(m_aovViewZ.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-		if (m_aovMotionVectors)   toUav(m_aovMotionVectors.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		if (m_aovHitPosition)   toUav(m_aovHitPosition.Get(), D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
 		if (m_denoisedOutput)
 			toUav(m_denoisedOutput.Get(), D3D12_RESOURCE_STATE_COPY_SOURCE);
@@ -1046,7 +1046,7 @@ void D3D12HelloTriangle::CreateShaderResourceHeap()
 	createUav(m_aovSpecular.Get());				// u2
 	createUav(m_aovNormalRoughness.Get());		// u3
 	createUav(m_aovViewZ.Get());				// u4
-	createUav(m_aovMotionVectors.Get());		// u5
+	createUav(m_aovHitPosition.Get());			// u5
 	createUav(m_aovDiffHitDistHistRead.Get());	// u6
 	createUav(m_aovSpecHitDistHistRead.Get());	// u7
 	createUav(m_aovNormalRoughnessHist.Get());	// u8
@@ -1456,7 +1456,7 @@ void D3D12HelloTriangle::CreateAOVResources()
 	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_aovSpecular);
 	makeTex(DXGI_FORMAT_R16G16B16A16_FLOAT, m_aovNormalRoughness);
 	makeTex(DXGI_FORMAT_R32_FLOAT, m_aovViewZ);
-	makeTex(DXGI_FORMAT_R16G16_FLOAT, m_aovMotionVectors);
+	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_aovHitPosition);
 	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_denoisedOutput);
 	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_aovDiffHitDistHistRead);
 	makeTex(DXGI_FORMAT_R8G8B8A8_UNORM, m_aovSpecHitDistHistRead);

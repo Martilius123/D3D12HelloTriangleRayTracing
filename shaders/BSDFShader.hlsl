@@ -22,6 +22,9 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
 
     float3 incoming = WorldRayDirection();
     float3 viewDir = normalize(-incoming);
+    float rayDistance = RayTCurrent();
+    float3 rayOrigin = WorldRayDirection();
+    payload.worldPosition = rayOrigin + rayDistance * incoming;
     
     uint vertId = 3 * PrimitiveIndex();
 
@@ -127,7 +130,7 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             float3 r2 = BTriVertex[indices[vertId + 2]].roughness;
             roughness = r0 * barycentrics.x + r1 * barycentrics.y + r2 * barycentrics.z;
         }
-        payload.colorAndDistance.w = roughness;
+        payload.normalAndRoughness.w = roughness;
 
         float3 newOrigin;
 
@@ -224,7 +227,7 @@ void ClosestHit_BSDF(inout HitInfo payload : SV_RayPayload, Attributes attrib)
             payload.DiffuseRadianceAndDistance.xyz *= T;
             payload.SpecularRadianceAndDistance.xyz *= T;*/
             
-            payload.colorAndDistance.w += RayTCurrent();
+            payload.colorAndDistance.w = RayTCurrent();
         }
         else
         {

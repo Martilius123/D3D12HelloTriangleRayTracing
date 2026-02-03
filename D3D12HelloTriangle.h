@@ -106,13 +106,14 @@ public:
 	ComPtr<ID3D12Resource> m_aovViewZ;					// u2
 	ComPtr<ID3D12Resource> m_aovDiffuse;				// u3
 	ComPtr<ID3D12Resource> m_aovSpecular;				// u4
-	ComPtr<ID3D12Resource> m_aovMotionVectors;			// u5
+	ComPtr<ID3D12Resource> m_aovHitPosition;			// u5
 	ComPtr<ID3D12Resource> m_aovDiffHitDistHistRead;	// u6
 	ComPtr<ID3D12Resource> m_aovSpecHitDistHistRead;	// u7
 	ComPtr<ID3D12Resource> m_aovNormalRoughnessHist;	// u8
 	ComPtr<ID3D12Resource> m_aovViewZHist;				// u9
 	ComPtr<ID3D12Resource> m_aovInstanceID;				// u10
 	ComPtr<ID3D12Resource> m_aovInstanceIDHist;			// u11
+	ComPtr<ID3D12Resource> m_aovHitPositionHist;		// u11
 
 	int m_historyReadIndex = 0;
 	int m_historyWriteIndex = 1;
