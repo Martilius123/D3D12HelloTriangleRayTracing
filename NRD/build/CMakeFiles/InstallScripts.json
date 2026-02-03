@@ -1,9 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"C:/Users/patry/Documents/NRD/build/cmake_install.cmake",
-		"C:/Users/patry/Documents/NRD/build/_deps/shadermake-build/cmake_install.cmake",
-		"C:/Users/patry/Documents/NRD/build/_deps/mathlib-build/cmake_install.cmake"
-	],
-	"Parallel" : false
-}
