@@ -1244,7 +1244,7 @@ void D3D12HelloTriangle::BuildTLAS() {
 	if (BLASChanged == true) {
 		D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_srvUavHeap->GetCPUDescriptorHandleForHeapStart();
 		UINT inc = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		srvHandle.ptr += 10 * inc;
+		srvHandle.ptr += 12 * inc;
 
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
