@@ -48,7 +48,7 @@ void D3D12HelloTriangle::OnInit() {
 	nv_helpers_dx12::CameraManip.setMode(nv_helpers_dx12::Manipulator::Fly);
 	nv_helpers_dx12::CameraManip.setSpeed(1);
 	LoadPipeline();
-	LoadScene("Models/scene.json");
+	ModelDescriptions = LoadScene("Models/scene.json");
 	LoadAssets(); // Models
 
 	HDRImage environment =
@@ -288,21 +288,30 @@ void D3D12HelloTriangle::OnUpdate()
 	{
 		try
 		{
-			for (int i = Models.size() - 1; i >= 0; i--)
+			m_sceneLoadError.clear();
+			auto loadedScene = LoadScene(scenePathBuffer);
+			if (m_sceneLoadError.empty())
 			{
-				RemoveModel(i);
-			}
-			LoadScene(scenePathBuffer);
-			for (int i = 0; i < ModelDescriptions.size(); i++)
-			{
-				AddModel(ModelDescriptions[i].path, true);
-				InitializeShaderData(i);
+				for (int i = Models.size() - 1; i >= 0; i--)
+				{
+					RemoveModel(i);
+				}
+				ModelDescriptions = std::move(loadedScene);
+				for (int i = 0; i < ModelDescriptions.size(); i++)
+				{
+					AddModel(ModelDescriptions[i].path, true);
+					InitializeShaderData(i);
+				}
 			}
 		}
 		catch (const std::runtime_error& e)
 		{
-			; // TODO : handle error
+			m_sceneLoadError = e.what();
 		}
+	}
+	if (!m_sceneLoadError.empty())
+	{
+		ImGui::TextColored(ImVec4(1, 0.4f, 0.4f, 1), "Scene load error: %s", m_sceneLoadError.c_str());
 	}
 	if (ImGui::Button("Save Scene"))
 	{
@@ -570,6 +579,20 @@ void D3D12HelloTriangle::PopulateCommandList()
 
 	BuildTLAS();
 
+	{
+		CD3DX12_RESOURCE_BARRIER toCopy = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_instancesBuffer.Get(),
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			D3D12_RESOURCE_STATE_COPY_DEST);
+		m_commandList->ResourceBarrier(1, &toCopy);
+		m_commandList->CopyResource(m_instancesBuffer.Get(), m_instancesUpload.Get());
+		CD3DX12_RESOURCE_BARRIER toRead = CD3DX12_RESOURCE_BARRIER::Transition(
+			m_instancesBuffer.Get(),
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			D3D12_RESOURCE_STATE_GENERIC_READ);
+		m_commandList->ResourceBarrier(1, &toRead);
+	}
+
 	ID3D12DescriptorHeap* rtHeaps[] = { m_srvUavHeap.Get(), m_samplerHeap.Get() };
 	m_commandList->SetDescriptorHeaps(_countof(rtHeaps), rtHeaps);
 
@@ -700,16 +723,8 @@ void D3D12HelloTriangle::PopulateCommandList()
 		D3D12_RESOURCE_STATE_COPY_DEST,
 		D3D12_RESOURCE_STATE_RENDER_TARGET));
 
-	{
-		m_commandList->CopyResource(m_instancesBuffer.Get(), m_instancesUpload.Get());
-		CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(
-			m_instancesBuffer.Get(),
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			D3D12_RESOURCE_STATE_GENERIC_READ);
-		m_commandList->ResourceBarrier(1, &barrier);
-	}
-
 	ImGui::Render();
+
 	ID3D12DescriptorHeap* imguiHeaps[] = { m_imguiHeap.Get() };
 	m_commandList->SetDescriptorHeaps(1, imguiHeaps);
 	ImGui_ImplDX12_RenderDrawData(ImGui::GetDrawData(), m_commandList.Get());
@@ -1244,7 +1259,8 @@ void D3D12HelloTriangle::BuildTLAS() {
 	if (BLASChanged == true) {
 		D3D12_CPU_DESCRIPTOR_HANDLE srvHandle = m_srvUavHeap->GetCPUDescriptorHandleForHeapStart();
 		UINT inc = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-		srvHandle.ptr += 10 * inc;
+		// TLAS SRV znajduje siê po 12 UAV-ach (u0..u11)
+		srvHandle.ptr += 12 * inc;
 
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Format = DXGI_FORMAT_UNKNOWN;

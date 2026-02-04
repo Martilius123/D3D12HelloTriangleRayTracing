@@ -16,6 +16,23 @@
 
 using json = nlohmann::json;
 
+namespace
+{
+	std::wstring Utf8ToWString(const std::string& str)
+	{
+		if (str.empty())
+			return {};
+
+		int sizeNeeded = MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, nullptr, 0);
+		if (sizeNeeded <= 0)
+			return {};
+
+		std::wstring result(static_cast<size_t>(sizeNeeded - 1), L'\0');
+		MultiByteToWideChar(CP_UTF8, 0, str.c_str(), -1, &result[0], sizeNeeded);
+		return result;
+	}
+}
+
 // Load the sample assets.
 void D3D12HelloTriangle::LoadAssets()
 {
@@ -385,8 +402,37 @@ void D3D12HelloTriangle::RemoveModel(int index) {
 std::vector<D3D12HelloTriangle::ModelDesc> D3D12HelloTriangle::LoadScene(const std::string& filename)
 {
 	std::ifstream file(filename);
+	if (!file.is_open())
+	{
+		std::wstring widePath = Utf8ToWString(filename);
+		if (!widePath.empty())
+		{
+			std::wstring fullPathW = GetAssetFullPath(widePath.c_str());
+			std::string fullPath = WStringToUtf8(fullPathW);
+			file.open(fullPath);
+			if (!file.is_open())
+			{
+				m_sceneLoadError = "Cannot open scene file: " + filename;
+				return ModelDescriptions;
+			}
+		}
+		else
+		{
+			m_sceneLoadError = "Cannot open scene file: " + filename;
+			return ModelDescriptions;
+		}
+	}
+
 	json j;
-	file >> j;
+	try
+	{
+		file >> j;
+	}
+	catch (const json::parse_error& e)
+	{
+		m_sceneLoadError = std::string("Scene JSON parse error: ") + e.what();
+		return ModelDescriptions;
+	}
 
 	//Camera
 	if (j.contains("camera"))
@@ -514,7 +560,7 @@ std::vector<D3D12HelloTriangle::ModelDesc> D3D12HelloTriangle::LoadScene(const s
 		result.push_back(desc);
 	}
 
-	return ModelDescriptions = result;
+	return result;
 }
 
 void D3D12HelloTriangle::SaveScene(const std::string& filename)
