@@ -1225,7 +1225,7 @@ void D3D12HelloTriangle::SetShadingMode(const std::wstring& mode)
 
 
 void D3D12HelloTriangle::BuildTLAS() {
-	if (BLASes.empty()) return;
+	//if (BLASes.empty()) return;
 
 	m_instances.clear();
 
