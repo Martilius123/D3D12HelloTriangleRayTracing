@@ -223,6 +223,8 @@ private:
 		D3D12_INDEX_BUFFER_VIEW m_indexBufferView;
 
 		DirectX::XMMATRIX worldMatrix;
+
+		unsigned int triangleCount = 0;
 		
 	};
 public:
@@ -233,6 +235,7 @@ public:
 	std::vector<ModelDesc> ModelDescriptions;
 	std::vector<ModelInstance> Models;
 
+	unsigned int m_sceneTriangleCount;
 
 	struct ModelInstanceGPU
 	{

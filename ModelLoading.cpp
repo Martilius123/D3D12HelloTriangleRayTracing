@@ -147,6 +147,8 @@ void D3D12HelloTriangle::LoadAssets()
 			Models[i].m_vertexBufferView.SizeInBytes = vertexBufferSize;
 
 			const UINT indexBufferSize = static_cast<UINT>(Models[i].indices.size()) * sizeof(UINT);
+			Models[i].triangleCount = static_cast<int>(Models[i].indices.size() / 3);
+			m_sceneTriangleCount += Models[i].triangleCount;
 
 			CD3DX12_HEAP_PROPERTIES heapProperty = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD);
 			CD3DX12_RESOURCE_DESC bufferResource = CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize);
@@ -278,6 +280,8 @@ void D3D12HelloTriangle::AddModel(const std::string& path, bool reloading) {
 	newModel.m_vertexBuffer->Unmap(0, nullptr);
 
 	const UINT indexBufferSize = static_cast<UINT>(newModel.indices.size()) * sizeof(uint32_t);
+	newModel.triangleCount = static_cast<int>(newModel.indices.size() / 3);
+	m_sceneTriangleCount += newModel.triangleCount;
 	ThrowIfFailed(m_device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD), D3D12_HEAP_FLAG_NONE,
 		&CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize), D3D12_RESOURCE_STATE_GENERIC_READ,
@@ -342,6 +346,8 @@ void D3D12HelloTriangle::RemoveModel(int index) {
 	if (index < 0 || index >= Models.size()) return;
 
 	WaitForPreviousFrame();
+
+	m_sceneTriangleCount -= Models[index].triangleCount;
 
 	ModelsShaderData.erase(ModelsShaderData.begin() + index);
 	for (int i = 0; i < ModelsShaderData.size(); i++) ModelsShaderData[i].id = i;

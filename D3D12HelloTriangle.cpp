@@ -513,6 +513,7 @@ void D3D12HelloTriangle::OnUpdate()
 		ImGui::PopID();
 	}
 
+	ImGui::Text("The number of triangles in the scene is %d", m_sceneTriangleCount);
 	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
 		1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
