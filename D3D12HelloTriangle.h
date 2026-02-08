@@ -149,6 +149,7 @@ private:
 	bool m_enableEnvironmentTexture = true;
 	XMFLOAT3 m_environmentColor = XMFLOAT3(1.0f, 1.0f, 1.0f);
 	float m_environmentIntensity = 1.0f;
+	std::string m_sceneLoadError;
 
 	struct SceneCB
 	{
