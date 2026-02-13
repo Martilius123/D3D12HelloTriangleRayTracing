@@ -272,13 +272,23 @@ void D3D12HelloTriangle::OnUpdate()
 	ImGui::InputText("Model Path", modelPathBuffer, _countof(modelPathBuffer));
 
 	if (ImGui::Button("Add Model")) {
-		try
+		std::ifstream file(modelPathBuffer);
+		if (!file.is_open())
 		{
-			AddModel(modelPathBuffer);
+			std::string s = modelPathBuffer;
+			m_sceneLoadError = "Cannot open model file: " + s;
 		}
-		catch (const std::runtime_error& e)
+		else
 		{
-			; // TODO : handle error
+			try
+			{
+				AddModel(modelPathBuffer);
+			}
+			catch (const std::runtime_error& e)
+			{
+				; // TODO : handle error
+			}
+			m_sceneLoadError.clear();
 		}
 	}
 
@@ -311,7 +321,7 @@ void D3D12HelloTriangle::OnUpdate()
 	}
 	if (!m_sceneLoadError.empty())
 	{
-		ImGui::TextColored(ImVec4(1, 0.4f, 0.4f, 1), "Scene load error: %s", m_sceneLoadError.c_str());
+		ImGui::TextColored(ImVec4(1, 0.4f, 0.4f, 1), "%s", m_sceneLoadError.c_str());
 	}
 	if (ImGui::Button("Save Scene"))
 	{
@@ -1240,7 +1250,7 @@ void D3D12HelloTriangle::SetShadingMode(const std::wstring& mode)
 
 
 void D3D12HelloTriangle::BuildTLAS() {
-	if (BLASes.empty()) return;
+	//if (BLASes.empty()) return;
 
 	m_instances.clear();
 

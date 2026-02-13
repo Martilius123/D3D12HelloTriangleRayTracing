@@ -114,11 +114,11 @@ void RayGen()
     outDiffuse /= max(1.0, (float) SampleCount);
     outSpec /= max(1.0, (float) SampleCount);
 
-    // ISO + SRGB
+	// ISO + SRGB, Gamma correction can be done in post
     outDiffuse.xyz *= ISOIndex / 400.0f;
-    outDiffuse.xyz = LinearToSRGB(outDiffuse.xyz);
+    //outDiffuse.xyz = LinearToSRGB(outDiffuse.xyz);
     outSpec.xyz *= ISOIndex / 400.0f;
-    outSpec.xyz = LinearToSRGB(outSpec.xyz);
+    //outSpec.xyz = LinearToSRGB(outSpec.xyz);
 
     float4 beauty = float4(pixelColor, 1.0f);
 

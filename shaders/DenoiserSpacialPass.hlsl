@@ -92,5 +92,5 @@ void CSMain(uint3 dispatchThreadID : SV_DispatchThreadID)
     //gViewZHistory[pixel] = gViewZ[pixel];
     //gInstanceIDHistory[pixel] = gInstanceID[pixel];
     
-    gOutput[pixel] = float4(diffuse + specular, 0);
+    gOutput[pixel] = float4(LinearToSRGB(diffuse + specular), 0);
 }
